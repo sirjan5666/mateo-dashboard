@@ -62,26 +62,28 @@ import { CartProvider } from './shop/CartProvider';
 import { CartDrawer } from './components/shop/CartDrawer';
 import { CartToast } from './components/shop/CartToast';
 import { SmoothScroll } from './components/SmoothScroll';
+import { DoctorTopBar } from './components/doctor/DoctorTopBar';
+import { CommandPalette } from './components/doctor/CommandPalette';
 // Growth pulls in recharts (~350 kB) — code-split so it stays out of the initial bundle.
 const Growth = lazy(() => import('./pages/Growth'));
 
-// Mirrors the dashboard "Clinical modules" grid — every LIVE module is reachable
-// from the sidebar. ("Soon" tiles have no page yet, so they stay grid-only.)
+// Grouped doctor navigation (labels + section headings are i18n keys resolved in
+// PanelShell). Sections: Today · Patients · Clinical tools · Practice.
 const DOCTOR_NAV: PanelNavItem[] = [
-  { to: '/doctor', label: 'Home', icon: Stethoscope, end: true },
-  { to: '/doctor/patients', label: 'Patients', icon: Users },
-  { to: '/doctor/schedule', label: 'Schedule', icon: CalendarDays },
-  { to: '/doctor/messages', label: 'Messages', icon: MessageSquare },
-  { to: '/doctor/appointments', label: 'Consultations', icon: CalendarClock },
-  { to: '/doctor/growth', label: 'Growth', icon: TrendingUp },
-  { to: '/doctor/vaccines', label: 'Vaccines', icon: Syringe },
-  { to: '/doctor/dose', label: 'Dose calc', icon: Calculator },
-  { to: '/doctor/neonatology', label: 'Neonatology', icon: Baby },
-  { to: '/doctor/development', label: 'Development', icon: Activity },
-  { to: '/doctor/labs', label: 'Labs', icon: FlaskConical },
-  { to: '/doctor/analytics', label: 'Analytics', icon: BarChart3 },
-  { to: '/doctor/billing', label: 'Billing', icon: CreditCard },
-  { to: '/doctor/profile', label: 'Profile', icon: UserCog },
+  { to: '/doctor', label: 'doctor.nav.home', icon: Stethoscope, end: true, section: 'doctor.section.today' },
+  { to: '/doctor/patients', label: 'doctor.nav.patients', icon: Users, section: 'doctor.section.patients' },
+  { to: '/doctor/schedule', label: 'doctor.nav.schedule', icon: CalendarDays, section: 'doctor.section.patients' },
+  { to: '/doctor/messages', label: 'doctor.nav.messages', icon: MessageSquare, section: 'doctor.section.patients' },
+  { to: '/doctor/appointments', label: 'doctor.nav.consultations', icon: CalendarClock, section: 'doctor.section.patients' },
+  { to: '/doctor/growth', label: 'doctor.nav.growth', icon: TrendingUp, section: 'doctor.section.clinical' },
+  { to: '/doctor/vaccines', label: 'doctor.nav.vaccines', icon: Syringe, section: 'doctor.section.clinical' },
+  { to: '/doctor/dose', label: 'doctor.nav.dose', icon: Calculator, section: 'doctor.section.clinical' },
+  { to: '/doctor/development', label: 'doctor.nav.development', icon: Activity, section: 'doctor.section.clinical' },
+  { to: '/doctor/labs', label: 'doctor.nav.labs', icon: FlaskConical, section: 'doctor.section.clinical' },
+  { to: '/doctor/neonatology', label: 'doctor.nav.neonatology', icon: Baby, section: 'doctor.section.clinical' },
+  { to: '/doctor/analytics', label: 'doctor.nav.analytics', icon: BarChart3, section: 'doctor.section.practice' },
+  { to: '/doctor/billing', label: 'doctor.nav.billing', icon: CreditCard, section: 'doctor.section.practice' },
+  { to: '/doctor/profile', label: 'doctor.nav.profile', icon: UserCog, section: 'doctor.section.practice' },
 ];
 
 const PORTAL_NAV: PanelNavItem[] = [
@@ -131,7 +133,7 @@ function AppRoutes() {
     const nav = doctorUnread ? DOCTOR_NAV.map((it) => (it.to === '/doctor/messages' ? { ...it, badge: doctorUnread } : it)) : DOCTOR_NAV;
     return (
       <Routes>
-        <Route element={<PanelShell panelLabel="Doctor" navItems={nav} />}>
+        <Route element={<PanelShell panelLabel="Doctor" navItems={nav} topBar={<DoctorTopBar />} globals={<CommandPalette />} />}>
           <Route path="/doctor" element={<DoctorHome />} />
           <Route path="/doctor/patients" element={<Patients />} />
           <Route path="/doctor/patients/:id" element={<PatientDetail />} />

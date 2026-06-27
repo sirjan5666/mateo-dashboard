@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { cn } from '../../lib/cn';
+import { usePanelMode } from '../../lib/panelTheme';
 
 /**
  * Side panel that slides in from the edge — used for quick-add forms and
@@ -24,6 +25,8 @@ export function Drawer({
   side?: 'right' | 'left';
   className?: string;
 }) {
+  const mode = usePanelMode();
+
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -41,7 +44,7 @@ export function Drawer({
   if (!open) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[75] flex" role="dialog" aria-modal="true" aria-label={title}>
+    <div data-theme="pro" data-mode={mode} className="fixed inset-0 z-[75] flex" role="dialog" aria-modal="true" aria-label={title}>
       <button type="button" aria-label="Close" className="absolute inset-0 cursor-default bg-stone-900/50" onClick={onClose} />
       <div
         data-lenis-prevent

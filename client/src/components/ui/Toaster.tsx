@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { AlertTriangle, CheckCircle2, Info, X } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '../../lib/cn';
+import { usePanelMode } from '../../lib/panelTheme';
 import { dismissToast, useToasts } from '../../lib/toast';
 import type { ToastItem } from '../../lib/toast';
 import { toneBadge } from './tones';
@@ -46,16 +47,19 @@ function ToastRow({ t }: { t: ToastItem }) {
 /** Renders the live toast stack. Mount once in the shell; fire with `toast()`. */
 export function Toaster() {
   const toasts = useToasts();
+  const mode = usePanelMode();
   if (toasts.length === 0) return null;
   return createPortal(
-    <div
-      aria-live="polite"
-      aria-label="Notifications"
-      className="fixed bottom-4 right-4 z-[80] flex w-[min(22rem,calc(100vw-2rem))] flex-col gap-2"
-    >
-      {toasts.map((t) => (
-        <ToastRow key={t.id} t={t} />
-      ))}
+    <div data-theme="pro" data-mode={mode}>
+      <div
+        aria-live="polite"
+        aria-label="Notifications"
+        className="fixed bottom-4 right-4 z-[80] flex w-[min(22rem,calc(100vw-2rem))] flex-col gap-2"
+      >
+        {toasts.map((t) => (
+          <ToastRow key={t.id} t={t} />
+        ))}
+      </div>
     </div>,
     document.body,
   );
