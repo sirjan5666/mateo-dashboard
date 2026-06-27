@@ -289,6 +289,20 @@ router.patch('/admin/orders/:id', requireAuth, requireRole('admin'), async (req,
   res.json({ order: publicOrder(order) });
 });
 
+// Admin can permanently delete an order (e.g. to clear test/cancelled orders).
+// This removes the record entirely — distinct from the "cancelled" status, which
+// keeps it for accounting.
+router.delete('/admin/orders/:id', requireAuth, requireRole('admin'), async (req, res) => {
+  const { id } = req.params;
+  const order = isValidObjectId(id) ? await Order.findById(id) : null;
+  if (!order) {
+    res.status(404).json({ error: 'Order not found' });
+    return;
+  }
+  await order.deleteOne();
+  res.json({ ok: true, id });
+});
+
 router.get('/admin/notifications', requireAuth, requireRole('admin'), async (_req, res) => {
   const [notifications, unread] = await Promise.all([
     AdminNotification.find().sort({ createdAt: -1 }).limit(50),

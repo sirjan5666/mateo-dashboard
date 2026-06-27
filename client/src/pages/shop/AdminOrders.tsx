@@ -3,6 +3,7 @@ import { Bell, Package } from 'lucide-react';
 import {
   adminListOrders,
   adminUpdateOrder,
+  adminDeleteOrder,
   adminListNotifications,
   adminMarkNotificationsRead,
 } from '../../api/shop';
@@ -34,10 +35,12 @@ function AdminOrderModal({
   order,
   onClose,
   onSaved,
+  onDeleted,
 }: {
   order: AdminOrder | null;
   onClose: () => void;
   onSaved: (o: Order) => void;
+  onDeleted: (id: string) => void;
 }) {
   // Initialised from the order prop; the parent passes a `key` so a different
   // order remounts this with fresh state (no setState-in-effect needed).
@@ -45,6 +48,7 @@ function AdminOrderModal({
   const [tracking, setTracking] = useState<OrderTracking>(order?.tracking ?? {});
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   if (!order) return null;
@@ -59,6 +63,20 @@ function AdminOrderModal({
     } catch (e) {
       setErr(e instanceof ApiError ? e.message : 'Could not save changes.');
       setSaving(false);
+    }
+  }
+
+  async function remove() {
+    if (!order) return;
+    if (!window.confirm(`Delete order ${order.orderNumber}? This permanently removes it and cannot be undone. (Use “Cancelled” status instead if you want to keep the record.)`)) return;
+    setDeleting(true);
+    setErr(null);
+    try {
+      await adminDeleteOrder(order.id);
+      onDeleted(order.id);
+    } catch (e) {
+      setErr(e instanceof ApiError ? e.message : 'Could not delete the order.');
+      setDeleting(false);
     }
   }
 
@@ -130,13 +148,23 @@ function AdminOrderModal({
           <OrderStatusTimeline order={order} />
         </div>
 
-        <div className="flex justify-end gap-2">
-          <Button variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button variant="primary" onClick={save} disabled={saving}>
-            {saving ? 'Saving…' : 'Save changes'}
-          </Button>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <button
+            type="button"
+            onClick={remove}
+            disabled={deleting || saving}
+            className="text-sm font-semibold text-rose-600 transition-colors hover:text-rose-700 disabled:opacity-50"
+          >
+            {deleting ? 'Deleting…' : 'Delete order'}
+          </button>
+          <div className="flex gap-2">
+            <Button variant="secondary" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button variant="primary" onClick={save} disabled={saving || deleting}>
+              {saving ? 'Saving…' : 'Save changes'}
+            </Button>
+          </div>
         </div>
       </div>
     </Modal>
@@ -278,6 +306,10 @@ export default function AdminOrders() {
         onClose={() => setSelected(null)}
         onSaved={(updated) => {
           setOrders((cur) => (cur ? cur.map((o) => (o.id === updated.id ? { ...o, ...updated } : o)) : cur));
+          setSelected(null);
+        }}
+        onDeleted={(id) => {
+          setOrders((cur) => (cur ? cur.filter((o) => o.id !== id) : cur));
           setSelected(null);
         }}
       />

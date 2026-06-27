@@ -173,6 +173,10 @@ export function adminUpdateOrder(id: string, patch: AdminOrderUpdate) {
   return api<{ order: Order }>(`/shop/admin/orders/${id}`, { method: 'PATCH', body: JSON.stringify(patch) });
 }
 
+export function adminDeleteOrder(id: string) {
+  return api<{ ok: true; id: string }>(`/shop/admin/orders/${id}`, { method: 'DELETE' });
+}
+
 export function adminListNotifications() {
   return api<{ unread: number; notifications: AdminNotification[] }>('/shop/admin/notifications');
 }
