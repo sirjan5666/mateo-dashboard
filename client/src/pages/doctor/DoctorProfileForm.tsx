@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router';
 import { ArrowLeft } from 'lucide-react';
 import { getMyDoctorProfile, saveMyDoctorProfile } from '../../api/doctors';
 import { ApiError } from '../../api/client';
+import { useT } from '../../i18n/context';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Skeleton } from '../../components/ui/Skeleton';
@@ -14,6 +15,7 @@ const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const SLOT_OPTIONS = [15, 20, 30, 45, 60];
 
 export default function DoctorProfileForm() {
+  const t = useT();
   const navigate = useNavigate();
   const [loaded, setLoaded] = useState(false);
   const [isNew, setIsNew] = useState(true);
@@ -78,11 +80,11 @@ export default function DoctorProfileForm() {
     e.preventDefault();
     const fee = parseInt(consultationFee, 10);
     if (!specialization.trim()) {
-      setError('Specialization is required');
+      setError(t('doctor.profile.errSpec'));
       return;
     }
     if (Number.isNaN(fee) || fee < 0) {
-      setError('Enter a valid consultation fee');
+      setError(t('doctor.profile.errFee'));
       return;
     }
     setError(null);
@@ -102,7 +104,7 @@ export default function DoctorProfileForm() {
       });
       navigate('/doctor');
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Something went wrong, please try again');
+      setError(err instanceof ApiError ? err.message : t('doctor.profile.errGeneric'));
     } finally {
       setSaving(false);
     }
@@ -112,12 +114,12 @@ export default function DoctorProfileForm() {
     <div className="mx-auto max-w-2xl">
       <Link to="/doctor" className="inline-flex items-center gap-1.5 text-sm font-medium text-stone-500 hover:text-stone-800">
         <ArrowLeft className="h-4 w-4" />
-        Back
+        {t('doctor.profile.back')}
       </Link>
       <header className="mt-3">
         <p className="eyebrow">Doctor</p>
-        <h1 className="text-2xl font-extrabold text-stone-900">{isNew ? 'Set up your profile' : 'Edit your profile'}</h1>
-        <p className="mt-1 text-sm text-stone-500">This is what parents see when they look for a doctor.</p>
+        <h1 className="text-2xl font-extrabold text-stone-900">{isNew ? t('doctor.profile.setupTitle') : t('doctor.profile.editTitle')}</h1>
+        <p className="mt-1 text-sm text-stone-500">{t('doctor.profile.subtitle')}</p>
       </header>
 
       {!loaded ? (
@@ -129,48 +131,48 @@ export default function DoctorProfileForm() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <label htmlFor="spec" className="block text-sm font-medium text-stone-700">Specialization *</label>
-                <input id="spec" value={specialization} onChange={(e) => setSpecialization(e.target.value)} placeholder="Pediatrician" className={inputCls} />
+                <label htmlFor="spec" className="block text-sm font-medium text-stone-700">{t('doctor.profile.specialization')}</label>
+                <input id="spec" value={specialization} onChange={(e) => setSpecialization(e.target.value)} placeholder={t('doctor.profile.specPlaceholder')} className={inputCls} />
               </div>
               <div>
-                <label htmlFor="fee" className="block text-sm font-medium text-stone-700">Consultation fee (₹) *</label>
-                <input id="fee" type="number" min="0" value={consultationFee} onChange={(e) => setConsultationFee(e.target.value)} placeholder="500" className={inputCls} />
+                <label htmlFor="fee" className="block text-sm font-medium text-stone-700">{t('doctor.profile.fee')}</label>
+                <input id="fee" type="number" min="0" value={consultationFee} onChange={(e) => setConsultationFee(e.target.value)} placeholder="500" className={cn(inputCls, 'tabular')} />
               </div>
               <div>
-                <label htmlFor="quals" className="block text-sm font-medium text-stone-700">Qualifications</label>
-                <input id="quals" value={qualifications} onChange={(e) => setQualifications(e.target.value)} placeholder="MBBS, MD (Pediatrics)" className={inputCls} />
+                <label htmlFor="quals" className="block text-sm font-medium text-stone-700">{t('doctor.profile.quals')}</label>
+                <input id="quals" value={qualifications} onChange={(e) => setQualifications(e.target.value)} placeholder={t('doctor.profile.qualsPlaceholder')} className={inputCls} />
               </div>
               <div>
-                <label htmlFor="exp" className="block text-sm font-medium text-stone-700">Experience (years)</label>
-                <input id="exp" type="number" min="0" max="80" value={experienceYears} onChange={(e) => setExperienceYears(e.target.value)} className={inputCls} />
+                <label htmlFor="exp" className="block text-sm font-medium text-stone-700">{t('doctor.profile.experience')}</label>
+                <input id="exp" type="number" min="0" max="80" value={experienceYears} onChange={(e) => setExperienceYears(e.target.value)} className={cn(inputCls, 'tabular')} />
               </div>
               <div>
-                <label htmlFor="reg" className="block text-sm font-medium text-stone-700">Medical registration no.</label>
+                <label htmlFor="reg" className="block text-sm font-medium text-stone-700">{t('doctor.profile.registration')}</label>
                 <input id="reg" value={registrationNo} onChange={(e) => setRegistrationNo(e.target.value)} className={inputCls} />
               </div>
               <div>
-                <label htmlFor="langs" className="block text-sm font-medium text-stone-700">Languages</label>
-                <input id="langs" value={languages} onChange={(e) => setLanguages(e.target.value)} placeholder="English, Hindi" className={inputCls} />
-                <p className="mt-1 text-xs text-stone-500">Comma-separated</p>
+                <label htmlFor="langs" className="block text-sm font-medium text-stone-700">{t('doctor.profile.languages')}</label>
+                <input id="langs" value={languages} onChange={(e) => setLanguages(e.target.value)} placeholder={t('doctor.profile.languagesPlaceholder')} className={inputCls} />
+                <p className="mt-1 text-xs text-stone-500">{t('doctor.profile.commaSep')}</p>
               </div>
               <div>
-                <label htmlFor="clinic" className="block text-sm font-medium text-stone-700">Clinic / hospital</label>
+                <label htmlFor="clinic" className="block text-sm font-medium text-stone-700">{t('doctor.profile.clinic')}</label>
                 <input id="clinic" value={clinicName} onChange={(e) => setClinicName(e.target.value)} className={inputCls} />
               </div>
               <div>
-                <label htmlFor="city" className="block text-sm font-medium text-stone-700">City</label>
+                <label htmlFor="city" className="block text-sm font-medium text-stone-700">{t('doctor.profile.city')}</label>
                 <input id="city" value={city} onChange={(e) => setCity(e.target.value)} className={inputCls} />
               </div>
             </div>
 
             <div>
-              <label htmlFor="bio" className="block text-sm font-medium text-stone-700">About you</label>
-              <textarea id="bio" rows={3} value={bio} onChange={(e) => setBio(e.target.value)} placeholder="A short introduction parents will read." className={cn(inputCls, 'resize-none')} />
+              <label htmlFor="bio" className="block text-sm font-medium text-stone-700">{t('doctor.profile.about')}</label>
+              <textarea id="bio" rows={3} value={bio} onChange={(e) => setBio(e.target.value)} placeholder={t('doctor.profile.aboutPlaceholder')} className={cn(inputCls, 'resize-none')} />
             </div>
 
             <div className="rounded-xl border border-stone-200 p-4">
-              <h2 className="text-sm font-semibold text-stone-800">Availability</h2>
-              <p className="mt-0.5 text-xs text-stone-500">When are you available for consultations?</p>
+              <h2 className="text-sm font-semibold text-stone-800">{t('doctor.profile.availability')}</h2>
+              <p className="mt-0.5 text-xs text-stone-500">{t('doctor.profile.availabilityHint')}</p>
               <div className="mt-3 flex flex-wrap gap-1.5">
                 {DAYS.map((d, i) => (
                   <button
@@ -189,18 +191,18 @@ export default function DoctorProfileForm() {
               </div>
               <div className="mt-3 grid grid-cols-3 gap-3">
                 <div>
-                  <label htmlFor="start" className="block text-xs text-stone-500">From</label>
+                  <label htmlFor="start" className="block text-xs text-stone-500">{t('doctor.profile.from')}</label>
                   <input id="start" type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} className={inputCls} />
                 </div>
                 <div>
-                  <label htmlFor="end" className="block text-xs text-stone-500">To</label>
+                  <label htmlFor="end" className="block text-xs text-stone-500">{t('doctor.profile.to')}</label>
                   <input id="end" type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} className={inputCls} />
                 </div>
                 <div>
-                  <label htmlFor="slot" className="block text-xs text-stone-500">Slot length</label>
+                  <label htmlFor="slot" className="block text-xs text-stone-500">{t('doctor.profile.slotLength')}</label>
                   <select id="slot" value={slotMinutes} onChange={(e) => setSlotMinutes(Number(e.target.value))} className={inputCls}>
                     {SLOT_OPTIONS.map((m) => (
-                      <option key={m} value={m}>{m} min</option>
+                      <option key={m} value={m}>{t('doctor.profile.minSuffix', { n: m })}</option>
                     ))}
                   </select>
                 </div>
@@ -211,10 +213,10 @@ export default function DoctorProfileForm() {
 
             <div className="flex gap-2">
               <Button type="submit" disabled={saving}>
-                {saving ? 'Saving…' : isNew ? 'Submit for review' : 'Save changes'}
+                {saving ? t('doctor.profile.saving') : isNew ? t('doctor.profile.submitReview') : t('doctor.profile.saveChanges')}
               </Button>
               <Link to="/doctor">
-                <Button type="button" variant="secondary">Cancel</Button>
+                <Button type="button" variant="secondary">{t('doctor.profile.cancel')}</Button>
               </Link>
             </div>
           </form>

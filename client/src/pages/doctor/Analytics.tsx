@@ -3,6 +3,7 @@ import { Activity, BarChart3, CalendarCheck, Stethoscope, UserPlus, Users } from
 import { ApiError } from '../../api/client';
 import { getAnalytics } from '../../api/doctorAnalytics';
 import type { Analytics } from '../../api/doctorAnalytics';
+import { useT } from '../../i18n/context';
 import { Card } from '../../components/ui/Card';
 import {
   AreaTrend,
@@ -26,6 +27,7 @@ function donutData(rows: { label: string; count: number }[], theme: ChartTheme) 
 }
 
 export default function AnalyticsPage() {
+  const t = useT();
   const rootRef = useEntrance<HTMLDivElement>([]);
   const theme = useChartTheme();
   const [data, setData] = useState<Analytics | null>(null);
@@ -84,47 +86,55 @@ export default function AnalyticsPage() {
             <BarChart3 className="h-6 w-6" />
           </span>
           <div>
-            <p className="text-[0.72rem] font-bold uppercase tracking-[0.14em] text-stone-400">Your practice · last 6 months</p>
-            <h1 className="mt-0.5 font-display text-2xl font-extrabold leading-tight text-stone-900 sm:text-[1.75rem]">Practice analytics</h1>
+            <p className="text-[0.72rem] font-bold uppercase tracking-[0.14em] text-stone-400">{t('doctor.analytics.heroEyebrow')}</p>
+            <h1 className="mt-0.5 font-display text-2xl font-extrabold leading-tight text-stone-900 sm:text-[1.75rem]">{t('doctor.analytics.title')}</h1>
           </div>
         </div>
       </Card>
 
       {/* KPIs */}
       <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-4">
-        <Kpi icon={Users} label="Active patients" value={kpis.activePatients} sub="in your care" tone="sky" />
-        <Kpi icon={UserPlus} label="New" value={kpis.newThisMonth} sub="this month" tone="violet" />
-        <Kpi icon={Stethoscope} label="Visit notes" value={kpis.encountersThisMonth} sub="this month" tone="emerald" />
+        <Kpi icon={Users} label={t('doctor.analytics.kpiActive')} value={kpis.activePatients} sub={t('doctor.analytics.kpiActiveSub')} tone="sky" />
+        <Kpi icon={UserPlus} label={t('doctor.analytics.kpiNew')} value={kpis.newThisMonth} sub={t('doctor.analytics.kpiNewSub')} tone="violet" />
+        <Kpi icon={Stethoscope} label={t('doctor.analytics.kpiVisits')} value={kpis.encountersThisMonth} sub={t('doctor.analytics.kpiVisitsSub')} tone="emerald" />
         <Kpi
           icon={CalendarCheck}
-          label="Attendance"
+          label={t('doctor.analytics.kpiAttendance')}
           value={kpis.apptCompletionPct ?? 0}
           suffix="%"
           tone="amber"
-          sub={kpis.apptCompletionPct == null ? 'no completed visits yet' : 'completed vs no-show'}
+          sub={kpis.apptCompletionPct == null ? t('doctor.analytics.kpiAttendanceNone') : t('doctor.analytics.kpiAttendanceSub')}
         />
       </div>
 
       <div className="grid gap-5 lg:grid-cols-2">
-        <SectionCard title="New patients" eyebrow="Per month" icon={UserPlus}>
+        <SectionCard title={t('doctor.analytics.newPatients')} eyebrow={t('doctor.analytics.perMonth')} icon={UserPlus}>
           <BarTrend data={data.patientsByMonth} xKey="month" barKey="count" height={220} highlightIndex={data.patientsByMonth.length - 1} />
         </SectionCard>
 
-        <SectionCard title="Visit notes" eyebrow="Per month" icon={Stethoscope}>
-          <AreaTrend data={data.encountersByMonth} xKey="month" series={[{ key: 'count', name: 'Visit notes', color: theme.brand2 }]} height={220} />
+        <SectionCard title={t('doctor.analytics.visitNotes')} eyebrow={t('doctor.analytics.perMonth')} icon={Stethoscope}>
+          <AreaTrend data={data.encountersByMonth} xKey="month" series={[{ key: 'count', name: t('doctor.analytics.visitNotes'), color: theme.brand2 }]} height={220} />
         </SectionCard>
 
-        <SectionCard title="Age distribution" icon={Activity}>
-          {totalAge === 0 ? <EmptyState icon={Users} text="No patients yet." /> : <Donut data={donutData(ageRows, theme)} centerValue={totalAge} centerLabel="children" />}
+        <SectionCard title={t('doctor.analytics.ageDist')} icon={Activity}>
+          {totalAge === 0 ? (
+            <EmptyState icon={Users} text={t('doctor.analytics.noPatients')} />
+          ) : (
+            <Donut data={donutData(ageRows, theme)} centerValue={totalAge} centerLabel={t('doctor.analytics.children')} />
+          )}
         </SectionCard>
 
-        <SectionCard title="Patients by status" icon={Users}>
-          {totalStatus === 0 ? <EmptyState icon={Users} text="No patients yet." /> : <Donut data={donutData(statusRows, theme)} centerValue={totalStatus} centerLabel="patients" />}
+        <SectionCard title={t('doctor.analytics.byStatus')} icon={Users}>
+          {totalStatus === 0 ? (
+            <EmptyState icon={Users} text={t('doctor.analytics.noPatients')} />
+          ) : (
+            <Donut data={donutData(statusRows, theme)} centerValue={totalStatus} centerLabel={t('doctor.analytics.patients')} />
+          )}
         </SectionCard>
 
-        <SectionCard title="Visit types" eyebrow="All encounters" icon={Stethoscope}>
+        <SectionCard title={t('doctor.analytics.visitTypes')} eyebrow={t('doctor.analytics.allEncounters')} icon={Stethoscope}>
           {totalKind === 0 ? (
-            <EmptyState icon={Stethoscope} text="No visit notes yet." />
+            <EmptyState icon={Stethoscope} text={t('doctor.analytics.noVisits')} />
           ) : (
             <div className="space-y-3">
               {data.encounterKinds.map((k, i) => (
@@ -134,14 +144,16 @@ export default function AnalyticsPage() {
           )}
         </SectionCard>
 
-        <SectionCard title="Appointment outcomes" eyebrow="Follow-up compliance" icon={CalendarCheck}>
-          {totalOutcome === 0 ? <EmptyState icon={CalendarCheck} text="No appointments yet." /> : <Donut data={donutData(outcomeRows, theme)} centerValue={totalOutcome} centerLabel="appts" />}
+        <SectionCard title={t('doctor.analytics.outcomes')} eyebrow={t('doctor.analytics.followupCompliance')} icon={CalendarCheck}>
+          {totalOutcome === 0 ? (
+            <EmptyState icon={CalendarCheck} text={t('doctor.analytics.noAppts')} />
+          ) : (
+            <Donut data={donutData(outcomeRows, theme)} centerValue={totalOutcome} centerLabel={t('doctor.analytics.appts')} />
+          )}
         </SectionCard>
       </div>
 
-      <p className="px-1 text-xs leading-relaxed text-stone-400">
-        Aggregated across your own patients only. Counts are computed live from your records — no individual patient data leaves this view. Vaccination statistics aren’t shown because vaccine administration isn’t recorded in the EHR yet.
-      </p>
+      <p className="px-1 text-xs leading-relaxed text-stone-400">{t('doctor.analytics.disclaimer')}</p>
     </div>
   );
 }

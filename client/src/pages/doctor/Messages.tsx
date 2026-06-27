@@ -6,6 +6,7 @@ import { listMessages, listThreads, sendMessage } from '../../api/doctorMessages
 import type { ThreadSummary } from '../../api/doctorMessages';
 import { MessageThread } from '../../components/MessageThread';
 import type { ThreadMessage } from '../../components/MessageThread';
+import { useT } from '../../i18n/context';
 import { Card } from '../../components/ui/Card';
 import { Avatar } from '../../components/ui/Avatar';
 import { BrandTile } from '../../components/ui/BrandTile';
@@ -21,6 +22,7 @@ function fmtWhen(iso: string) {
 }
 
 export default function Messages() {
+  const t = useT();
   const [threads, setThreads] = useState<ThreadSummary[] | null>(null);
   const [selected, setSelected] = useState<ThreadSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -55,8 +57,8 @@ export default function Messages() {
         <BrandTile icon={MessageSquare} iconClassName="h-6 w-6" className="h-12 w-12 rounded-2xl shadow-soft" />
         <div>
           <p className="eyebrow">Doctor</p>
-          <h1 className="font-display text-2xl font-extrabold leading-tight text-stone-900">Messages</h1>
-          <p className="text-sm text-stone-500">Secure conversations with your patients.</p>
+          <h1 className="font-display text-2xl font-extrabold leading-tight text-stone-900">{t('doctor.messages.title')}</h1>
+          <p className="text-sm text-stone-500">{t('doctor.messages.subtitle')}</p>
         </div>
       </header>
 
@@ -66,37 +68,37 @@ export default function Messages() {
         {/* Thread list */}
         <Card className={cn('overflow-hidden p-2', selected && 'hidden lg:block')}>
           {threads === null ? (
-            <p className="p-4 text-sm text-stone-500">Loading…</p>
+            <p className="p-4 text-sm text-stone-500">{t('doctor.messages.loading')}</p>
           ) : threads.length === 0 ? (
             <div className="flex flex-col items-center gap-1 px-4 py-12 text-center">
               <MessageSquare className="h-6 w-6 text-stone-300" />
-              <p className="text-sm text-stone-500">No conversations yet.</p>
-              <p className="text-xs text-stone-400">Open a patient and send a message to start one.</p>
+              <p className="text-sm text-stone-500">{t('doctor.messages.noConvos')}</p>
+              <p className="text-xs text-stone-400">{t('doctor.messages.noConvosHint')}</p>
             </div>
           ) : (
             <div data-lenis-prevent className="max-h-[70vh] space-y-0.5 overflow-y-auto">
-              {threads.map((t) => (
+              {threads.map((th) => (
                 <button
-                  key={t.patientId}
-                  onClick={() => open(t)}
+                  key={th.patientId}
+                  onClick={() => open(th)}
                   className={cn(
                     'flex w-full items-center gap-3 rounded-2xl p-2.5 text-left transition-colors',
-                    selected?.patientId === t.patientId ? 'bg-emerald-50' : 'hover:bg-stone-50',
+                    selected?.patientId === th.patientId ? 'bg-emerald-50' : 'hover:bg-stone-50',
                   )}
                 >
-                  <Avatar name={t.patientName} size="sm" />
+                  <Avatar name={th.patientName} size="sm" hashColor />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <p className="truncate font-semibold text-stone-800">{t.patientName}</p>
-                      <span className="ml-auto shrink-0 text-[10px] text-stone-400">{fmtWhen(t.lastAt)}</span>
+                      <p className="truncate font-semibold text-stone-800">{th.patientName}</p>
+                      <span className="ml-auto shrink-0 text-[10px] tabular-nums text-stone-400">{fmtWhen(th.lastAt)}</span>
                     </div>
-                    <p className={cn('truncate text-xs', t.unread > 0 ? 'font-semibold text-stone-700' : 'text-stone-500')}>
-                      {t.lastSender === 'doctor' ? 'You: ' : ''}
-                      {t.lastBody}
+                    <p className={cn('truncate text-xs', th.unread > 0 ? 'font-semibold text-stone-700' : 'text-stone-500')}>
+                      {th.lastSender === 'doctor' ? t('doctor.messages.you') : ''}
+                      {th.lastBody}
                     </p>
                   </div>
-                  {t.unread > 0 && (
-                    <span className="grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-rose-500 px-1.5 text-[0.7rem] font-bold text-white">{t.unread}</span>
+                  {th.unread > 0 && (
+                    <span className="grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-rose-500 px-1.5 text-[0.7rem] font-bold tabular-nums text-white">{th.unread}</span>
                   )}
                 </button>
               ))}
@@ -112,17 +114,17 @@ export default function Messages() {
                 <button onClick={() => setSelected(null)} className="grid h-8 w-8 place-items-center rounded-lg text-stone-500 hover:bg-stone-100 lg:hidden">
                   <ArrowLeft className="h-4 w-4" />
                 </button>
-                <Avatar name={selected.patientName} size="sm" />
+                <Avatar name={selected.patientName} size="sm" hashColor />
                 <p className="min-w-0 flex-1 truncate font-display text-lg font-semibold text-stone-900">{selected.patientName}</p>
                 <Link to={`/doctor/patients/${selected.patientId}`} className="inline-flex items-center gap-1 text-sm font-semibold text-emerald-700 hover:text-emerald-800">
                   <ExternalLink className="h-3.5 w-3.5" />
-                  Open chart
+                  {t('doctor.messages.openChart')}
                 </Link>
               </div>
               <Conversation key={selected.patientId} patientId={selected.patientId} />
             </>
           ) : (
-            <div className="grid flex-1 place-items-center py-16 text-center text-sm text-stone-400">Select a conversation</div>
+            <div className="grid flex-1 place-items-center py-16 text-center text-sm text-stone-400">{t('doctor.messages.selectConvo')}</div>
           )}
         </Card>
       </div>
@@ -131,6 +133,7 @@ export default function Messages() {
 }
 
 function Conversation({ patientId }: { patientId: string }) {
+  const t = useT();
   const [messages, setMessages] = useState<ThreadMessage[] | null>(null);
 
   useEffect(() => {
@@ -148,5 +151,5 @@ function Conversation({ patientId }: { patientId: string }) {
     setMessages((prev) => [...(prev ?? []), message]);
   }
 
-  return <MessageThread messages={messages} onSend={onSend} emptyHint="No messages yet. Send the first one." />;
+  return <MessageThread messages={messages} onSend={onSend} emptyHint={t('doctor.messages.emptyThread')} />;
 }
