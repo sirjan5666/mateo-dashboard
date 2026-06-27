@@ -655,3 +655,42 @@ body.is-impersonating {
     animation: none !important;
   }
 }
+
+/* ============================================================
+   Lenis smooth scroll (components/SmoothScroll.tsx) — recommended base CSS.
+   Lenis toggles .lenis / .lenis-smooth / .lenis-stopped on <html>; inner scroll
+   areas opt out with [data-lenis-prevent] and keep native, contained scroll.
+   ============================================================ */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+.lenis.lenis-smooth [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+.lenis.lenis-stopped {
+  overflow: hidden;
+}
+
+/* Slim, translucent scrollbar for the dark navy panel sidebar — unobtrusive on
+   the navy, brightens on hover. (The light parent-app sidebar uses .scrollbar-thin.) */
+.sidebar-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+}
+.sidebar-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.sidebar-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.sidebar-scroll::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.16);
+  border-radius: 9999px;
+}
+.sidebar-scroll::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, 0.32);
+}

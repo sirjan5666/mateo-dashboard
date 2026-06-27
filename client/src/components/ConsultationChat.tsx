@@ -70,7 +70,7 @@ export function ConsultationChat({ consultationId }: { consultationId: string })
 
   return (
     <div className="flex flex-col rounded-2xl border border-stone-200 bg-white">
-      <div className="max-h-[55vh] min-h-[220px] flex-1 space-y-3 overflow-y-auto p-4">
+      <div data-lenis-prevent className="max-h-[55vh] min-h-[220px] flex-1 space-y-3 overflow-y-auto p-4">
         {messages === null ? (
           <>
             <Skeleton className="h-12 w-2/3" />

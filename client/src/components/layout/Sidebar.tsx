@@ -121,7 +121,7 @@ export function Sidebar({
         )}
       </div>
 
-      <nav className="scrollbar-thin flex-1 overflow-y-auto px-3 pb-4">
+      <nav data-lenis-prevent className="scrollbar-thin flex-1 overflow-y-auto px-3 pb-4">
         {user?.role === 'admin' && (
           <>
             <SectionLabel collapsed={collapsed}>{t('section.management')}</SectionLabel>

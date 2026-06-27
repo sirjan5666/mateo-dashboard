@@ -41,6 +41,7 @@ export function Modal({
 
   return createPortal(
     <div
+      data-lenis-prevent
       className="fixed inset-0 z-[70] flex items-end justify-center bg-stone-900/50 sm:items-center sm:p-4"
       role="dialog"
       aria-modal="true"

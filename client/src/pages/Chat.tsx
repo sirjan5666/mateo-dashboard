@@ -309,7 +309,7 @@ export default function Chat() {
             </button>
 
             <div className="rounded-2xl border border-stone-200 bg-white p-2 shadow-soft">
-              <div className="max-h-[60vh] space-y-3 overflow-y-auto p-1">
+              <div data-lenis-prevent className="max-h-[60vh] space-y-3 overflow-y-auto p-1">
                 {sessions === null ? (
                   <div className="space-y-2 p-1">
                     <Skeleton className="h-8 w-full" />

@@ -43,7 +43,7 @@ export function CartDrawer() {
           </button>
         </div>
 
-        <div className="scrollbar-thin flex-1 overflow-y-auto p-5">
+        <div data-lenis-prevent className="scrollbar-thin flex-1 overflow-y-auto p-5">
           {items.length === 0 ? (
             <div className="py-16 text-center text-stone-400">
               <ShoppingBag className="mx-auto h-9 w-9" />

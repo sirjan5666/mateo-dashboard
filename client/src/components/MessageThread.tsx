@@ -54,7 +54,7 @@ export function MessageThread({
   return (
     <div>
       {error && <p className="mb-2 rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
-      <div className="max-h-[26rem] space-y-2.5 overflow-y-auto rounded-2xl bg-stone-50/60 p-3">
+      <div data-lenis-prevent className="max-h-[26rem] space-y-2.5 overflow-y-auto rounded-2xl bg-stone-50/60 p-3">
         {messages === null ? (
           <p className="py-6 text-center text-sm text-stone-400">Loading…</p>
         ) : messages.length === 0 ? (

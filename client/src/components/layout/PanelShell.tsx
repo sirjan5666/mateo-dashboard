@@ -36,7 +36,7 @@ function DesktopNav({ panelLabel, navItems }: { panelLabel: string; navItems: Pa
         </span>
       </div>
 
-      <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 pb-4">
+      <nav data-lenis-prevent className="sidebar-scroll flex-1 space-y-0.5 overflow-y-auto px-3 pb-4">
         {navItems.map((it) => (
           <NavLink key={it.to} to={it.to} end={it.end} className={({ isActive }) => navClass(isActive)}>
             {({ isActive }) => (

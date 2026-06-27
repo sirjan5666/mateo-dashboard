@@ -74,7 +74,7 @@ export default function Messages() {
               <p className="text-xs text-stone-400">Open a patient and send a message to start one.</p>
             </div>
           ) : (
-            <div className="max-h-[70vh] space-y-0.5 overflow-y-auto">
+            <div data-lenis-prevent className="max-h-[70vh] space-y-0.5 overflow-y-auto">
               {threads.map((t) => (
                 <button
                   key={t.patientId}

@@ -61,6 +61,7 @@ import { getDoctorNotifications, getPortalNotifications } from './api/notificati
 import { CartProvider } from './shop/CartProvider';
 import { CartDrawer } from './components/shop/CartDrawer';
 import { CartToast } from './components/shop/CartToast';
+import { SmoothScroll } from './components/SmoothScroll';
 // Growth pulls in recharts (~350 kB) — code-split so it stays out of the initial bundle.
 const Growth = lazy(() => import('./pages/Growth'));
 
@@ -216,10 +217,12 @@ export default function App() {
   return (
     <AuthProvider>
       <CartProvider>
-        <ImpersonationBanner />
-        <AppRoutes />
-        <CartDrawer />
-        <CartToast />
+        <SmoothScroll>
+          <ImpersonationBanner />
+          <AppRoutes />
+          <CartDrawer />
+          <CartToast />
+        </SmoothScroll>
       </CartProvider>
     </AuthProvider>
   );
