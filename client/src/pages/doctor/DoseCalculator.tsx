@@ -4,6 +4,7 @@ import { AlertCircle, AlertTriangle, CheckCircle2, Droplets, Gauge, Info, Pill a
 import { ApiError } from '../../api/client';
 import { getDosingCatalog, checkDose } from '../../api/dosing';
 import type { DosingDrug, DoseCheckResponse, DoseLevel } from '../../api/dosing';
+import { useSearchParams } from 'react-router';
 import { listPatients } from '../../api/doctorPatients';
 import type { Patient } from '../../api/doctorPatients';
 import { Card } from '../../components/ui/Card';
@@ -50,6 +51,7 @@ const r1 = (n: number) => Math.round(n * 10) / 10;
 export default function DoseCalculator() {
   const rootRef = useEntrance<HTMLDivElement>([]);
 
+  const [params] = useSearchParams();
   const [tab, setTab] = useState<Tab>('drug');
   const [weight, setWeight] = useState('');
   const [age, setAge] = useState('');
@@ -62,8 +64,15 @@ export default function DoseCalculator() {
 
   useEffect(() => {
     listPatients()
-      .then((d) => setPatients(d.patients.filter((p) => !p.archivedAt && p.dob)))
+      .then((d) => {
+        const list = d.patients.filter((p) => !p.archivedAt && p.dob);
+        setPatients(list);
+        const pid = params.get('patient');
+        const preset = pid ? list.find((p) => p.id === pid) : undefined;
+        if (preset?.dob) setAge(String(ageInMonths(preset.dob)));
+      })
       .catch(() => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function selectPatient(id: string) {

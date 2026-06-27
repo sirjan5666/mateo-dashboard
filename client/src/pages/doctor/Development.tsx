@@ -4,6 +4,7 @@ import { Activity, AlertTriangle, CalendarClock, Check, Footprints, MessageCircl
 import { ApiError } from '../../api/client';
 import { assessDevelopment } from '../../api/doctorDevelopment';
 import type { DevMilestone, MilestoneDomain, MilestoneStatus } from '../../api/doctorDevelopment';
+import { useSearchParams } from 'react-router';
 import { listPatients } from '../../api/doctorPatients';
 import type { Patient } from '../../api/doctorPatients';
 import { Card } from '../../components/ui/Card';
@@ -59,6 +60,7 @@ function ageLabel(m: number): string {
 
 export default function Development() {
   const rootRef = useEntrance<HTMLDivElement>([]);
+  const [params] = useSearchParams();
 
   const [age, setAge] = useState('');
   const [milestones, setMilestones] = useState<DevMilestone[] | null>(null);
@@ -72,8 +74,15 @@ export default function Development() {
 
   useEffect(() => {
     listPatients()
-      .then((d) => setPatients(d.patients.filter((p) => !p.archivedAt && p.dob)))
+      .then((d) => {
+        const list = d.patients.filter((p) => !p.archivedAt && p.dob);
+        setPatients(list);
+        const pid = params.get('patient');
+        const preset = pid ? list.find((p) => p.id === pid) : undefined;
+        if (preset?.dob) setAge(String(ageInMonths(preset.dob)));
+      })
       .catch(() => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {

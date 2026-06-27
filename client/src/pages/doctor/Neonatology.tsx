@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Baby, Clock, Droplets } from 'lucide-react';
+import { useSearchParams } from 'react-router';
 import { listPatients } from '../../api/doctorPatients';
 import type { Patient } from '../../api/doctorPatients';
 import { Card } from '../../components/ui/Card';
@@ -48,6 +49,7 @@ function Stat({ value, unit, tone = 'stone' }: { value: string; unit: string; to
 export default function Neonatology() {
   const rootRef = useEntrance<HTMLDivElement>([]);
 
+  const [params] = useSearchParams();
   const [ga, setGa] = useState('');
   const [dob, setDob] = useState('');
   const [weight, setWeight] = useState('');
@@ -57,8 +59,18 @@ export default function Neonatology() {
 
   useEffect(() => {
     listPatients()
-      .then((d) => setPatients(d.patients.filter((p) => !p.archivedAt && p.dob)))
+      .then((d) => {
+        const list = d.patients.filter((p) => !p.archivedAt && p.dob);
+        setPatients(list);
+        const pid = params.get('patient');
+        const preset = pid ? list.find((p) => p.id === pid) : undefined;
+        if (preset?.dob) {
+          setDob(toDateInputValueIST(preset.dob));
+          setDol(String(daysSince(toDateInputValueIST(preset.dob)) + 1));
+        }
+      })
       .catch(() => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function selectPatient(id: string) {

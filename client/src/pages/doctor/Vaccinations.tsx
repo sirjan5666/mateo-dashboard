@@ -3,6 +3,7 @@ import { AlertTriangle, CalendarClock, Check, Clock, ShieldCheck, Syringe } from
 import { ApiError } from '../../api/client';
 import { getVaccineSchedule } from '../../api/doctorVaccines';
 import type { DoseStatus, ScheduleDose, VaxScheduleResult } from '../../api/doctorVaccines';
+import { useSearchParams } from 'react-router';
 import { listPatients } from '../../api/doctorPatients';
 import type { Patient } from '../../api/doctorPatients';
 import { Card } from '../../components/ui/Card';
@@ -35,6 +36,7 @@ const inputClass =
 
 export default function Vaccinations() {
   const rootRef = useEntrance<HTMLDivElement>([]);
+  const [params] = useSearchParams();
 
   const [dob, setDob] = useState('');
   const [sex, setSex] = useState<Sex>('male');
@@ -46,8 +48,20 @@ export default function Vaccinations() {
 
   useEffect(() => {
     listPatients()
-      .then((d) => setPatients(d.patients.filter((p) => !p.archivedAt && p.dob)))
+      .then((d) => {
+        const list = d.patients.filter((p) => !p.archivedAt && p.dob);
+        setPatients(list);
+        const pid = params.get('patient');
+        const preset = pid ? list.find((p) => p.id === pid) : undefined;
+        if (preset) {
+          const s = (preset.sex || '').toLowerCase();
+          if (s.startsWith('m')) setSex('male');
+          else if (s.startsWith('f')) setSex('female');
+          if (preset.dob) setDob(toDateInputValueIST(preset.dob));
+        }
+      })
       .catch(() => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {

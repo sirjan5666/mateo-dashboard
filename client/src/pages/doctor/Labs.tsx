@@ -3,6 +3,7 @@ import { AlertTriangle, ArrowDownRight, ArrowUpRight, Check, FlaskConical } from
 import { ApiError } from '../../api/client';
 import { getLabCatalog, interpretLabs } from '../../api/doctorLabs';
 import type { LabAnalyte, LabInterpretResult, LabLevel, LabResult } from '../../api/doctorLabs';
+import { useSearchParams } from 'react-router';
 import { listPatients } from '../../api/doctorPatients';
 import type { Patient } from '../../api/doctorPatients';
 import { Card } from '../../components/ui/Card';
@@ -24,6 +25,7 @@ const LEVEL_META: Record<LabLevel, { label: string; tone: 'amber' | 'rose' | 'em
 
 export default function Labs() {
   const rootRef = useEntrance<HTMLDivElement>([]);
+  const [params] = useSearchParams();
 
   const [age, setAge] = useState('');
   const [analytes, setAnalytes] = useState<LabAnalyte[]>([]);
@@ -41,8 +43,15 @@ export default function Labs() {
       .then((d) => setAnalytes(d.analytes))
       .catch(() => setCatalogError(true));
     listPatients()
-      .then((d) => setPatients(d.patients.filter((p) => !p.archivedAt && p.dob)))
+      .then((d) => {
+        const list = d.patients.filter((p) => !p.archivedAt && p.dob);
+        setPatients(list);
+        const pid = params.get('patient');
+        const preset = pid ? list.find((p) => p.id === pid) : undefined;
+        if (preset?.dob) setAge(String(ageInMonths(preset.dob)));
+      })
       .catch(() => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const entries = useMemo(

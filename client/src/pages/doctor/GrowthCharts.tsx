@@ -4,6 +4,7 @@ import { AlertTriangle, Baby, LineChart as LineChartIcon, Plus, TrendingUp, X } 
 import { ApiError } from '../../api/client';
 import { plotGrowth } from '../../api/doctorGrowth';
 import type { Indicator, PlotInputPoint, PlotResult } from '../../api/doctorGrowth';
+import { useSearchParams } from 'react-router';
 import { listPatients } from '../../api/doctorPatients';
 import type { Patient } from '../../api/doctorPatients';
 import { Card } from '../../components/ui/Card';
@@ -124,6 +125,7 @@ function WhoChart({ result, indicator, theme }: { result: PlotResult | null; ind
 export default function GrowthCharts() {
   const theme = useChartTheme();
   const rootRef = useEntrance<HTMLDivElement>([]);
+  const [params] = useSearchParams();
 
   const [sex, setSex] = useState<Sex>('male');
   const [indicator, setIndicator] = useState<Indicator>('weight');
@@ -141,8 +143,20 @@ export default function GrowthCharts() {
 
   useEffect(() => {
     listPatients()
-      .then((d) => setPatients(d.patients.filter((p) => !p.archivedAt)))
+      .then((d) => {
+        const list = d.patients.filter((p) => !p.archivedAt);
+        setPatients(list);
+        const pid = params.get('patient');
+        const preset = pid ? list.find((p) => p.id === pid) : undefined;
+        if (preset) {
+          const s = (preset.sex || '').toLowerCase();
+          if (s.startsWith('m')) setSex('male');
+          else if (s.startsWith('f')) setSex('female');
+          if (preset.dob) setAgeM(String(Math.min(MAX_MONTHS, ageInMonths(preset.dob))));
+        }
+      })
       .catch(() => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Recompute whenever the sex or the set of measurements changes. With zero
