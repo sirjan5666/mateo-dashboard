@@ -1,6 +1,6 @@
 import { lazy, useEffect, useState } from 'react';
 import { Navigate, Route, Routes } from 'react-router';
-import { Calculator, CalendarClock, CalendarDays, HeartPulse, MessageSquare, Stethoscope, Syringe, TrendingUp, UserCog, Users } from 'lucide-react';
+import { Activity, Baby, BarChart3, Calculator, CalendarClock, CalendarDays, CreditCard, FlaskConical, HeartPulse, MessageSquare, Stethoscope, Syringe, TrendingUp, UserCog, Users } from 'lucide-react';
 import { AuthProvider } from './auth/AuthProvider';
 import { useAuth } from './auth/context';
 import { AppShell } from './components/layout/AppShell';
@@ -64,15 +64,22 @@ import { CartToast } from './components/shop/CartToast';
 // Growth pulls in recharts (~350 kB) — code-split so it stays out of the initial bundle.
 const Growth = lazy(() => import('./pages/Growth'));
 
+// Mirrors the dashboard "Clinical modules" grid — every LIVE module is reachable
+// from the sidebar. ("Soon" tiles have no page yet, so they stay grid-only.)
 const DOCTOR_NAV: PanelNavItem[] = [
   { to: '/doctor', label: 'Home', icon: Stethoscope, end: true },
   { to: '/doctor/patients', label: 'Patients', icon: Users },
-  { to: '/doctor/growth', label: 'Growth', icon: TrendingUp },
-  { to: '/doctor/vaccines', label: 'Vaccines', icon: Syringe },
-  { to: '/doctor/dose', label: 'Dose calc', icon: Calculator },
   { to: '/doctor/schedule', label: 'Schedule', icon: CalendarDays },
   { to: '/doctor/messages', label: 'Messages', icon: MessageSquare },
   { to: '/doctor/appointments', label: 'Consultations', icon: CalendarClock },
+  { to: '/doctor/growth', label: 'Growth', icon: TrendingUp },
+  { to: '/doctor/vaccines', label: 'Vaccines', icon: Syringe },
+  { to: '/doctor/dose', label: 'Dose calc', icon: Calculator },
+  { to: '/doctor/neonatology', label: 'Neonatology', icon: Baby },
+  { to: '/doctor/development', label: 'Development', icon: Activity },
+  { to: '/doctor/labs', label: 'Labs', icon: FlaskConical },
+  { to: '/doctor/analytics', label: 'Analytics', icon: BarChart3 },
+  { to: '/doctor/billing', label: 'Billing', icon: CreditCard },
   { to: '/doctor/profile', label: 'Profile', icon: UserCog },
 ];
 
