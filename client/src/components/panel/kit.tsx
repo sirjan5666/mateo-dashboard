@@ -150,24 +150,20 @@ export function Kpi({
   const theme = useChartTheme();
   return (
     <Card data-entrance="card" className="relative overflow-hidden p-4 sm:p-5">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-[0.66rem] font-bold uppercase tracking-[0.1em] text-stone-400">{label}</p>
-          <div className="mt-1 flex items-baseline gap-1.5">
-            <CountUp
-              value={value}
-              decimals={decimals}
-              prefix={prefix}
-              suffix={suffix}
-              className="font-display text-[1.7rem] font-extrabold leading-none text-stone-900 sm:text-[2rem]"
-              style={{ fontVariantNumeric: 'tabular-nums' }}
-            />
-          </div>
-        </div>
-        <span className={cn('grid h-10 w-10 shrink-0 place-items-center rounded-xl', toneBadge[tone])}>
-          <Icon className="h-5 w-5" />
+      <div className="flex items-start justify-between gap-2">
+        <CountUp
+          value={value}
+          decimals={decimals}
+          prefix={prefix}
+          suffix={suffix}
+          className="font-display text-[1.7rem] font-extrabold leading-none text-stone-900 sm:text-[2rem]"
+          style={{ fontVariantNumeric: 'tabular-nums' }}
+        />
+        <span className={cn('grid h-9 w-9 shrink-0 place-items-center rounded-xl', toneBadge[tone])}>
+          <Icon className="h-[18px] w-[18px]" />
         </span>
       </div>
+      <p className="mt-2 truncate text-[0.64rem] font-bold uppercase tracking-wide text-stone-400">{label}</p>
       <div className="mt-3 flex items-center gap-2">
         {delta && (
           <span className={cn('inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[0.7rem] font-bold', DELTA_TONE[delta.dir])}>
