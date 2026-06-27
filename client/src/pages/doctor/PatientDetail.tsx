@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { Activity, AlertTriangle, ArrowLeft, Archive, CalendarClock, FileText, KeyRound, Pencil, Pill as PillIcon, Plus, Save, ShieldCheck, Stethoscope } from 'lucide-react';
+import { Activity, AlertTriangle, ArrowLeft, Archive, Baby, Calculator, CalendarClock, ChevronRight, FileText, FlaskConical, KeyRound, Pencil, Pill as PillIcon, Plus, Save, ShieldCheck, Stethoscope, Syringe, TrendingUp } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { ApiError } from '../../api/client';
 import { archivePatient, createPortalLogin, getPatient, savePatientRecord, updatePatient } from '../../api/doctorPatients';
 import type { FieldDef, Patient, PortalStatus, RecordData, Template } from '../../api/doctorPatients';
@@ -21,10 +22,19 @@ import { buttonClass } from '../../components/ui/buttonStyles';
 import { inputCls } from '../../components/ui/field';
 import { cn } from '../../lib/cn';
 import { formatAge } from '../../lib/age';
+import { useT } from '../../i18n/context';
+import { StatusPill } from '../../components/ui/StatusPill';
+import { Tabs } from '../../components/ui/Tabs';
+import type { TabItem } from '../../components/ui/Tabs';
+import { statusIcon, statusTone } from '../../components/doctor/status';
+import { toneBadge } from '../../components/ui/tones';
 import type { Tone } from '../../components/ui/tones';
 
 const TONES: Tone[] = ['emerald', 'amber', 'rose', 'sky', 'violet', 'stone'];
 const asTone = (t?: string): Tone => (TONES.includes(t as Tone) ? (t as Tone) : 'stone');
+const titleCase = (s: string) => s.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+
+type PdTab = 'record' | 'encounters' | 'prescriptions' | 'appointments' | 'messages' | 'tools';
 
 const KIND_LABEL: Record<EncounterKind, string> = { visit: 'Visit', follow_up: 'Follow-up', phone: 'Phone', procedure: 'Procedure', note: 'Note' };
 const KIND_TONE: Record<EncounterKind, Tone> = { visit: 'sky', follow_up: 'amber', phone: 'violet', procedure: 'rose', note: 'stone' };
@@ -57,6 +67,7 @@ function fmtDateTime(iso: string): string {
 export default function PatientDetail() {
   const { id = '' } = useParams();
   const navigate = useNavigate();
+  const t = useT();
   const [patient, setPatient] = useState<Patient | null>(null);
   const [template, setTemplate] = useState<Template | null>(null);
   const [record, setRecord] = useState<RecordData | null>(null);
@@ -67,6 +78,7 @@ export default function PatientDetail() {
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [portalOpen, setPortalOpen] = useState(false);
+  const [tab, setTab] = useState<PdTab>('record');
 
   useEffect(() => {
     let cancelled = false;
@@ -108,27 +120,31 @@ export default function PatientDetail() {
   const statusOpt = useMemo(() => template?.statuses.find((s) => s.key === patient?.status), [template, patient]);
 
   if (error) return <Card className="border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{error}</Card>;
-  if (!patient) return <p className="text-sm text-stone-500">Loading…</p>;
+  if (!patient) return <p className="text-sm text-stone-500">{t('doctor.pd.loading')}</p>;
 
   return (
     <div>
       <Link to="/doctor/patients" className="inline-flex items-center gap-1.5 text-sm font-semibold text-stone-500 hover:text-stone-700">
         <ArrowLeft className="h-4 w-4" />
-        All patients
+        {t('doctor.pd.allPatients')}
       </Link>
 
-      {/* Rich header */}
-      <Card className="relative mt-3 overflow-hidden p-6" style={{ background: 'linear-gradient(135deg, #ffffff 0%, #f5f4ff 60%, #eef6f2 100%)' }}>
-        <span aria-hidden="true" className="pointer-events-none absolute -right-12 -top-16 h-44 w-44 rounded-full bg-violet-200/30 blur-3xl" />
+      {/* Header */}
+      <Card className="hero-aurora relative mt-3 overflow-hidden p-6">
+        <span aria-hidden="true" className="absolute inset-x-0 top-0 h-1 brand-gradient" />
         <div className="relative flex flex-wrap items-start gap-4">
-          <Avatar name={patient.displayName} size="xl" />
+          <Avatar name={patient.displayName} size="xl" hashColor />
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="font-display text-2xl font-extrabold leading-tight text-stone-900">{patient.displayName}</h1>
-              <Pill tone={asTone(statusOpt?.tone)}>{statusOpt?.label ?? patient.status}</Pill>
+              <StatusPill
+                label={statusOpt?.label ?? titleCase(patient.status)}
+                tone={statusOpt ? asTone(statusOpt.tone) : statusTone(patient.status)}
+                icon={statusIcon(patient.status)}
+              />
               {patient.archivedAt && (
                 <Pill tone="stone">
-                  <Archive className="h-3 w-3" /> Archived
+                  <Archive className="h-3 w-3" /> {t('doctor.pd.archived')}
                 </Pill>
               )}
             </div>
@@ -140,10 +156,10 @@ export default function PatientDetail() {
             {record && record.tags.length > 0 && template && (
               <div className="mt-2.5 flex flex-wrap gap-1.5">
                 {record.tags.map((key) => {
-                  const t = template.historyTags.find((h) => h.key === key);
+                  const tag = template.historyTags.find((h) => h.key === key);
                   return (
-                    <Pill key={key} tone={asTone(t?.color)}>
-                      {t?.label ?? key}
+                    <Pill key={key} tone={asTone(tag?.color)}>
+                      {tag?.label ?? key}
                     </Pill>
                   );
                 })}
@@ -153,34 +169,61 @@ export default function PatientDetail() {
           <div className="flex flex-wrap gap-2">
             <button onClick={() => setPortalOpen(true)} className={buttonClass('secondary', 'sm')}>
               <KeyRound className="h-3.5 w-3.5" />
-              {portal?.active ? 'Portal access' : 'Invite to portal'}
+              {portal?.active ? t('doctor.pd.portalAccess') : t('doctor.pd.invitePortal')}
             </button>
             <button onClick={() => setEditing(true)} className={buttonClass('secondary', 'sm')}>
               <Pencil className="h-3.5 w-3.5" />
-              Edit details
+              {t('doctor.pd.editDetails')}
             </button>
           </div>
         </div>
         {portal?.active && (
           <p className="relative mt-3 inline-flex items-center gap-1.5 text-xs text-stone-500">
             <KeyRound className="h-3.5 w-3.5 text-emerald-600" />
-            Portal active · {portal.email}
+            {t('doctor.pd.portalActive', { email: portal.email ?? '' })}
           </p>
         )}
       </Card>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-3">
-        {/* Main column */}
-        <div className="space-y-6 lg:col-span-2">
-          {template ? (
-            <RecordForm key={record?.updatedAt ?? 'new'} patientId={id} template={template} record={record} onSaved={(r) => setRecord(r)} />
-          ) : (
-            <Card className="p-5 text-sm text-stone-500">This patient has no record template.</Card>
-          )}
-          <PrescriptionsSection patientId={id} items={prescriptions} onChanged={refetchPrescriptions} />
-          <AppointmentsSection patientId={id} items={appointments} onChanged={refetchAppointments} />
-          <EncountersSection patientId={id} items={encounters} onChanged={refetchEncounters} />
-          <MessagesSection patientId={id} />
+        {/* Main column — tabbed hub. Sections stay mounted (show/hide) so the
+            record form keeps unsaved edits and lists don't refetch on tab change. */}
+        <div className="space-y-4 lg:col-span-2">
+          <Tabs<PdTab>
+            items={[
+              { value: 'record', label: t('doctor.pd.tabRecord') },
+              { value: 'encounters', label: t('doctor.pd.tabNotes'), count: encounters?.length },
+              { value: 'prescriptions', label: t('doctor.pd.tabRx'), count: prescriptions?.length },
+              { value: 'appointments', label: t('doctor.pd.tabAppts'), count: appointments?.length },
+              { value: 'messages', label: t('doctor.pd.tabMessages') },
+              { value: 'tools', label: t('doctor.pd.tabTools') },
+            ] as TabItem<PdTab>[]}
+            value={tab}
+            onChange={setTab}
+          />
+
+          <div className={cn(tab !== 'record' && 'hidden')}>
+            {template ? (
+              <RecordForm key={record?.updatedAt ?? 'new'} patientId={id} template={template} record={record} onSaved={(r) => setRecord(r)} />
+            ) : (
+              <Card className="p-5 text-sm text-stone-500">{t('doctor.pd.noTemplate')}</Card>
+            )}
+          </div>
+          <div className={cn(tab !== 'encounters' && 'hidden')}>
+            <EncountersSection patientId={id} items={encounters} onChanged={refetchEncounters} />
+          </div>
+          <div className={cn(tab !== 'prescriptions' && 'hidden')}>
+            <PrescriptionsSection patientId={id} items={prescriptions} onChanged={refetchPrescriptions} />
+          </div>
+          <div className={cn(tab !== 'appointments' && 'hidden')}>
+            <AppointmentsSection patientId={id} items={appointments} onChanged={refetchAppointments} />
+          </div>
+          <div className={cn(tab !== 'messages' && 'hidden')}>
+            <MessagesSection patientId={id} />
+          </div>
+          <div className={cn(tab !== 'tools' && 'hidden')}>
+            <ClinicalToolsTab patient={patient} />
+          </div>
         </div>
 
         {/* Right rail summary (sticky) */}
@@ -221,6 +264,43 @@ export default function PatientDetail() {
         />
       )}
     </div>
+  );
+}
+
+// ── in-context clinical tools (pre-scoped to this child) ────────────────────
+function ClinicalToolsTab({ patient }: { patient: Patient }) {
+  const t = useT();
+  const q = `?patient=${patient.id}`;
+  const tools: { icon: LucideIcon; labelKey: string; descKey: string; to: string; tone: Tone }[] = [
+    { icon: TrendingUp, labelKey: 'doctor.home.modGrowth', descKey: 'doctor.home.modGrowthD', to: `/doctor/growth${q}`, tone: 'emerald' },
+    { icon: Syringe, labelKey: 'doctor.home.modVaccines', descKey: 'doctor.home.modVaccinesD', to: `/doctor/vaccines${q}`, tone: 'rose' },
+    { icon: Calculator, labelKey: 'doctor.home.modDose', descKey: 'doctor.home.modDoseD', to: `/doctor/dose${q}`, tone: 'sky' },
+    { icon: Activity, labelKey: 'doctor.home.modDev', descKey: 'doctor.home.modDevD', to: `/doctor/development${q}`, tone: 'violet' },
+    { icon: FlaskConical, labelKey: 'doctor.home.modLabs', descKey: 'doctor.home.modLabsD', to: `/doctor/labs${q}`, tone: 'sky' },
+    { icon: Baby, labelKey: 'doctor.home.modNeo', descKey: 'doctor.home.modNeoD', to: `/doctor/neonatology${q}`, tone: 'amber' },
+  ];
+  return (
+    <Card className="p-5 sm:p-6">
+      <h2 className="font-display text-lg font-semibold text-stone-900">{t('doctor.pd.tabTools')}</h2>
+      <p className="mt-0.5 text-sm text-stone-500">{t('doctor.pd.toolsIntro', { name: patient.displayName })}</p>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        {tools.map((tool) => (
+          <Link key={tool.to} to={tool.to} className="group">
+            <Card className="pop-hover flex h-full items-start gap-3 p-4">
+              <span className={cn('grid h-10 w-10 shrink-0 place-items-center rounded-xl', toneBadge[tool.tone])}>
+                <tool.icon className="h-5 w-5" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-bold text-stone-800">{t(tool.labelKey)}</p>
+                <p className="mt-0.5 truncate text-xs text-stone-400">{t(tool.descKey)}</p>
+              </div>
+              <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-stone-300 transition-colors group-hover:text-stone-500" />
+            </Card>
+          </Link>
+        ))}
+      </div>
+      <p className="mt-4 text-xs text-stone-400">{t('doctor.pd.toolsNote')}</p>
+    </Card>
   );
 }
 
