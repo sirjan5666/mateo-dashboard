@@ -6,6 +6,7 @@ import {
   AlertTriangle,
   ArrowRight,
   Baby,
+  Ban,
   BarChart3,
   Bell,
   Calculator,
@@ -13,25 +14,31 @@ import {
   CalendarDays,
   CalendarPlus,
   ChevronRight,
+  CircleCheck,
+  CircleDot,
   ClipboardList,
   Clock,
   CreditCard,
+  Eye,
   FlaskConical,
   MapPin,
   MessageSquare,
   Phone,
   Plus,
+  RefreshCw,
   ScrollText,
-  Sparkles,
   Smartphone,
+  Sparkles,
   Stethoscope,
   Syringe,
   TrendingUp,
   UserPlus,
   Users,
+  UserX,
   Video,
 } from 'lucide-react';
 import { useAuth } from '../../auth/context';
+import { useT } from '../../i18n/context';
 import { ApiError } from '../../api/client';
 import { getOverview } from '../../api/doctorOverview';
 import type { Overview, OverviewAppt } from '../../api/doctorOverview';
@@ -40,7 +47,7 @@ import type { DoctorProfile } from '../../api/doctors';
 import { listPatients } from '../../api/doctorPatients';
 import type { Patient } from '../../api/doctorPatients';
 import { Avatar } from '../../components/ui/Avatar';
-import { Pill } from '../../components/ui/Pill';
+import { StatusPill } from '../../components/ui/StatusPill';
 import { Card } from '../../components/ui/Card';
 import { buttonClass } from '../../components/ui/buttonStyles';
 import { toneBadge } from '../../components/ui/tones';
@@ -61,39 +68,54 @@ import { cn } from '../../lib/cn';
 import { gsap, prefersReducedMotion, useEntrance, useReveal } from '../../lib/gsap';
 import { greetingIST, todayLongIST, formatTimeIST, relativePastIST, relativeUpcomingIST } from '../../lib/age';
 
+type T = ReturnType<typeof useT>;
+
 // ── constants ────────────────────────────────────────────────────────────────
 const MS_PER_DAY = 86_400_000;
 const JOURNEY_TOTAL = 2000; // the "first 2000 days" window (~5.5 years)
 
 // Developmental stages across the 0→2000-day arc (cumulative end-day).
-const STAGES: { key: string; label: string; end: number }[] = [
-  { key: 'newborn', label: 'Newborn', end: 28 },
-  { key: 'infant', label: 'Infant', end: 365 },
-  { key: 'toddler', label: 'Toddler', end: 1095 },
-  { key: 'preschool', label: 'Preschool', end: 1825 },
-  { key: 'school', label: 'School-ready', end: JOURNEY_TOTAL },
+const STAGES: { key: string; labelKey: string; end: number }[] = [
+  { key: 'newborn', labelKey: 'doctor.home.stageNewborn', end: 28 },
+  { key: 'infant', labelKey: 'doctor.home.stageInfant', end: 365 },
+  { key: 'toddler', labelKey: 'doctor.home.stageToddler', end: 1095 },
+  { key: 'preschool', labelKey: 'doctor.home.stagePreschool', end: 1825 },
+  { key: 'school', labelKey: 'doctor.home.stageSchool', end: JOURNEY_TOTAL },
 ];
 
-const APPT_MODE: Record<OverviewAppt['mode'], { label: string; icon: LucideIcon }> = {
-  in_person: { label: 'In person', icon: MapPin },
-  phone: { label: 'Phone', icon: Phone },
-  video: { label: 'Video', icon: Video },
+const APPT_MODE: Record<OverviewAppt['mode'], { labelKey: string; icon: LucideIcon }> = {
+  in_person: { labelKey: 'doctor.home.modeInPerson', icon: MapPin },
+  phone: { labelKey: 'doctor.home.modePhone', icon: Phone },
+  video: { labelKey: 'doctor.home.modeVideo', icon: Video },
 };
-const APPT_STATUS_TONE: Record<OverviewAppt['status'], Tone> = { scheduled: 'sky', completed: 'emerald', cancelled: 'stone', no_show: 'rose' };
+const APPT_STATUS_META: Record<OverviewAppt['status'], { tone: Tone; icon: LucideIcon }> = {
+  scheduled: { tone: 'sky', icon: Clock },
+  completed: { tone: 'emerald', icon: CircleCheck },
+  cancelled: { tone: 'stone', icon: Ban },
+  no_show: { tone: 'rose', icon: UserX },
+};
 
-// Status → badge colour per the design spec: Active green, Follow-up amber,
-// Monitoring blue, Clearing purple, Maintenance yellow(amber), Discharged grey.
-const STATUS_TONE: Record<string, Tone> = {
-  active: 'emerald',
-  follow_up: 'amber',
-  monitoring: 'sky',
-  clearing: 'violet',
-  maintenance: 'amber',
-  discharged: 'stone',
+// Patient status → tone + icon per the design spec: Active green, Follow-up
+// amber, Monitoring blue, Clearing purple, Maintenance yellow, Discharged grey.
+// Pairing each with an icon keeps status legible without relying on colour alone.
+const STATUS_META: Record<string, { tone: Tone; icon: LucideIcon }> = {
+  active: { tone: 'emerald', icon: CircleDot },
+  follow_up: { tone: 'amber', icon: Bell },
+  monitoring: { tone: 'sky', icon: Eye },
+  clearing: { tone: 'violet', icon: TrendingUp },
+  maintenance: { tone: 'amber', icon: RefreshCw },
+  discharged: { tone: 'stone', icon: CircleCheck },
 };
 const FALLBACK_TONES: Tone[] = ['violet', 'sky', 'amber', 'emerald', 'rose', 'stone'];
 
 const titleCase = (s: string) => s.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+
+function statusTone(status: string): Tone {
+  return STATUS_META[status]?.tone ?? 'stone';
+}
+function statusIcon(status: string): LucideIcon {
+  return STATUS_META[status]?.icon ?? CircleDot;
+}
 
 function toneHex(t: Tone, theme: ChartTheme): string {
   return { emerald: theme.green, sky: theme.sky, violet: theme.brand2, amber: theme.amber, rose: theme.rose, stone: theme.axis }[t];
@@ -123,8 +145,9 @@ function laneOf(id: string): number {
   return h % 5;
 }
 
-function stageOfDay(day: number): string {
-  return STAGES.find((s) => day <= s.end)?.label ?? 'School-ready';
+function stageLabel(day: number, t: T): string {
+  const s = STAGES.find((x) => day <= x.end) ?? STAGES[STAGES.length - 1];
+  return t(s.labelKey);
 }
 
 interface JourneyChild {
@@ -136,6 +159,7 @@ interface JourneyChild {
 
 // ── signature: First 2000 Days journey band ──────────────────────────────────
 function JourneyBand({ kids, graduates, undated }: { kids: JourneyChild[]; graduates: number; undated: number }) {
+  const t = useT();
   const bandRef = useRef<HTMLDivElement>(null);
   const med = median(kids.map((c) => c.day));
 
@@ -160,22 +184,22 @@ function JourneyBand({ kids, graduates, undated }: { kids: JourneyChild[]; gradu
     <div className="mt-6 border-t pt-5" style={{ borderColor: 'var(--hairline)' }}>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-[0.64rem] font-bold uppercase tracking-[0.16em] text-stone-400">First 2000 days</p>
+          <p className="text-[0.64rem] font-bold uppercase tracking-[0.16em] text-stone-400">{t('doctor.home.journeyTitle')}</p>
           <p className="mt-0.5 text-sm text-stone-600">
-            <span className="font-bold text-stone-900">{kids.length}</span> children on the journey
+            <span className="font-bold tabular-nums text-stone-900">{kids.length}</span>{' '}
+            {t(kids.length === 1 ? 'doctor.home.journeyChildOne' : 'doctor.home.journeyChildMany', { n: kids.length }).replace(/^\d+\s*/, '')}
             {kids.length > 0 && (
-              <>
-                {' · median '}
-                <span className="font-bold text-stone-900">Day {med.toLocaleString('en-IN')}</span>{' '}
-                <span className="text-stone-400">({stageOfDay(med)})</span>
-              </>
+              <span className="text-stone-400">
+                {' · '}
+                {t('doctor.home.journeyMedian', { day: med.toLocaleString('en-IN'), stage: stageLabel(med, t) })}
+              </span>
             )}
           </p>
         </div>
         {(graduates > 0 || undated > 0) && (
           <div className="flex items-center gap-1.5 text-[0.7rem] font-semibold">
-            {graduates > 0 && <span className="rounded-full bg-stone-100 px-2 py-1 text-stone-500">{graduates} graduated</span>}
-            {undated > 0 && <span className="rounded-full bg-stone-100 px-2 py-1 text-stone-400">{undated} undated</span>}
+            {graduates > 0 && <span className="rounded-full bg-stone-100 px-2 py-1 tabular-nums text-stone-500">{t('doctor.home.journeyGraduated', { n: graduates })}</span>}
+            {undated > 0 && <span className="rounded-full bg-stone-100 px-2 py-1 tabular-nums text-stone-400">{t('doctor.home.journeyUndated', { n: undated })}</span>}
           </div>
         )}
       </div>
@@ -187,28 +211,19 @@ function JourneyBand({ kids, graduates, undated }: { kids: JourneyChild[]; gradu
           const w = ((s.end - prev) / JOURNEY_TOTAL) * 100;
           return (
             <span key={s.key} className="truncate px-1" style={{ width: `${w}%` }}>
-              {s.label}
+              {t(s.labelKey)}
             </span>
           );
         })}
       </div>
 
       {/* the band */}
-      <div
-        ref={bandRef}
-        className="relative mt-1.5 h-[78px] overflow-hidden rounded-2xl"
-        style={{ background: 'var(--journey-track)' }}
-      >
+      <div ref={bandRef} className="relative mt-1.5 h-[78px] overflow-hidden rounded-2xl" style={{ background: 'var(--journey-track)' }}>
         {/* developmental gradient underlay */}
         <div aria-hidden="true" className="absolute inset-0 opacity-[0.16]" style={{ background: 'var(--journey-gradient)' }} />
         {/* stage dividers */}
         {STAGES.slice(0, -1).map((s) => (
-          <span
-            key={s.key}
-            aria-hidden="true"
-            className="absolute inset-y-0 w-px"
-            style={{ left: `${(s.end / JOURNEY_TOTAL) * 100}%`, background: 'var(--hairline)' }}
-          />
+          <span key={s.key} aria-hidden="true" className="absolute inset-y-0 w-px" style={{ left: `${(s.end / JOURNEY_TOTAL) * 100}%`, background: 'var(--hairline)' }} />
         ))}
 
         {/* median marker */}
@@ -221,30 +236,27 @@ function JourneyBand({ kids, graduates, undated }: { kids: JourneyChild[]; gradu
 
         {/* plotted children */}
         {kids.map((c) => {
-          const tone = STATUS_TONE[c.status] ?? 'sky';
           const top = 12 + laneOf(c.id) * 13; // 12 → 64px lanes within the 78px band
           return (
             <span
               key={c.id}
               data-journey-dot
-              title={`${c.name} · Day ${c.day.toLocaleString('en-IN')} · ${stageOfDay(c.day)}`}
-              className={cn('absolute h-2.5 w-2.5 -translate-x-1/2 rounded-full ring-2 ring-[var(--surface-card)]', toneDotBg(tone))}
+              title={`${c.name} · Day ${c.day.toLocaleString('en-IN')} · ${stageLabel(c.day, t)}`}
+              className={cn('absolute h-2.5 w-2.5 -translate-x-1/2 rounded-full ring-2 ring-[var(--surface-card)]', toneDotBg(statusTone(c.status)))}
               style={{ left: `${(c.day / JOURNEY_TOTAL) * 100}%`, top }}
             />
           );
         })}
 
         {kids.length === 0 && (
-          <p className="absolute inset-0 grid place-items-center px-4 text-center text-xs text-stone-400">
-            Add a date of birth to plot your patients across the first 2000 days.
-          </p>
+          <p className="absolute inset-0 grid place-items-center px-4 text-center text-xs text-stone-400">{t('doctor.home.journeyEmpty')}</p>
         )}
       </div>
 
       {/* axis */}
-      <div className="mt-2 flex justify-between text-[0.66rem] font-semibold text-stone-400">
-        <span>Day 0 · Birth</span>
-        <span>Day 2,000 · ~5.5 yrs</span>
+      <div className="mt-2 flex justify-between text-[0.66rem] font-semibold tabular-nums text-stone-400">
+        <span>{t('doctor.home.journeyStart')}</span>
+        <span>{t('doctor.home.journeyEnd')}</span>
       </div>
     </div>
   );
@@ -277,6 +289,7 @@ function ActionTile({ icon: Icon, label, to, tone }: { icon: LucideIcon; label: 
 
 // ── clinical module tile ─────────────────────────────────────────────────────
 function ModuleTile({ icon: Icon, label, desc, to, tone, soon, badge }: { icon: LucideIcon; label: string; desc: string; to?: string; tone: Tone; soon?: boolean; badge?: number }) {
+  const t = useT();
   const body = (
     <Card className={cn('flex h-full items-start gap-3 p-4', to ? 'pop-hover' : 'opacity-80')}>
       <span className={cn('grid h-10 w-10 shrink-0 place-items-center rounded-xl', toneBadge[tone])}>
@@ -285,8 +298,8 @@ function ModuleTile({ icon: Icon, label, desc, to, tone, soon, badge }: { icon: 
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <p className="truncate text-sm font-bold text-stone-800">{label}</p>
-          {soon && <span className="rounded-full bg-stone-100 px-1.5 py-0.5 text-[0.6rem] font-bold uppercase tracking-wide text-stone-400">Soon</span>}
-          {badge ? <span className="ml-auto inline-grid min-w-5 place-items-center rounded-full bg-rose-500 px-1.5 text-[0.7rem] font-bold text-white">{badge}</span> : null}
+          {soon && <span className="rounded-full bg-stone-100 px-1.5 py-0.5 text-[0.6rem] font-bold uppercase tracking-wide text-stone-400">{t('doctor.home.soon')}</span>}
+          {badge ? <span className="ml-auto inline-grid min-w-5 place-items-center rounded-full bg-rose-500 px-1.5 text-[0.7rem] font-bold tabular-nums text-white">{badge}</span> : null}
         </div>
         <p className="mt-0.5 truncate text-xs text-stone-400">{desc}</p>
       </div>
@@ -318,19 +331,21 @@ function WatchRow({ icon: Icon, tone, label, count, to }: { icon: LucideIcon; to
 
 // ── schedule row ─────────────────────────────────────────────────────────────
 function ScheduleRow({ a }: { a: OverviewAppt }) {
+  const t = useT();
   const Mode = APPT_MODE[a.mode].icon;
+  const status = APPT_STATUS_META[a.status];
   return (
     <Link to={`/doctor/patients/${a.patientId}`} className="group flex items-center gap-3 rounded-2xl px-2 py-2.5 transition-colors hover:bg-stone-100">
       <div className="w-14 shrink-0 font-display text-sm font-bold tabular-nums text-stone-700">{formatTimeIST(a.start)}</div>
-      <Avatar name={a.patientName} size="sm" tone={APPT_STATUS_TONE[a.status]} />
+      <Avatar name={a.patientName} size="sm" hashColor />
       <div className="min-w-0 flex-1">
         <p className="truncate font-semibold text-stone-800">{a.patientName}</p>
         <p className="inline-flex items-center gap-1 text-xs text-stone-500">
           <Mode className="h-3 w-3" />
-          {APPT_MODE[a.mode].label} · {a.durationMin}m
+          {t(APPT_MODE[a.mode].labelKey)} · <span className="tabular-nums">{a.durationMin}m</span>
         </p>
       </div>
-      <Pill tone={APPT_STATUS_TONE[a.status]}>{titleCase(a.status)}</Pill>
+      <StatusPill label={titleCase(a.status)} tone={status.tone} icon={status.icon} />
       <ChevronRight className="h-4 w-4 text-stone-300 transition-colors group-hover:text-stone-500" />
     </Link>
   );
@@ -339,6 +354,7 @@ function ScheduleRow({ a }: { a: OverviewAppt }) {
 // ── dashboard ────────────────────────────────────────────────────────────────
 function Dashboard({ data, patients, firstName, profile }: { data: Overview; patients: Patient[] | null; firstName: string; profile: DoctorProfile | null }) {
   const { counts } = data;
+  const t = useT();
   const theme = useChartTheme();
   const rootRef = useEntrance<HTMLDivElement>([]);
   const actionsRef = useReveal<HTMLDivElement>([], { y: 14 });
@@ -382,11 +398,14 @@ function Dashboard({ data, patients, firstName, profile }: { data: Overview; pat
 
   const base =
     counts.todayAppointments > 0
-      ? `You have ${counts.todayAppointments} appointment${counts.todayAppointments === 1 ? '' : 's'} today.`
+      ? t(counts.todayAppointments === 1 ? 'doctor.home.summaryApptOne' : 'doctor.home.summaryApptMany', { n: counts.todayAppointments })
       : counts.activePatients === 0
-        ? 'Add your first patient to get started.'
-        : 'No appointments today — you’re all caught up.';
-  const summary = counts.unreadMessages > 0 ? `${base} ${counts.unreadMessages} unread message${counts.unreadMessages === 1 ? '' : 's'}.` : base;
+        ? t('doctor.home.summaryFirst')
+        : t('doctor.home.summaryNoAppts');
+  const summary =
+    counts.unreadMessages > 0
+      ? `${base} ${t(counts.unreadMessages === 1 ? 'doctor.home.summaryUnreadOne' : 'doctor.home.summaryUnreadMany', { n: counts.unreadMessages })}`
+      : base;
 
   const total = data.statusBreakdown.reduce((s, r) => s + r.count, 0);
   const weekData = data.encountersByDay.map((d) => ({
@@ -397,46 +416,46 @@ function Dashboard({ data, patients, firstName, profile }: { data: Overview; pat
   const donutData = data.statusBreakdown.map((r, i) => ({
     label: titleCase(r.status),
     value: r.count,
-    color: toneHex(STATUS_TONE[r.status] ?? FALLBACK_TONES[i % FALLBACK_TONES.length], theme),
+    color: toneHex(STATUS_META[r.status]?.tone ?? FALLBACK_TONES[i % FALLBACK_TONES.length], theme),
   }));
   const nextUp = data.upcoming.slice(0, 4);
 
   // Honest clinical watchlist — real signals only, highest-attention first.
   const watchAll: { icon: LucideIcon; tone: Tone; label: string; count: number; to: string }[] = [
-    { icon: MessageSquare, tone: 'rose', label: 'Parent messages waiting', count: counts.unreadMessages, to: '/doctor/messages' },
-    { icon: Bell, tone: 'amber', label: 'Follow-up patients', count: byStatus('follow_up'), to: '/doctor/patients' },
-    { icon: Activity, tone: 'sky', label: 'Children in observation', count: byStatus('monitoring'), to: '/doctor/patients' },
-    { icon: CalendarDays, tone: 'violet', label: 'Appointments today', count: counts.todayAppointments, to: '/doctor/schedule' },
+    { icon: MessageSquare, tone: 'rose', label: t('doctor.home.watchMessages'), count: counts.unreadMessages, to: '/doctor/messages' },
+    { icon: Bell, tone: 'amber', label: t('doctor.home.watchFollowUp'), count: byStatus('follow_up'), to: '/doctor/patients' },
+    { icon: Activity, tone: 'sky', label: t('doctor.home.watchObservation'), count: byStatus('monitoring'), to: '/doctor/patients' },
+    { icon: CalendarDays, tone: 'violet', label: t('doctor.home.watchAppts'), count: counts.todayAppointments, to: '/doctor/schedule' },
   ];
   const watch = watchAll.filter((w) => w.count > 0);
 
   const QUICK: { icon: LucideIcon; label: string; to: string; tone: Tone }[] = [
-    { icon: UserPlus, label: 'Add patient', to: '/doctor/patients', tone: 'sky' },
-    { icon: ScrollText, label: 'Prescription', to: '/doctor/patients', tone: 'violet' },
-    { icon: Syringe, label: 'Vaccination', to: '/doctor/vaccines', tone: 'rose' },
-    { icon: TrendingUp, label: 'Growth entry', to: '/doctor/growth', tone: 'emerald' },
-    { icon: FlaskConical, label: 'Lab report', to: '/doctor/patients', tone: 'amber' },
-    { icon: CalendarPlus, label: 'Follow-up', to: '/doctor/schedule', tone: 'sky' },
-    { icon: Video, label: 'Video consult', to: '/doctor/appointments', tone: 'violet' },
+    { icon: UserPlus, label: t('doctor.home.qaAddPatient'), to: '/doctor/patients', tone: 'sky' },
+    { icon: ScrollText, label: t('doctor.home.qaPrescription'), to: '/doctor/patients', tone: 'violet' },
+    { icon: Syringe, label: t('doctor.home.qaVaccination'), to: '/doctor/vaccines', tone: 'rose' },
+    { icon: TrendingUp, label: t('doctor.home.qaGrowth'), to: '/doctor/growth', tone: 'emerald' },
+    { icon: FlaskConical, label: t('doctor.home.qaLab'), to: '/doctor/patients', tone: 'amber' },
+    { icon: CalendarPlus, label: t('doctor.home.qaFollowUp'), to: '/doctor/schedule', tone: 'sky' },
+    { icon: Video, label: t('doctor.home.qaVideo'), to: '/doctor/appointments', tone: 'violet' },
   ];
 
   const MODULES: { icon: LucideIcon; label: string; desc: string; to?: string; tone: Tone; soon?: boolean; badge?: number }[] = [
-    { icon: Users, label: 'Patients', desc: 'Profiles & full history', to: '/doctor/patients', tone: 'sky' },
-    { icon: CalendarDays, label: 'Schedule', desc: 'Day & week planner', to: '/doctor/schedule', tone: 'violet' },
-    { icon: MessageSquare, label: 'Messages', desc: 'Secure parent chat', to: '/doctor/messages', tone: 'emerald', badge: counts.unreadMessages },
-    { icon: CalendarClock, label: 'Consultations', desc: 'Video & in-person', to: '/doctor/appointments', tone: 'amber' },
-    { icon: ScrollText, label: 'Prescriptions', desc: 'Smart Rx + dose calc', tone: 'violet', soon: true },
-    { icon: TrendingUp, label: 'Growth charts', desc: 'WHO percentile bands', to: '/doctor/growth', tone: 'emerald' },
-    { icon: Syringe, label: 'Vaccinations', desc: 'IAP schedule & due dates', to: '/doctor/vaccines', tone: 'rose' },
-    { icon: Calculator, label: 'Dose calculator', desc: 'Weight & age based', to: '/doctor/dose', tone: 'sky' },
-    { icon: Baby, label: 'Neonatology', desc: 'Corrected age & fluids', to: '/doctor/neonatology', tone: 'amber' },
-    { icon: Activity, label: 'Development', desc: 'Milestones & red flags', to: '/doctor/development', tone: 'violet' },
-    { icon: FlaskConical, label: 'Lab interpreter', desc: 'Flag abnormal values', to: '/doctor/labs', tone: 'sky' },
-    { icon: Sparkles, label: 'AI scribe', desc: 'Voice notes → EMR draft', tone: 'emerald', soon: true },
-    { icon: ClipboardList, label: 'Templates', desc: 'Well-baby, fever, more', tone: 'amber', soon: true },
-    { icon: BarChart3, label: 'Analytics', desc: 'Trends & compliance', to: '/doctor/analytics', tone: 'violet' },
-    { icon: CreditCard, label: 'Billing', desc: 'Receipts & collections', to: '/doctor/billing', tone: 'rose' },
-    { icon: Smartphone, label: 'Parent app', desc: 'MateoCare connection', tone: 'sky', soon: true },
+    { icon: Users, label: t('doctor.home.modPatients'), desc: t('doctor.home.modPatientsD'), to: '/doctor/patients', tone: 'sky' },
+    { icon: CalendarDays, label: t('doctor.home.modSchedule'), desc: t('doctor.home.modScheduleD'), to: '/doctor/schedule', tone: 'violet' },
+    { icon: MessageSquare, label: t('doctor.home.modMessages'), desc: t('doctor.home.modMessagesD'), to: '/doctor/messages', tone: 'emerald', badge: counts.unreadMessages },
+    { icon: CalendarClock, label: t('doctor.home.modConsults'), desc: t('doctor.home.modConsultsD'), to: '/doctor/appointments', tone: 'amber' },
+    { icon: ScrollText, label: t('doctor.home.modRx'), desc: t('doctor.home.modRxD'), tone: 'violet', soon: true },
+    { icon: TrendingUp, label: t('doctor.home.modGrowth'), desc: t('doctor.home.modGrowthD'), to: '/doctor/growth', tone: 'emerald' },
+    { icon: Syringe, label: t('doctor.home.modVaccines'), desc: t('doctor.home.modVaccinesD'), to: '/doctor/vaccines', tone: 'rose' },
+    { icon: Calculator, label: t('doctor.home.modDose'), desc: t('doctor.home.modDoseD'), to: '/doctor/dose', tone: 'sky' },
+    { icon: Baby, label: t('doctor.home.modNeo'), desc: t('doctor.home.modNeoD'), to: '/doctor/neonatology', tone: 'amber' },
+    { icon: Activity, label: t('doctor.home.modDev'), desc: t('doctor.home.modDevD'), to: '/doctor/development', tone: 'violet' },
+    { icon: FlaskConical, label: t('doctor.home.modLabs'), desc: t('doctor.home.modLabsD'), to: '/doctor/labs', tone: 'sky' },
+    { icon: Sparkles, label: t('doctor.home.modScribe'), desc: t('doctor.home.modScribeD'), tone: 'emerald', soon: true },
+    { icon: ClipboardList, label: t('doctor.home.modTemplates'), desc: t('doctor.home.modTemplatesD'), tone: 'amber', soon: true },
+    { icon: BarChart3, label: t('doctor.home.modAnalytics'), desc: t('doctor.home.modAnalyticsD'), to: '/doctor/analytics', tone: 'violet' },
+    { icon: CreditCard, label: t('doctor.home.modBilling'), desc: t('doctor.home.modBillingD'), to: '/doctor/billing', tone: 'rose' },
+    { icon: Smartphone, label: t('doctor.home.modParentApp'), desc: t('doctor.home.modParentAppD'), tone: 'sky', soon: true },
   ];
 
   return (
@@ -447,7 +466,7 @@ function Dashboard({ data, patients, firstName, profile }: { data: Overview; pat
           className="flex items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm font-medium text-amber-800 transition-colors hover:bg-amber-100"
         >
           <AlertTriangle className="h-4 w-4 shrink-0" />
-          {profile ? 'Your public profile is under review.' : 'Set up your public profile to accept consultations.'}
+          {profile ? t('doctor.home.profileReview') : t('doctor.home.profileSetup')}
           <ArrowRight className="ml-auto h-4 w-4" />
         </Link>
       )}
@@ -459,18 +478,18 @@ function Dashboard({ data, patients, firstName, profile }: { data: Overview; pat
           <div className="min-w-0">
             <p className="text-[0.72rem] font-bold uppercase tracking-[0.14em] text-stone-400">{todayLongIST()}</p>
             <h1 className="mt-1.5 font-display text-2xl font-extrabold leading-tight text-stone-900 sm:text-3xl">
-              {greetingIST()}, Dr. {firstName}
+              {t('doctor.home.greeting', { greeting: greetingIST(), name: firstName })}
             </h1>
             <p className="mt-1.5 max-w-xl text-sm text-stone-500">{summary}</p>
           </div>
           <div className="flex flex-wrap gap-2.5">
             <Link to="/doctor/patients" className={buttonClass('primary', 'md', 'shadow-card')}>
               <Plus className="h-4 w-4" />
-              Add patient
+              {t('doctor.home.addPatient')}
             </Link>
             <Link to="/doctor/schedule" className={buttonClass('secondary', 'md')}>
               <CalendarDays className="h-4 w-4" />
-              Schedule
+              {t('doctor.nav.schedule')}
             </Link>
           </div>
         </div>
@@ -487,20 +506,20 @@ function Dashboard({ data, patients, firstName, profile }: { data: Overview; pat
 
       {/* Today's snapshot */}
       <div>
-        <h2 className="mb-3 px-1 text-[0.7rem] font-bold uppercase tracking-[0.14em] text-stone-400">Today’s snapshot</h2>
+        <h2 className="mb-3 px-1 text-[0.7rem] font-bold uppercase tracking-[0.14em] text-stone-400">{t('doctor.home.snapshot')}</h2>
         <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 xl:grid-cols-6">
-          <Kpi icon={CalendarDays} label="Appointments" value={counts.todayAppointments} sub="today" tone="sky" />
-          <Kpi icon={UserPlus} label="New patients" value={newThisWeek} sub="last 7 days" tone="violet" />
-          <Kpi icon={Bell} label="Follow-ups" value={byStatus('follow_up')} sub="due" tone="amber" />
-          <Kpi icon={Activity} label="Observation" value={byStatus('monitoring')} sub="being watched" tone="rose" />
-          <Kpi icon={Stethoscope} label="Visit notes" value={counts.weekEncounters} sub="this week" tone="emerald" spark={weekSpark} />
-          <Kpi icon={MessageSquare} label="Unread" value={counts.unreadMessages} sub="messages" tone="sky" />
+          <Kpi icon={CalendarDays} label={t('doctor.home.kpiAppointments')} value={counts.todayAppointments} sub={t('doctor.home.kpiSubToday')} tone="sky" />
+          <Kpi icon={UserPlus} label={t('doctor.home.kpiNewPatients')} value={newThisWeek} sub={t('doctor.home.kpiSubWeek7')} tone="violet" />
+          <Kpi icon={Bell} label={t('doctor.home.kpiFollowUps')} value={byStatus('follow_up')} sub={t('doctor.home.kpiSubDue')} tone="amber" />
+          <Kpi icon={Activity} label={t('doctor.home.kpiObservation')} value={byStatus('monitoring')} sub={t('doctor.home.kpiSubWatched')} tone="rose" />
+          <Kpi icon={Stethoscope} label={t('doctor.home.kpiVisitNotes')} value={counts.weekEncounters} sub={t('doctor.home.kpiSubWeek')} tone="emerald" spark={weekSpark} />
+          <Kpi icon={MessageSquare} label={t('doctor.home.kpiUnread')} value={counts.unreadMessages} sub={t('doctor.home.kpiSubMsgs')} tone="sky" />
         </div>
       </div>
 
       {/* Quick actions */}
       <div>
-        <h2 className="mb-3 px-1 text-[0.7rem] font-bold uppercase tracking-[0.14em] text-stone-400">Quick actions</h2>
+        <h2 className="mb-3 px-1 text-[0.7rem] font-bold uppercase tracking-[0.14em] text-stone-400">{t('doctor.home.quickActions')}</h2>
         <div ref={actionsRef} className="grid grid-cols-2 gap-3.5 sm:grid-cols-4 xl:grid-cols-7">
           {QUICK.map((q) => (
             <ActionTile key={q.label} {...q} />
@@ -512,24 +531,24 @@ function Dashboard({ data, patients, firstName, profile }: { data: Overview; pat
       <div className="grid gap-5 lg:grid-cols-3">
         <div className="min-w-0 space-y-5 lg:col-span-2">
           <SectionCard
-            title="Weekly activity"
-            eyebrow="Visit notes · last 7 days"
-            action={<span className="font-display text-xl font-extrabold text-stone-900">{weekSpark.reduce((s, n) => s + n, 0)}</span>}
+            title={t('doctor.home.weekly')}
+            eyebrow={t('doctor.home.weeklySub')}
+            action={<span className="font-display text-xl font-extrabold tabular-nums text-stone-900">{weekSpark.reduce((s, n) => s + n, 0)}</span>}
           >
-            <AreaTrend data={weekData} xKey="day" series={[{ key: 'count', name: 'Visit notes', color: theme.brand }]} height={236} />
+            <AreaTrend data={weekData} xKey="day" series={[{ key: 'count', name: t('doctor.home.kpiVisitNotes'), color: theme.brand }]} height={236} />
           </SectionCard>
 
           <SectionCard
-            title="Today’s schedule"
+            title={t('doctor.home.todaySchedule')}
             icon={CalendarDays}
             action={
               <Link to="/doctor/schedule" className="text-sm font-semibold text-emerald-700 hover:text-emerald-800">
-                View all
+                {t('doctor.home.viewAll')}
               </Link>
             }
           >
             {data.today.length === 0 ? (
-              <EmptyState icon={CalendarDays} text="No appointments today." />
+              <EmptyState icon={CalendarDays} text={t('doctor.home.noApptsToday')} />
             ) : (
               <div className="space-y-0.5">
                 {data.today.map((a) => (
@@ -542,9 +561,9 @@ function Dashboard({ data, patients, firstName, profile }: { data: Overview; pat
 
         {/* Right column */}
         <div className="min-w-0 space-y-5">
-          <SectionCard title="Clinical watchlist" icon={AlertTriangle} eyebrow="Needs your attention">
+          <SectionCard title={t('doctor.home.watchlist')} icon={AlertTriangle} eyebrow={t('doctor.home.watchSub')}>
             {watch.length === 0 ? (
-              <EmptyState icon={Sparkles} text="All clear — nothing needs attention." />
+              <EmptyState icon={Sparkles} text={t('doctor.home.allClear')} />
             ) : (
               <div className="space-y-0.5">
                 {watch.map((w) => (
@@ -554,21 +573,25 @@ function Dashboard({ data, patients, firstName, profile }: { data: Overview; pat
             )}
           </SectionCard>
 
-          <SectionCard title="Patients by status">
-            {total === 0 ? <EmptyState icon={Users} text="No patients yet." /> : <Donut data={donutData} centerValue={total} centerLabel="patients" />}
+          <SectionCard title={t('doctor.home.byStatus')}>
+            {total === 0 ? (
+              <EmptyState icon={Users} text={t('doctor.home.noPatients')} />
+            ) : (
+              <Donut data={donutData} centerValue={total} centerLabel={t('doctor.home.patientsUnit')} />
+            )}
           </SectionCard>
 
           <SectionCard
-            title="Upcoming"
+            title={t('doctor.home.upcoming')}
             icon={Clock}
             action={
               <Link to="/doctor/appointments" className="text-xs font-semibold text-emerald-700 hover:text-emerald-800">
-                All
+                {t('doctor.home.all')}
               </Link>
             }
           >
             {nextUp.length === 0 ? (
-              <p className="text-sm text-stone-500">Nothing scheduled ahead.</p>
+              <p className="text-sm text-stone-500">{t('doctor.home.nothingAhead')}</p>
             ) : (
               <div className="space-y-1.5">
                 {nextUp.map((a) => {
@@ -593,20 +616,19 @@ function Dashboard({ data, patients, firstName, profile }: { data: Overview; pat
 
       {/* Recent patients — with live journey position */}
       <SectionCard
-        title="Recent patients"
+        title={t('doctor.home.recent')}
         icon={Users}
         action={
           <Link to="/doctor/patients" className="text-sm font-semibold text-emerald-700 hover:text-emerald-800">
-            View all
+            {t('doctor.home.viewAll')}
           </Link>
         }
       >
         {data.recentPatients.length === 0 ? (
-          <EmptyState icon={Users} text="No patients yet." />
+          <EmptyState icon={Users} text={t('doctor.home.noPatients')} />
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {data.recentPatients.map((p) => {
-              const tone = STATUS_TONE[p.status] ?? 'stone';
               const day = dayById.get(p.id);
               return (
                 <Link
@@ -615,14 +637,16 @@ function Dashboard({ data, patients, firstName, profile }: { data: Overview; pat
                   className="pop-hover flex items-center gap-3 rounded-2xl border p-3"
                   style={{ borderColor: 'var(--hairline)' }}
                 >
-                  <Avatar name={p.name} size="md" tone={tone} />
+                  <Avatar name={p.name} size="md" hashColor />
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-semibold text-stone-800">{p.name}</p>
                     <p className="truncate text-xs text-stone-400">
-                      {day != null ? `Day ${day.toLocaleString('en-IN')} · ${stageOfDay(day)}` : `Updated ${relativePastIST(p.updatedAt).toLowerCase()}`}
+                      {day != null
+                        ? t('doctor.home.dayStage', { day: day.toLocaleString('en-IN'), stage: stageLabel(day, t) })
+                        : t('doctor.home.updated', { when: relativePastIST(p.updatedAt).toLowerCase() })}
                     </p>
                   </div>
-                  <Pill tone={tone}>{titleCase(p.status)}</Pill>
+                  <StatusPill label={titleCase(p.status)} tone={statusTone(p.status)} icon={statusIcon(p.status)} />
                 </Link>
               );
             })}
@@ -633,8 +657,8 @@ function Dashboard({ data, patients, firstName, profile }: { data: Overview; pat
       {/* Clinical modules */}
       <div>
         <div className="mb-3 flex items-end justify-between px-1">
-          <h2 className="text-[0.7rem] font-bold uppercase tracking-[0.14em] text-stone-400">Clinical modules</h2>
-          <span className="text-[0.7rem] font-medium text-stone-400">The full MateoCare pediatric suite</span>
+          <h2 className="text-[0.7rem] font-bold uppercase tracking-[0.14em] text-stone-400">{t('doctor.home.modules')}</h2>
+          <span className="text-[0.7rem] font-medium text-stone-400">{t('doctor.home.modulesSub')}</span>
         </div>
         <div ref={modulesRef} className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 xl:grid-cols-4">
           {MODULES.map((m) => (
