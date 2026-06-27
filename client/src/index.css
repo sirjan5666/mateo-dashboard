@@ -1,0 +1,657 @@
+@import "tailwindcss";
+/* Nunito (body) + Fredoka (display) are self-hosted via @fontsource (main.tsx). */
+
+/* ============================================================
+   Mateo — PLAYFUL KIDS theme 🎈
+   Poppy vibrant purple (#7C5CFC) on an airy lavender canvas,
+   candy-bright category accents, big bubbly radii, soft colourful
+   shadows, and a sprinkle of gentle animation. Built to feel like
+   a friendly kids app — while keeping every medical disclaimer,
+   red-flag, and safety wording exactly intact.
+   ============================================================ */
+:root {
+  --background: #f5f2fe;
+  --foreground: #3a2e63;
+  --card: #ffffff;
+  --card-foreground: #3a2e63;
+  --primary: #7c5cfc;
+  --primary-foreground: #ffffff;
+  --secondary: #efeafe;
+  --secondary-foreground: #3a2e63;
+  --muted: #efeafe;
+  /* Darkened to clear WCAG AA (4.5:1) on white cards, the lavender canvas, and pale tiles */
+  --muted-foreground: #655d8a;
+  --accent: #ede7ff;
+  --accent-foreground: #5b3fd6;
+  --destructive: #ff6b81;
+  --destructive-foreground: #ffffff;
+  --border: rgba(58, 46, 99, 0.1);
+  --input-background: #f3effe;
+  --ring: #7c5cfc;
+
+  /* Status — bright bg, AA-legible text (darkened to clear 4.5:1 on bg + white) */
+  --status-ontrack-bg: #e0f8ec;
+  --status-ontrack-text: #0f7a4e;
+  --status-duesoon-bg: #fff1d9;
+  --status-duesoon-text: #9a6000;
+  --status-overdue-bg: #ffe4e8;
+  --status-overdue-text: #c22847;
+  --status-info-bg: #e4efff;
+  --status-info-text: #2056b8;
+
+  /* Candy category accents — bright --cat-* for icon fills/decoration ONLY;
+     darker --cat-*-text variants for any text/links (AA ≥4.5:1 on white + pale bg). */
+  --cat-vaccine: #ff6b81;
+  --cat-vaccine-bg: #ffe5ea;
+  --cat-vaccine-text: #b32a42;
+  --cat-growth: #25c281;
+  --cat-growth-bg: #d9f7ea;
+  --cat-growth-text: #15805a;
+  --cat-food: #ff9f40;
+  --cat-food-bg: #ffeed8;
+  --cat-food-text: #8f5400;
+  --cat-skin: #ff7ac0;
+  --cat-skin-bg: #ffe5f4;
+  --cat-skin-text: #c0357b;
+  --cat-sleep: #6c8bff;
+  --cat-sleep-bg: #e6ecff;
+  --cat-sleep-text: #3a5bd9;
+  --cat-milestone: #ffc93c;
+  --cat-milestone-bg: #fff3d2;
+  --cat-milestone-text: #8a5e00;
+  --cat-record: #22cabe;
+  --cat-record-bg: #d6f7f4;
+  --cat-record-text: #0a6f68;
+  --cat-assistant: #a855f7;
+  --cat-assistant-bg: #f1e3ff;
+  --cat-assistant-text: #7e3bbf;
+
+  /* Brand palette */
+  --brand-purple: #7c5cfc;
+  --brand-purple-deep: #5b3fd6;
+  --brand-purple-tint: #ede7ff;
+  --text-muted-color: #6f6796;
+
+  /* Poppy multi-colour brand gradient — logo mark, avatars */
+  --brand-gradient: linear-gradient(135deg, #8b6bff 0%, #7c5cfc 45%, #b06bff 100%);
+
+  /* Aliases used by some custom CSS */
+  --app-bg: var(--background);
+  --surface-card: var(--card);
+  --surface-subtle: var(--secondary);
+  --primary-hover: var(--brand-purple-deep);
+  --primary-tint: var(--accent);
+  --text-primary: var(--foreground);
+  --text-secondary: var(--muted-foreground);
+  --text-muted: var(--text-muted-color);
+
+  /* Themable surface model — defaults here keep the (non-pro) parent app
+     pixel-identical to before; the [data-theme="pro"] scope overrides them. */
+  --surface-app: var(--background);
+  --surface-raised: var(--card);
+  --surface-sunken: var(--secondary);
+  --hairline: var(--border);
+  --card-radius: 26px;
+
+  /* Height of the admin "viewing as" top bar. 0 normally; the shells reserve
+     this much space at the top, so the bar never overlaps the sidebar/topbar. */
+  --imp-bar-h: 0px;
+}
+
+/* Toggled on <body> by <ImpersonationBanner> only while an admin is impersonating. */
+body.is-impersonating {
+  --imp-bar-h: 44px;
+}
+
+@theme {
+  --font-sans: "Nunito", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Fredoka", "Nunito", ui-sans-serif, system-ui, sans-serif;
+
+  /* Bubbly radii */
+  --radius: 1rem;
+
+  /* Soft, colourful poppy shadows */
+  --shadow-soft: 0 4px 16px -6px rgb(124 92 252 / 0.16), 0 2px 5px -3px rgb(58 46 99 / 0.08);
+  --shadow-card: 0 14px 32px -14px rgb(124 92 252 / 0.28);
+  --shadow-lift: 0 26px 48px -18px rgb(124 92 252 / 0.36);
+
+  /* ---- Palette remap (skins existing Tailwind-classed components) ---- */
+  /* Neutrals — soft lavender-greys + purple ink */
+  --color-stone-50: #f5f2fe;
+  --color-stone-100: #efeafe;
+  --color-stone-200: #e4ddf7;
+  --color-stone-300: #cfc6ea;
+  --color-stone-400: #9a91c0;
+  --color-stone-500: #655d8a;
+  --color-stone-600: #5f5884;
+  --color-stone-700: #463f66;
+  --color-stone-800: #3a2e63;
+  --color-stone-900: #271d47;
+
+  /* Brand — vibrant purple (emerald + violet + teal ramps map to brand) */
+  --color-emerald-50: #ede7ff;
+  --color-emerald-100: #ddd2ff;
+  --color-emerald-200: #c8b6ff;
+  --color-emerald-500: #7c5cfc;
+  --color-emerald-600: #7c5cfc;
+  --color-emerald-700: #6b48ef;
+  --color-emerald-800: #5b3fd6;
+  --color-emerald-900: #4a32ac;
+  --color-violet-50: #f1e3ff;
+  --color-violet-100: #e4ccff;
+  --color-violet-500: #a855f7;
+  --color-violet-600: #9b46ee;
+  --color-violet-700: #8a37dd;
+  --color-violet-800: #7330b8;
+  --color-teal-100: #ddd2ff;
+  --color-teal-600: #5b3fd6;
+
+  /* Success — candy green */
+  --color-green-50: #e0f8ec;
+  --color-green-100: #c4f1da;
+  --color-green-500: #25c281;
+  --color-green-600: #1fae72;
+  --color-green-700: #15805a;
+  --color-green-800: #0f7a4e;
+
+  /* Due soon — sunny orange/amber */
+  --color-amber-50: #fff1d9;
+  --color-amber-100: #ffe3b3;
+  --color-amber-500: #f5a623;
+  --color-amber-600: #c07e10;
+  --color-amber-800: #9a6000;
+
+  /* Overdue / error — bright coral */
+  --color-rose-50: #ffe4e8;
+  --color-rose-100: #ffccd5;
+  --color-rose-200: #ffaab8;
+  --color-rose-500: #ff6b81;
+  --color-rose-600: #e23a5c;
+  --color-rose-700: #c22847;
+
+  /* Info — bright sky-blue */
+  --color-sky-50: #e4efff;
+  --color-sky-100: #cfe1ff;
+  --color-sky-500: #5b8def;
+  --color-sky-600: #3f74e0;
+  --color-sky-800: #2056b8;
+
+  /* Playful animation timings */
+  --animate-float: float 3.4s ease-in-out infinite;
+  --animate-floatslow: float 5s ease-in-out infinite;
+  --animate-popin: popin 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  --animate-wiggle: wiggle 0.5s ease-in-out;
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+  }
+  @keyframes popin {
+    0% { opacity: 0; transform: scale(0.92) translateY(10px); }
+    100% { opacity: 1; transform: scale(1) translateY(0); }
+  }
+  @keyframes wiggle {
+    0%, 100% { transform: rotate(0deg); }
+    25% { transform: rotate(-5deg); }
+    75% { transform: rotate(5deg); }
+  }
+  @keyframes pulseglow {
+    0%, 100% { box-shadow: 0 0 0 0 rgb(124 92 252 / 0.35); }
+    50% { box-shadow: 0 0 0 10px rgb(124 92 252 / 0); }
+  }
+  @keyframes blobdrift {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    33% { transform: translate(20px, -18px) scale(1.06); }
+    66% { transform: translate(-14px, 12px) scale(0.96); }
+  }
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    @apply bg-stone-50 text-stone-800 antialiased;
+    line-height: 1.6;
+  }
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    letter-spacing: 0.01em;
+    font-weight: 600;
+  }
+  :focus-visible {
+    @apply outline-none ring-2 ring-emerald-500/55 ring-offset-2 ring-offset-white;
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: var(--font-display);
+  }
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-stone-200) transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: var(--color-stone-200);
+    border-radius: 9999px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .eyebrow {
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted-color);
+  }
+
+  .brand-gradient {
+    background: var(--brand-gradient);
+  }
+
+  /* Mascots gently bob */
+  .animate-float {
+    animation: var(--animate-float);
+  }
+  .animate-floatslow {
+    animation: var(--animate-floatslow);
+  }
+  /* Cards pop in on mount */
+  .animate-popin {
+    animation: var(--animate-popin);
+  }
+  /* Hover lift + squish for tappable cards */
+  .pop-hover {
+    transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.22s ease;
+  }
+  .pop-hover:hover {
+    transform: translateY(-5px) scale(1.015);
+    box-shadow: var(--shadow-card);
+  }
+  .wiggle-hover:hover {
+    animation: var(--animate-wiggle);
+  }
+  .blob {
+    animation: blobdrift 16s ease-in-out infinite;
+    filter: blur(36px);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-float,
+    .animate-floatslow,
+    .animate-popin,
+    .blob,
+    .pop-hover,
+    .wiggle-hover:hover {
+      animation: none !important;
+      transition: none !important;
+    }
+  }
+}
+
+::selection {
+  background-color: #ddd2ff;
+  color: var(--brand-purple-deep);
+}
+
+/* Ask Tara hero search — borderless: no focus border/ring, just a gentle shadow
+   lift on focus, and suppress the inner input's focus-visible ring. */
+.ask-tara-box {
+  box-shadow: var(--shadow-card);
+}
+.ask-tara-box:focus-within {
+  box-shadow: var(--shadow-lift);
+}
+.ask-tara-box input:focus,
+.ask-tara-box input:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+/* ============================================================
+   PROFESSIONAL PANEL THEME  — [data-theme="pro"]
+   A calm, clinical SaaS skin (sky-blue + slate on white) applied ONLY to the
+   Admin, Doctor and Patient-portal shells. It works by re-pointing the Tailwind
+   palette CUSTOM PROPERTIES that those panels already use (emerald→azure brand,
+   stone→cool slate, the semantic tones muted) within this scope. Because every
+   Tailwind utility resolves `var(--color-*)` at use-time, overriding the vars on
+   the shell wrapper re-skins the whole subtree — the parent baby app, which sits
+   outside this scope, is untouched. A [data-mode="dark"] variant inverts it.
+   These overrides are intentionally UNLAYERED so they beat Tailwind's @theme.
+   ============================================================ */
+[data-theme='pro'] {
+  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+
+  /* Clean, modern medical radius */
+  --radius: 0.875rem;
+  --card-radius: 16px;
+
+  /* Core tokens — blue primary on slate */
+  --background: #f8fafc;
+  --foreground: #1e293b;
+  --card: #ffffff;
+  --card-foreground: #1e293b;
+  --primary: #2563eb;
+  --primary-foreground: #ffffff;
+  --secondary: #f1f5f9;
+  --secondary-foreground: #334155;
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+  --accent: #eff6ff;
+  --accent-foreground: #1e40af;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --border: #e2e8f0;
+  --input-background: #f8fafc;
+  --ring: #2563eb;
+
+  /* Surface model */
+  --surface-app: #f8fafc;
+  --surface-card: #ffffff;
+  --surface-raised: #ffffff;
+  --surface-sunken: #f1f5f9;
+  --hairline: #e2e8f0;
+
+  /* Dark-navy sidebar (PanelShell) */
+  --panel-sidebar: #0f172a;
+  --panel-sidebar-raised: #1e293b;
+  --panel-sidebar-fg: #cbd5e1;
+  --panel-sidebar-muted: #64748b;
+  --panel-sidebar-border: rgba(255, 255, 255, 0.08);
+
+  /* Brand → blue */
+  --brand-purple: #2563eb;
+  --brand-purple-deep: #1e40af;
+  --brand-purple-tint: #eff6ff;
+  --text-muted-color: #64748b;
+  --brand-gradient: linear-gradient(135deg, #3b82f6 0%, #2563eb 55%, #1e40af 100%);
+
+  /* Status */
+  --status-ontrack-bg: #f0fdf4;
+  --status-ontrack-text: #15803d;
+  --status-duesoon-bg: #fefce8;
+  --status-duesoon-text: #a16207;
+  --status-overdue-bg: #fef2f2;
+  --status-overdue-text: #b91c1c;
+  --status-info-bg: #eff6ff;
+  --status-info-text: #1e40af;
+
+  /* Soft slate elevation */
+  --shadow-soft: 0 1px 2px rgba(15, 23, 42, 0.05), 0 4px 14px -6px rgba(15, 23, 42, 0.1);
+  --shadow-card: 0 2px 6px -2px rgba(15, 23, 42, 0.08), 0 14px 30px -16px rgba(15, 23, 42, 0.18);
+  --shadow-lift: 0 8px 24px -8px rgba(15, 23, 42, 0.2);
+
+  /* ── Tailwind palette remap (scoped) ── */
+  /* Neutrals — slate */
+  --color-stone-50: #f8fafc;
+  --color-stone-100: #f1f5f9;
+  --color-stone-200: #e2e8f0;
+  --color-stone-300: #cbd5e1;
+  --color-stone-400: #94a3b8;
+  --color-stone-500: #64748b;
+  --color-stone-600: #475569;
+  --color-stone-700: #334155;
+  --color-stone-800: #1e293b;
+  --color-stone-900: #0f172a;
+
+  /* Brand ramp (emerald slot) → blue */
+  --color-emerald-50: #eff6ff;
+  --color-emerald-100: #dbeafe;
+  --color-emerald-200: #bfdbfe;
+  --color-emerald-500: #3b82f6;
+  --color-emerald-600: #2563eb;
+  --color-emerald-700: #1d4ed8;
+  --color-emerald-800: #1e40af;
+  --color-emerald-900: #1e3a8a;
+
+  /* Secondary accent (violet slot) → purple */
+  --color-violet-50: #f5f3ff;
+  --color-violet-100: #ede9fe;
+  --color-violet-500: #8b5cf6;
+  --color-violet-600: #7c3aed;
+  --color-violet-700: #6d28d9;
+  --color-violet-800: #5b21b6;
+
+  /* Info (sky slot) → blue (monitoring) */
+  --color-sky-50: #eff6ff;
+  --color-sky-100: #dbeafe;
+  --color-sky-500: #3b82f6;
+  --color-sky-600: #2563eb;
+  --color-sky-700: #1d4ed8;
+  --color-sky-800: #1e40af;
+
+  /* Success — green */
+  --color-green-50: #f0fdf4;
+  --color-green-100: #dcfce7;
+  --color-green-500: #22c55e;
+  --color-green-600: #16a34a;
+  --color-green-700: #15803d;
+  --color-green-800: #166534;
+
+  /* Warning — yellow */
+  --color-amber-50: #fefce8;
+  --color-amber-100: #fef9c3;
+  --color-amber-500: #eab308;
+  --color-amber-600: #ca8a04;
+  --color-amber-700: #a16207;
+  --color-amber-800: #854d0e;
+
+  /* Alert — red */
+  --color-rose-50: #fef2f2;
+  --color-rose-100: #fee2e2;
+  --color-rose-200: #fecaca;
+  --color-rose-500: #ef4444;
+  --color-rose-600: #dc2626;
+  --color-rose-700: #b91c1c;
+
+  /* Teal accent */
+  --color-teal-100: #ccfbf1;
+  --color-teal-600: #0d9488;
+}
+
+/* Headings inside pro use the display font + a tighter, corporate tracking */
+[data-theme='pro'] h1,
+[data-theme='pro'] h2,
+[data-theme='pro'] h3 {
+  font-family: var(--font-display);
+  letter-spacing: -0.01em;
+  font-weight: 700;
+}
+
+/* Calm the focus ring offset for both modes */
+[data-theme='pro'] :focus-visible {
+  outline: none;
+}
+
+/* Professional = restrained motion: neutralise the app's playful transforms.
+   Subtle fades/lifts stay (handled by GSAP + .pop-hover translate), but the
+   bouncy float/wiggle/blob/pop-in are turned off inside the panels. */
+[data-theme='pro'] .animate-float,
+[data-theme='pro'] .animate-floatslow,
+[data-theme='pro'] .animate-popin,
+[data-theme='pro'] .wiggle-hover:hover,
+[data-theme='pro'] .blob {
+  animation: none !important;
+}
+[data-theme='pro'] .pop-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-card);
+}
+
+/* ── DARK MODE ─────────────────────────────────────────────────────────────
+   Inverts the slate ramp (50 = darkest surface … 900 = lightest ink) and turns
+   the semantic tone tints into translucent fills with light text, so the same
+   utilities (bg-stone-50, text-stone-800, bg-green-50, …) read correctly. */
+[data-theme='pro'][data-mode='dark'] {
+  color-scheme: dark;
+
+  --background: #0b1120;
+  --foreground: #f1f5f9;
+  --card: #1e293b;
+  --card-foreground: #f1f5f9;
+  --primary: #3b82f6;
+  --primary-foreground: #ffffff;
+  --secondary: #1e293b;
+  --secondary-foreground: #cbd5e1;
+  --muted: #1e293b;
+  --muted-foreground: #94a3b8;
+  --accent: #1e3a8a;
+  --accent-foreground: #bfdbfe;
+  --destructive: #f87171;
+  --border: rgba(255, 255, 255, 0.08);
+  --input-background: #0f172a;
+  --ring: #3b82f6;
+
+  --surface-app: #0b1120;
+  --surface-card: #1e293b;
+  --surface-raised: #334155;
+  --surface-sunken: #0f172a;
+  --hairline: rgba(255, 255, 255, 0.08);
+
+  --panel-sidebar: #0b1120;
+  --panel-sidebar-raised: #1e293b;
+  --panel-sidebar-fg: #cbd5e1;
+  --panel-sidebar-muted: #64748b;
+  --panel-sidebar-border: rgba(255, 255, 255, 0.08);
+
+  --brand-purple: #3b82f6;
+  --brand-purple-deep: #60a5fa;
+  --brand-purple-tint: #1e3a8a;
+  --text-muted-color: #94a3b8;
+  --brand-gradient: linear-gradient(135deg, #3b82f6 0%, #2563eb 55%, #1d4ed8 100%);
+
+  --status-ontrack-bg: rgba(34, 197, 94, 0.18);
+  --status-ontrack-text: #4ade80;
+  --status-duesoon-bg: rgba(234, 179, 8, 0.18);
+  --status-duesoon-text: #facc15;
+  --status-overdue-bg: rgba(239, 68, 68, 0.2);
+  --status-overdue-text: #f87171;
+  --status-info-bg: rgba(59, 130, 246, 0.18);
+  --status-info-text: #60a5fa;
+
+  --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 14px -6px rgba(0, 0, 0, 0.5);
+  --shadow-card: 0 2px 6px -2px rgba(0, 0, 0, 0.5), 0 16px 32px -16px rgba(0, 0, 0, 0.6);
+  --shadow-lift: 0 10px 28px -8px rgba(0, 0, 0, 0.65);
+
+  /* Slate ramp — inverted (surfaces dark, ink light) */
+  --color-stone-50: #0f172a;
+  --color-stone-100: #1e293b;
+  --color-stone-200: #334155;
+  --color-stone-300: #475569;
+  --color-stone-400: #64748b;
+  --color-stone-500: #94a3b8;
+  --color-stone-600: #cbd5e1;
+  --color-stone-700: #e2e8f0;
+  --color-stone-800: #f1f5f9;
+  --color-stone-900: #f8fafc;
+
+  /* Brand blue — lifted for contrast on dark */
+  --color-emerald-50: rgba(59, 130, 246, 0.16);
+  --color-emerald-100: rgba(59, 130, 246, 0.24);
+  --color-emerald-200: rgba(59, 130, 246, 0.32);
+  --color-emerald-500: #3b82f6;
+  --color-emerald-600: #4b8ef8;
+  --color-emerald-700: #60a5fa;
+  --color-emerald-800: #93c5fd;
+  --color-emerald-900: #bfdbfe;
+
+  --color-violet-50: rgba(139, 92, 246, 0.16);
+  --color-violet-100: rgba(139, 92, 246, 0.24);
+  --color-violet-500: #a78bfa;
+  --color-violet-600: #b69dfb;
+  --color-violet-700: #c4b5fd;
+  --color-violet-800: #ddd6fe;
+
+  --color-sky-50: rgba(59, 130, 246, 0.16);
+  --color-sky-100: rgba(59, 130, 246, 0.24);
+  --color-sky-500: #60a5fa;
+  --color-sky-600: #7cb0fb;
+  --color-sky-700: #93c5fd;
+  --color-sky-800: #bfdbfe;
+
+  --color-green-50: rgba(34, 197, 94, 0.16);
+  --color-green-100: rgba(34, 197, 94, 0.24);
+  --color-green-500: #4ade80;
+  --color-green-600: #5fe393;
+  --color-green-700: #86efac;
+  --color-green-800: #bbf7d0;
+
+  --color-amber-50: rgba(234, 179, 8, 0.16);
+  --color-amber-100: rgba(234, 179, 8, 0.24);
+  --color-amber-500: #facc15;
+  --color-amber-600: #fcd84a;
+  --color-amber-700: #fde68a;
+  --color-amber-800: #fef08a;
+
+  --color-rose-50: rgba(239, 68, 68, 0.18);
+  --color-rose-100: rgba(239, 68, 68, 0.26);
+  --color-rose-200: rgba(239, 68, 68, 0.36);
+  --color-rose-500: #f87171;
+  --color-rose-600: #fb8a8a;
+  --color-rose-700: #fca5a5;
+
+  --color-teal-100: rgba(13, 148, 136, 0.26);
+  --color-teal-600: #2dd4bf;
+}
+
+/* Selection inside pro */
+[data-theme='pro'] ::selection {
+  background-color: #b6d9f0;
+  color: #123f5c;
+}
+[data-theme='pro'][data-mode='dark'] ::selection {
+  background-color: #1f6fa8;
+  color: #eef3fa;
+}
+
+/* ============================================================
+   DOCTOR HOME — "First 2000 Days" journey band + hero aurora
+   Additive only, scoped to the pro panel. No overrides of existing
+   rules; just new custom-properties + decoration utilities.
+   ============================================================ */
+[data-theme='pro'] {
+  /* The developmental arc: blue → purple → green → yellow (matches the new palette). */
+  --journey-gradient: linear-gradient(90deg, #2563eb 0%, #8b5cf6 36%, #16a34a 70%, #eab308 100%);
+  --journey-track: #e2e8f0;
+}
+[data-theme='pro'][data-mode='dark'] {
+  --journey-gradient: linear-gradient(90deg, #3b82f6 0%, #a78bfa 36%, #4ade80 70%, #facc15 100%);
+  --journey-track: rgba(255, 255, 255, 0.07);
+}
+
+/* Soft aurora wash behind the doctor-home hero — pure, restrained decoration.
+   Uses background-image (not the `background` shorthand) so it layers OVER the
+   card's --surface-card background-color instead of clearing it. */
+.hero-aurora {
+  background-image:
+    radial-gradient(120% 150% at 0% 0%, color-mix(in srgb, var(--brand-purple) 16%, transparent) 0%, transparent 55%),
+    radial-gradient(130% 170% at 100% 0%, color-mix(in srgb, #8b5cf6 13%, transparent) 0%, transparent 52%);
+}
+
+/* The "today" pulse on the journey now-marker. Named distinctly so the pro
+   motion-neutralisation (which only silences the playful float/wiggle/blob/pop)
+   leaves it intact; still disabled under reduced-motion below. */
+@keyframes journeyPulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 42%, transparent); }
+  50% { box-shadow: 0 0 0 7px color-mix(in srgb, var(--primary) 0%, transparent); }
+}
+.journey-now {
+  animation: journeyPulse 2.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .journey-now {
+    animation: none !important;
+  }
+}

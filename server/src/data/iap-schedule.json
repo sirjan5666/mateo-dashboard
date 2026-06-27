@@ -1,0 +1,67 @@
+{
+  "meta": {
+    "name": "Mateo Vaccination Schedule (IAP-aligned)",
+    "version": "0.1-draft",
+    "status": "REQUIRES PEDIATRICIAN SIGN-OFF BEFORE LAUNCH",
+    "notes": "due_day = ideal due date as days after DOB. window_start_day/window_end_day define the acceptable range; reminders fire at window_start_day - 7. UI should show 'due' from window_start and 'overdue' after window_end.",
+    "source": "Parent-provided IAP-style chart, June 2026",
+    "units": "days_after_birth"
+  },
+  "vaccines": [
+    { "id": "bcg",        "vaccine": "BCG",            "dose_label": "Single dose", "series": "BCG",        "due_day": 0,    "window_start_day": 0,    "window_end_day": 28,   "protects_against": "Tuberculosis", "applicable_to": "all", "notes": "Given at birth, ideally before hospital discharge." },
+    { "id": "hepb_1",     "vaccine": "Hepatitis B",    "dose_label": "Dose 1",      "series": "HepB",       "due_day": 0,    "window_start_day": 0,    "window_end_day": 1,    "protects_against": "Hepatitis B", "applicable_to": "all", "notes": "Birth dose, within 24 hours." },
+    { "id": "opv_0",      "vaccine": "OPV",            "dose_label": "Birth dose",  "series": "Polio",      "due_day": 0,    "window_start_day": 0,    "window_end_day": 15,   "protects_against": "Polio", "applicable_to": "all", "notes": "Oral polio birth dose." },
+
+    { "id": "dtp_1",      "vaccine": "DTwP/DTaP",      "dose_label": "Dose 1",      "series": "DTP",        "due_day": 42,   "window_start_day": 42,   "window_end_day": 70,   "protects_against": "Diphtheria, Tetanus, Pertussis", "applicable_to": "all", "notes": "" },
+    { "id": "hib_1",      "vaccine": "Hib",            "dose_label": "Dose 1",      "series": "Hib",        "due_day": 42,   "window_start_day": 42,   "window_end_day": 70,   "protects_against": "Haemophilus influenzae type b", "applicable_to": "all", "notes": "" },
+    { "id": "ipv_1",      "vaccine": "IPV",            "dose_label": "Dose 1",      "series": "Polio",      "due_day": 42,   "window_start_day": 42,   "window_end_day": 70,   "protects_against": "Polio", "applicable_to": "all", "notes": "" },
+    { "id": "hepb_2",     "vaccine": "Hepatitis B",    "dose_label": "Dose 2",      "series": "HepB",       "due_day": 42,   "window_start_day": 42,   "window_end_day": 70,   "protects_against": "Hepatitis B", "applicable_to": "all", "notes": "" },
+    { "id": "pcv_1",      "vaccine": "PCV",            "dose_label": "Dose 1",      "series": "PCV",        "due_day": 42,   "window_start_day": 42,   "window_end_day": 70,   "protects_against": "Pneumococcal disease", "applicable_to": "all", "notes": "" },
+    { "id": "rota_1",     "vaccine": "Rotavirus",      "dose_label": "Dose 1",      "series": "Rota",       "due_day": 42,   "window_start_day": 42,   "window_end_day": 70,   "protects_against": "Rotavirus diarrhoea", "applicable_to": "all", "notes": "" },
+
+    { "id": "dtp_2",      "vaccine": "DTwP/DTaP",      "dose_label": "Dose 2",      "series": "DTP",        "due_day": 70,   "window_start_day": 70,   "window_end_day": 98,   "protects_against": "Diphtheria, Tetanus, Pertussis", "applicable_to": "all", "notes": "" },
+    { "id": "hib_2",      "vaccine": "Hib",            "dose_label": "Dose 2",      "series": "Hib",        "due_day": 70,   "window_start_day": 70,   "window_end_day": 98,   "protects_against": "Haemophilus influenzae type b", "applicable_to": "all", "notes": "" },
+    { "id": "ipv_2",      "vaccine": "IPV",            "dose_label": "Dose 2",      "series": "Polio",      "due_day": 70,   "window_start_day": 70,   "window_end_day": 98,   "protects_against": "Polio", "applicable_to": "all", "notes": "" },
+    { "id": "hepb_3",     "vaccine": "Hepatitis B",    "dose_label": "Dose 3",      "series": "HepB",       "due_day": 70,   "window_start_day": 70,   "window_end_day": 98,   "protects_against": "Hepatitis B", "applicable_to": "all", "notes": "" },
+    { "id": "pcv_2",      "vaccine": "PCV",            "dose_label": "Dose 2",      "series": "PCV",        "due_day": 70,   "window_start_day": 70,   "window_end_day": 98,   "protects_against": "Pneumococcal disease", "applicable_to": "all", "notes": "" },
+    { "id": "rota_2",     "vaccine": "Rotavirus",      "dose_label": "Dose 2",      "series": "Rota",       "due_day": 70,   "window_start_day": 70,   "window_end_day": 98,   "protects_against": "Rotavirus diarrhoea", "applicable_to": "all", "notes": "" },
+
+    { "id": "dtp_3",      "vaccine": "DTwP/DTaP",      "dose_label": "Dose 3",      "series": "DTP",        "due_day": 98,   "window_start_day": 98,   "window_end_day": 126,  "protects_against": "Diphtheria, Tetanus, Pertussis", "applicable_to": "all", "notes": "" },
+    { "id": "hib_3",      "vaccine": "Hib",            "dose_label": "Dose 3",      "series": "Hib",        "due_day": 98,   "window_start_day": 98,   "window_end_day": 126,  "protects_against": "Haemophilus influenzae type b", "applicable_to": "all", "notes": "" },
+    { "id": "ipv_3",      "vaccine": "IPV",            "dose_label": "Dose 3",      "series": "Polio",      "due_day": 98,   "window_start_day": 98,   "window_end_day": 126,  "protects_against": "Polio", "applicable_to": "all", "notes": "" },
+    { "id": "hepb_4",     "vaccine": "Hepatitis B",    "dose_label": "Dose 4",      "series": "HepB",       "due_day": 98,   "window_start_day": 98,   "window_end_day": 126,  "protects_against": "Hepatitis B", "applicable_to": "all", "notes": "" },
+    { "id": "pcv_3",      "vaccine": "PCV",            "dose_label": "Dose 3",      "series": "PCV",        "due_day": 98,   "window_start_day": 98,   "window_end_day": 126,  "protects_against": "Pneumococcal disease", "applicable_to": "all", "notes": "" },
+    { "id": "rota_3",     "vaccine": "Rotavirus",      "dose_label": "Dose 3",      "series": "Rota",       "due_day": 98,   "window_start_day": 98,   "window_end_day": 126,  "protects_against": "Rotavirus diarrhoea", "applicable_to": "all", "notes": "Third dose depends on vaccine brand used (2-dose vs 3-dose schedule) — confirm with doctor. PEDIATRICIAN: verify." },
+
+    { "id": "flu_1",      "vaccine": "Influenza",      "dose_label": "Dose 1",      "series": "Flu",        "due_day": 180,  "window_start_day": 180,  "window_end_day": 210,  "protects_against": "Influenza", "applicable_to": "all", "notes": "" },
+    { "id": "flu_2",      "vaccine": "Influenza",      "dose_label": "Dose 2",      "series": "Flu",        "due_day": 210,  "window_start_day": 210,  "window_end_day": 240,  "protects_against": "Influenza", "applicable_to": "all", "notes": "Given 4 weeks after first dose." },
+    { "id": "tcv",        "vaccine": "Typhoid Conjugate Vaccine", "dose_label": "Single dose", "series": "TCV", "due_day": 180, "window_start_day": 180, "window_end_day": 270, "protects_against": "Typhoid", "applicable_to": "all", "notes": "Anytime between 6-9 months." },
+
+    { "id": "mmr_1",      "vaccine": "MMR",            "dose_label": "Dose 1",      "series": "MMR",        "due_day": 270,  "window_start_day": 270,  "window_end_day": 365,  "protects_against": "Measles, Mumps, Rubella", "applicable_to": "all", "notes": "" },
+    { "id": "hepa_1",     "vaccine": "Hepatitis A",    "dose_label": "Dose 1",      "series": "HepA",       "due_day": 365,  "window_start_day": 365,  "window_end_day": 450,  "protects_against": "Hepatitis A", "applicable_to": "all", "notes": "" },
+    { "id": "pcv_b",      "vaccine": "PCV",            "dose_label": "Booster",     "series": "PCV",        "due_day": 365,  "window_start_day": 365,  "window_end_day": 450,  "protects_against": "Pneumococcal disease", "applicable_to": "all", "notes": "12-15 months window." },
+
+    { "id": "mmr_2",      "vaccine": "MMR",            "dose_label": "Dose 2",      "series": "MMR",        "due_day": 450,  "window_start_day": 450,  "window_end_day": 480,  "protects_against": "Measles, Mumps, Rubella", "applicable_to": "all", "notes": "" },
+    { "id": "var_1",      "vaccine": "Varicella",      "dose_label": "Dose 1",      "series": "Varicella",  "due_day": 450,  "window_start_day": 450,  "window_end_day": 480,  "protects_against": "Chickenpox", "applicable_to": "all", "notes": "" },
+
+    { "id": "dtp_b1",     "vaccine": "DTwP/DTaP",      "dose_label": "Booster 1",   "series": "DTP",        "due_day": 480,  "window_start_day": 480,  "window_end_day": 540,  "protects_against": "Diphtheria, Tetanus, Pertussis", "applicable_to": "all", "notes": "16-18 months window." },
+    { "id": "hib_b1",     "vaccine": "Hib",            "dose_label": "Booster 1",   "series": "Hib",        "due_day": 480,  "window_start_day": 480,  "window_end_day": 540,  "protects_against": "Haemophilus influenzae type b", "applicable_to": "all", "notes": "16-18 months window." },
+    { "id": "ipv_b1",     "vaccine": "IPV",            "dose_label": "Booster 1",   "series": "Polio",      "due_day": 480,  "window_start_day": 480,  "window_end_day": 540,  "protects_against": "Polio", "applicable_to": "all", "notes": "16-18 months window." },
+
+    { "id": "hepa_2",     "vaccine": "Hepatitis A",    "dose_label": "Dose 2",      "series": "HepA",       "due_day": 540,  "window_start_day": 540,  "window_end_day": 570,  "protects_against": "Hepatitis A", "applicable_to": "all", "notes": "Second dose needed for inactivated vaccine; live vaccine is single-dose. PEDIATRICIAN: verify wording." },
+    { "id": "var_2",      "vaccine": "Varicella",      "dose_label": "Dose 2",      "series": "Varicella",  "due_day": 540,  "window_start_day": 540,  "window_end_day": 570,  "protects_against": "Chickenpox", "applicable_to": "all", "notes": "18-19 months window." },
+
+    { "id": "flu_y2",     "vaccine": "Influenza",      "dose_label": "Annual (Year 2)", "series": "Flu",    "due_day": 730,  "window_start_day": 730,  "window_end_day": 820,  "protects_against": "Influenza", "applicable_to": "all", "notes": "Annual flu shot, ideally before flu season." },
+    { "id": "flu_y3",     "vaccine": "Influenza",      "dose_label": "Annual (Year 3)", "series": "Flu",    "due_day": 1095, "window_start_day": 1095, "window_end_day": 1185, "protects_against": "Influenza", "applicable_to": "all", "notes": "" },
+    { "id": "flu_y4",     "vaccine": "Influenza",      "dose_label": "Annual (Year 4)", "series": "Flu",    "due_day": 1460, "window_start_day": 1460, "window_end_day": 1550, "protects_against": "Influenza", "applicable_to": "all", "notes": "" },
+    { "id": "flu_y5",     "vaccine": "Influenza",      "dose_label": "Annual (Year 5)", "series": "Flu",    "due_day": 1825, "window_start_day": 1825, "window_end_day": 1915, "protects_against": "Influenza", "applicable_to": "all", "notes": "" },
+
+    { "id": "dtp_b2",     "vaccine": "DTwP/DTaP",      "dose_label": "Booster 2",   "series": "DTP",        "due_day": 1460, "window_start_day": 1460, "window_end_day": 2190, "protects_against": "Diphtheria, Tetanus, Pertussis", "applicable_to": "all", "notes": "4-6 years window." },
+    { "id": "ipv_b2",     "vaccine": "IPV",            "dose_label": "Booster 2",   "series": "Polio",      "due_day": 1460, "window_start_day": 1460, "window_end_day": 2190, "protects_against": "Polio", "applicable_to": "all", "notes": "4-6 years window." },
+    { "id": "mmr_3",      "vaccine": "MMR",            "dose_label": "Dose 3",      "series": "MMR",        "due_day": 1460, "window_start_day": 1460, "window_end_day": 2190, "protects_against": "Measles, Mumps, Rubella", "applicable_to": "all", "notes": "4-6 years window. PEDIATRICIAN: verify against current IAP recommendation." },
+
+    { "id": "tdap",       "vaccine": "Tdap/Td",        "dose_label": "Booster",     "series": "DTP",        "due_day": 3650, "window_start_day": 3650, "window_end_day": 4380, "protects_against": "Tetanus, Diphtheria, Pertussis", "applicable_to": "all", "notes": "10-12 years window." },
+    { "id": "hpv_1",      "vaccine": "HPV",            "dose_label": "Dose 1",      "series": "HPV",        "due_day": 3285, "window_start_day": 3285, "window_end_day": 5475, "protects_against": "Human Papillomavirus", "applicable_to": "female", "notes": "9-15 years, 2-dose schedule." },
+    { "id": "hpv_2",      "vaccine": "HPV",            "dose_label": "Dose 2",      "series": "HPV",        "due_day": 3465, "window_start_day": 3465, "window_end_day": 5475, "protects_against": "Human Papillomavirus", "applicable_to": "female", "notes": "6 months after dose 1." }
+  ]
+}

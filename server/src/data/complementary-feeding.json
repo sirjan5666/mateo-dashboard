@@ -1,0 +1,116 @@
+{
+  "meta": {
+    "name": "Mateo Complementary Feeding Guidance",
+    "version": "0.1-draft",
+    "status": "REQUIRES PEDIATRICIAN SIGN-OFF BEFORE LAUNCH",
+    "source": "IIPA 'Safe Baby Food' Consumer Education Monograph (2015) + WHO / IAP / Government of India infant & young child feeding (IYCF) principles. Brand-neutral and homemade-first.",
+    "notes": "Ages are months after birth. All foods are HOMEMADE and brand-neutral per the IMS Act 1992 — no formula, milk substitutes, or commercial/packaged baby-food brands anywhere in this file. General educational guidance only, NOT medical advice or a meal plan.",
+    "units": "months_after_birth"
+  },
+  "principles": [
+    "Exclusive breastfeeding for the first 6 months — no water, no other milk, no solids.",
+    "Start complementary (solid) foods at around 6 months, while continuing to breastfeed.",
+    "Homemade, freshly cooked family food gives the best variety of tastes and textures.",
+    "Feeding guidance is brand-neutral: this app never suggests formula, milk substitutes, or any baby-food brand.",
+    "Every baby is different — follow your baby's cues and your pediatrician's advice."
+  ],
+  "under_six_months": {
+    "headline": "Exclusive breastfeeding",
+    "guidance": "For the first 6 months, breast milk is the only food and drink your baby needs — not even water. Breast milk protects against infections and is perfectly suited to your baby's gut, which is still maturing. Solids before about 6 months can be poorly digested and may raise the risk of illness and allergies.",
+    "if_not_breastfeeding": "If you are not breastfeeding, or have any questions about feeding your baby, your pediatrician is the right person to guide you. This app does not recommend formula or any brand.",
+    "readiness": [
+      "Can sit up with little or no support",
+      "Has lost the tongue-thrust reflex (no longer pushes food straight back out)",
+      "Shows active interest in the food others are eating",
+      "Can hold their head steady"
+    ],
+    "readiness_note": "Teeth are NOT required to start solids. Look for these signs around 6 months rather than going by age alone."
+  },
+  "stages": [
+    {
+      "id": "stage_6_8m",
+      "label": "6–8 months",
+      "age_start_month": 6,
+      "age_end_month": 9,
+      "texture": "Smooth purées and mashed food, thick enough to stay on a spoon",
+      "frequency": "2–3 small meals a day, building up gradually, alongside breastfeeding on demand",
+      "amount": "Start with 2–3 spoonfuls and increase slowly as your baby shows interest",
+      "ideas": {
+        "Grains": ["Mashed rice", "Soft khichdi", "Ragi (finger-millet) porridge", "Suji (semolina) porridge", "Oats porridge"],
+        "Dal & legumes": ["Thin moong dal", "Dal water, then well-mashed dal"],
+        "Vegetables": ["Mashed potato", "Carrot purée", "Pumpkin", "Bottle gourd (lauki)", "Sweet potato"],
+        "Fruits": ["Mashed ripe banana", "Stewed apple", "Mashed papaya", "Chikoo", "Pear purée"],
+        "Dairy": ["A little homemade curd / yoghurt", "Mashed paneer"]
+      },
+      "tips": [
+        "Introduce one new food at a time and wait about 3 days before the next, watching for any reaction.",
+        "Keep breastfeeding on demand — food is in addition to milk, not a replacement yet.",
+        "No added salt or sugar is needed."
+      ]
+    },
+    {
+      "id": "stage_9_11m",
+      "label": "9–11 months",
+      "age_start_month": 9,
+      "age_end_month": 12,
+      "texture": "Mashed food with soft lumps, plus soft finger foods to pick up",
+      "frequency": "3 meals a day plus 1–2 small snacks, alongside breastfeeding",
+      "amount": "About half a cup at each meal, guided by your baby's appetite",
+      "ideas": {
+        "Grains": ["Soft chapati pieces", "Khichdi", "Upma", "Idli pieces", "Soft-cooked rice"],
+        "Dal & legumes": ["Dal", "Well-cooked mashed rajma / chana", "Well-cooked sprouts (mashed)"],
+        "Vegetables": ["Soft-cooked vegetable pieces", "Mashed mixed vegetables", "Palak (spinach)"],
+        "Fruits": ["Soft fruit pieces — banana, mango, papaya"],
+        "Dairy": ["Curd", "Soft paneer pieces"],
+        "Egg & non-veg (if your family eats it)": ["Well-cooked mashed egg", "Soft deboned fish", "Finely minced well-cooked chicken"]
+      },
+      "tips": [
+        "Offer soft finger foods so your baby learns to self-feed.",
+        "Continue one-new-food-at-a-time for foods that commonly cause reactions (egg, fish, peanut, dairy).",
+        "Still no added salt or sugar."
+      ]
+    },
+    {
+      "id": "stage_12_24m",
+      "label": "12–24 months",
+      "age_start_month": 12,
+      "age_end_month": 25,
+      "texture": "Chopped family food; your toddler can mostly self-feed",
+      "frequency": "3 meals plus 2 healthy snacks a day",
+      "amount": "About three-quarters to one cup at each meal",
+      "ideas": {
+        "Grains": ["Chapati", "Rice", "Paratha (lightly cooked)", "Poha", "Dosa pieces"],
+        "Dal & legumes": ["All dals", "Chole / rajma (soft)", "Sprout salads (soft)"],
+        "Vegetables": ["Most cooked vegetables, chopped small", "Mixed vegetable sabzi (mild)"],
+        "Fruits": ["A variety of seasonal fruits, chopped small"],
+        "Dairy": ["Curd", "Paneer", "Boiled / pasteurised cow's milk as a drink"],
+        "Egg & non-veg (if your family eats it)": ["Egg", "Fish", "Chicken — well cooked and chopped small"]
+      },
+      "tips": [
+        "Your toddler can now share most family meals — keep them mildly spiced and not too salty.",
+        "Cow's milk (boiled or pasteurised) can be a drink now, but should not crowd out a balanced diet of solids.",
+        "Eat together — toddlers learn eating habits by copying the family."
+      ]
+    }
+  ],
+  "never_feed": [
+    { "item": "Honey", "why": "Risk of infant botulism — avoid completely before 12 months." },
+    { "item": "Raw or unpasteurised milk and milk products", "why": "May carry bacteria that cause serious illness in babies." },
+    { "item": "Whole nuts, whole grapes, hard raw vegetables, popcorn, hard sweets", "why": "Choking hazards — grate, mash, or chop small instead." },
+    { "item": "Home-canned food, or food from dented, rusted, bulging, leaking or unlabelled tins/jars", "why": "May contain harmful bacteria." },
+    { "item": "Added salt and sugar", "why": "A baby's kidneys can't handle much salt, and sugar builds unhealthy taste preferences early." },
+    { "item": "Tea, coffee, sugary drinks and packaged fruit juices", "why": "No nutritional value and can reduce appetite for milk and nourishing food." }
+  ],
+  "safety": [
+    "Wash your hands and all utensils before preparing your baby's food.",
+    "Wash fruits and vegetables thoroughly under clean running water.",
+    "Cook meat, poultry and fish thoroughly to kill bacteria.",
+    "Use freshly cooked food where possible; refrigerate leftovers and use within 24 hours (meat/egg) or 48 hours (fruit/veg).",
+    "Reheat until piping hot all the way through, then cool before feeding — and reheat only once.",
+    "Test the temperature on the inside of your wrist before feeding.",
+    "Throw away any food left in your baby's bowl — never re-store food a spoon or your baby's saliva has touched.",
+    "Never leave prepared food at room temperature for more than about 2 hours.",
+    "Always supervise feeding, with your baby seated upright — never lying down or unattended."
+  ],
+  "feeding_note": "Homemade, freshly cooked family food gives your baby the best variety of tastes and textures and is far healthier than packaged baby food. This app is brand-neutral and never suggests formula, milk substitutes, or any baby-food brand. For anything about your baby's nutrition, your pediatrician is the right guide."
+}

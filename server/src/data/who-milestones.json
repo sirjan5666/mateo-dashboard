@@ -1,0 +1,20 @@
+{
+  "meta": {
+    "name": "Mateo Developmental Milestones",
+    "version": "0.1-draft",
+    "status": "REQUIRES PEDIATRICIAN SIGN-OFF BEFORE LAUNCH",
+    "source": "WHO Multicentre Growth Reference Study — Windows of Achievement for six gross-motor milestones (Acta Paediatrica, 2006), plus general IAP/CDC developmental guidance for social & language milestones.",
+    "notes": "Windows are months after birth (1st–99th percentile of achievement age for the WHO motor milestones; typical ranges for the general ones). Every baby develops at their own pace — these are typical ranges, NOT a test or a diagnosis. Only flag (gently) when a window is fully exceeded.",
+    "units": "months_after_birth"
+  },
+  "milestones": [
+    { "id": "social_smile", "label": "Social smile", "description": "Smiles back at you on purpose", "domain": "social", "source": "general", "window_start_month": 1.5, "window_end_month": 4 },
+    { "id": "rolling", "label": "Rolls over", "description": "Rolls from tummy to back and back to tummy", "domain": "motor", "source": "general", "window_start_month": 3.5, "window_end_month": 7 },
+    { "id": "sitting", "label": "Sits without support", "description": "Sits steadily without using hands to prop up", "domain": "motor", "source": "WHO", "window_start_month": 3.8, "window_end_month": 9.2 },
+    { "id": "babbling", "label": "Babbles & responds to name", "description": "Makes repeated sounds (ba-ba, da-da) and turns to their name", "domain": "language", "source": "general", "window_start_month": 5, "window_end_month": 9 },
+    { "id": "crawling", "label": "Crawls on hands & knees", "description": "Moves forward on hands and knees", "domain": "motor", "source": "WHO", "window_start_month": 5.2, "window_end_month": 13.5 },
+    { "id": "standing_alone", "label": "Stands alone", "description": "Stands without holding on, even briefly", "domain": "motor", "source": "WHO", "window_start_month": 6.9, "window_end_month": 16.9 },
+    { "id": "first_words", "label": "Says first words", "description": "Says a few meaningful words like \"mama\" or \"dada\"", "domain": "language", "source": "general", "window_start_month": 9, "window_end_month": 14 },
+    { "id": "walking_alone", "label": "Walks alone", "description": "Takes several steps independently", "domain": "motor", "source": "WHO", "window_start_month": 8.2, "window_end_month": 17.6 }
+  ]
+}
