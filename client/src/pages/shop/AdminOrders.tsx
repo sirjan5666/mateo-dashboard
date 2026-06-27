@@ -269,7 +269,7 @@ export default function AdminOrders() {
                 const meta = ORDER_STATUS_META[o.status];
                 return (
                   <tr key={o.id} className="border-b border-stone-100 last:border-0">
-                    <td className="px-4 py-3 font-semibold text-stone-900">{o.orderNumber}</td>
+                    <td className="px-4 py-3 font-mono-ds font-semibold text-stone-900">{o.orderNumber}</td>
                     <td className="px-4 py-3">
                       <div className="text-stone-800">{o.customer.name}</div>
                       <div className="text-xs text-stone-400">{o.customer.email}</div>

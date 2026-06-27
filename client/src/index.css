@@ -230,6 +230,17 @@ body.is-impersonating {
   .font-display {
     font-family: var(--font-display);
   }
+  /* Stat numbers: display face + aligned lining numerals (data that mustn't jitter). */
+  .display-num {
+    font-family: var(--font-display);
+    font-variant-numeric: tabular-nums lining-nums;
+    font-feature-settings: 'tnum' 1, 'lnum' 1;
+    letter-spacing: -0.01em;
+  }
+  /* Monospace for IDs / kbd — resolves to JetBrains Mono inside [data-theme="pro"]. */
+  .font-mono-ds {
+    font-family: var(--font-mono);
+  }
   .scrollbar-thin {
     scrollbar-width: thin;
     scrollbar-color: var(--color-stone-200) transparent;
@@ -330,8 +341,11 @@ body.is-impersonating {
    ============================================================ */
 [data-theme='pro'] {
   font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-display: 'Inter', ui-sans-serif, system-ui, sans-serif;
   --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  /* Bricolage Grotesque = display (headings + stat numbers); Inter Tight → Inter fallback. */
+  --font-display: 'Bricolage Grotesque', 'Inter Tight', 'Inter', ui-sans-serif, system-ui, sans-serif;
+  /* JetBrains Mono = order IDs, record numbers, kbd. */
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
 
   /* Clean, modern medical radius */
   --radius: 0.875rem;

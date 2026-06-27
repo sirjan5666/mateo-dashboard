@@ -72,7 +72,7 @@ export default function OrderDetail() {
 
       <div className="mt-4 flex items-center justify-between gap-3">
         <div>
-          <h1 className="font-display text-2xl font-extrabold text-stone-900">{order.orderNumber}</h1>
+          <h1 className="font-mono-ds text-2xl font-semibold text-stone-900">{order.orderNumber}</h1>
           <p className="text-sm text-stone-500">{formatDateTimeIST(order.createdAt)}</p>
         </div>
         <Pill tone={meta.tone}>{meta.label}</Pill>

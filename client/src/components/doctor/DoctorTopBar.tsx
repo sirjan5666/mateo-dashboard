@@ -21,7 +21,7 @@ export function DoctorTopBar() {
         >
           <Search className="h-4 w-4" aria-hidden="true" />
           <span className="hidden md:inline">{t('doctor.cmd.hint')}</span>
-          <kbd className="hidden rounded-md border border-[var(--hairline)] bg-[var(--surface-sunken)] px-1.5 py-0.5 text-[0.7rem] font-semibold md:inline">
+          <kbd className="hidden rounded-md border border-[var(--hairline)] bg-[var(--surface-sunken)] px-1.5 py-0.5 font-mono-ds text-[0.7rem] font-semibold md:inline">
             {META}K
           </kbd>
         </button>

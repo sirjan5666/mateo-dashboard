@@ -73,7 +73,7 @@ export default function MyOrders() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-semibold text-stone-900">{o.orderNumber}</p>
+                      <p className="font-mono-ds font-semibold text-stone-900">{o.orderNumber}</p>
                       <Pill tone={meta.tone}>{meta.label}</Pill>
                     </div>
                     <p className="mt-0.5 text-sm text-stone-500">

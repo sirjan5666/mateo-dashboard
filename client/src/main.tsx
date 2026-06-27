@@ -12,13 +12,26 @@ import '@fontsource/fredoka/400.css';
 import '@fontsource/fredoka/500.css';
 import '@fontsource/fredoka/600.css';
 import '@fontsource/fredoka/700.css';
-// Inter powers the professional Admin / Doctor / Patient panels (scoped via
-// [data-theme="pro"] in index.css). Manrope/Plus Jakarta retained as fallbacks.
+// Pro panels (Admin / Doctor / Patient, scoped via [data-theme="pro"]) use a
+// data-pro type system: Inter for body/UI, Bricolage Grotesque for display
+// (headings + stat numbers), Inter Tight as the display fallback, and
+// JetBrains Mono for IDs / kbd / monospace.
+import '@fontsource/inter/300.css';
 import '@fontsource/inter/400.css';
 import '@fontsource/inter/500.css';
 import '@fontsource/inter/600.css';
 import '@fontsource/inter/700.css';
 import '@fontsource/inter/800.css';
+import '@fontsource/bricolage-grotesque/500.css';
+import '@fontsource/bricolage-grotesque/600.css';
+import '@fontsource/bricolage-grotesque/700.css';
+import '@fontsource/bricolage-grotesque/800.css';
+import '@fontsource/inter-tight/600.css';
+import '@fontsource/inter-tight/700.css';
+import '@fontsource/inter-tight/800.css';
+import '@fontsource/jetbrains-mono/400.css';
+import '@fontsource/jetbrains-mono/500.css';
+import '@fontsource/jetbrains-mono/600.css';
 import '@fontsource/manrope/400.css';
 import '@fontsource/manrope/500.css';
 import '@fontsource/manrope/600.css';
