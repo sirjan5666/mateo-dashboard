@@ -325,7 +325,7 @@ body.is-impersonating {
    stone→cool slate, the semantic tones muted) within this scope. Because every
    Tailwind utility resolves `var(--color-*)` at use-time, overriding the vars on
    the shell wrapper re-skins the whole subtree — the parent baby app, which sits
-   outside this scope, is untouched. A [data-mode="dark"] variant inverts it.
+   outside this scope, is untouched.
    These overrides are intentionally UNLAYERED so they beat Tailwind's @theme.
    ============================================================ */
 [data-theme='pro'] {
@@ -489,130 +489,11 @@ body.is-impersonating {
   box-shadow: var(--shadow-card);
 }
 
-/* ── DARK MODE ─────────────────────────────────────────────────────────────
-   Inverts the slate ramp (50 = darkest surface … 900 = lightest ink) and turns
-   the semantic tone tints into translucent fills with light text, so the same
-   utilities (bg-stone-50, text-stone-800, bg-green-50, …) read correctly. */
-[data-theme='pro'][data-mode='dark'] {
-  color-scheme: dark;
-
-  --background: #0b1120;
-  --foreground: #f1f5f9;
-  --card: #1e293b;
-  --card-foreground: #f1f5f9;
-  --primary: #3b82f6;
-  --primary-foreground: #ffffff;
-  --secondary: #1e293b;
-  --secondary-foreground: #cbd5e1;
-  --muted: #1e293b;
-  --muted-foreground: #94a3b8;
-  --accent: #1e3a8a;
-  --accent-foreground: #bfdbfe;
-  --destructive: #f87171;
-  --border: rgba(255, 255, 255, 0.08);
-  --input-background: #0f172a;
-  --ring: #3b82f6;
-
-  --surface-app: #0b1120;
-  --surface-card: #1e293b;
-  --surface-raised: #334155;
-  --surface-sunken: #0f172a;
-  --hairline: rgba(255, 255, 255, 0.08);
-
-  --panel-sidebar: #0b1120;
-  --panel-sidebar-raised: #1e293b;
-  --panel-sidebar-fg: #cbd5e1;
-  --panel-sidebar-muted: #64748b;
-  --panel-sidebar-border: rgba(255, 255, 255, 0.08);
-
-  --brand-purple: #3b82f6;
-  --brand-purple-deep: #60a5fa;
-  --brand-purple-tint: #1e3a8a;
-  --text-muted-color: #94a3b8;
-  --brand-gradient: linear-gradient(135deg, #3b82f6 0%, #2563eb 55%, #1d4ed8 100%);
-
-  --status-ontrack-bg: rgba(34, 197, 94, 0.18);
-  --status-ontrack-text: #4ade80;
-  --status-duesoon-bg: rgba(234, 179, 8, 0.18);
-  --status-duesoon-text: #facc15;
-  --status-overdue-bg: rgba(239, 68, 68, 0.2);
-  --status-overdue-text: #f87171;
-  --status-info-bg: rgba(59, 130, 246, 0.18);
-  --status-info-text: #60a5fa;
-
-  --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 14px -6px rgba(0, 0, 0, 0.5);
-  --shadow-card: 0 2px 6px -2px rgba(0, 0, 0, 0.5), 0 16px 32px -16px rgba(0, 0, 0, 0.6);
-  --shadow-lift: 0 10px 28px -8px rgba(0, 0, 0, 0.65);
-
-  /* Slate ramp — inverted (surfaces dark, ink light) */
-  --color-stone-50: #0f172a;
-  --color-stone-100: #1e293b;
-  --color-stone-200: #334155;
-  --color-stone-300: #475569;
-  --color-stone-400: #64748b;
-  --color-stone-500: #94a3b8;
-  --color-stone-600: #cbd5e1;
-  --color-stone-700: #e2e8f0;
-  --color-stone-800: #f1f5f9;
-  --color-stone-900: #f8fafc;
-
-  /* Brand blue — lifted for contrast on dark */
-  --color-emerald-50: rgba(59, 130, 246, 0.16);
-  --color-emerald-100: rgba(59, 130, 246, 0.24);
-  --color-emerald-200: rgba(59, 130, 246, 0.32);
-  --color-emerald-500: #3b82f6;
-  --color-emerald-600: #4b8ef8;
-  --color-emerald-700: #60a5fa;
-  --color-emerald-800: #93c5fd;
-  --color-emerald-900: #bfdbfe;
-
-  --color-violet-50: rgba(139, 92, 246, 0.16);
-  --color-violet-100: rgba(139, 92, 246, 0.24);
-  --color-violet-500: #a78bfa;
-  --color-violet-600: #b69dfb;
-  --color-violet-700: #c4b5fd;
-  --color-violet-800: #ddd6fe;
-
-  --color-sky-50: rgba(59, 130, 246, 0.16);
-  --color-sky-100: rgba(59, 130, 246, 0.24);
-  --color-sky-500: #60a5fa;
-  --color-sky-600: #7cb0fb;
-  --color-sky-700: #93c5fd;
-  --color-sky-800: #bfdbfe;
-
-  --color-green-50: rgba(34, 197, 94, 0.16);
-  --color-green-100: rgba(34, 197, 94, 0.24);
-  --color-green-500: #4ade80;
-  --color-green-600: #5fe393;
-  --color-green-700: #86efac;
-  --color-green-800: #bbf7d0;
-
-  --color-amber-50: rgba(234, 179, 8, 0.16);
-  --color-amber-100: rgba(234, 179, 8, 0.24);
-  --color-amber-500: #facc15;
-  --color-amber-600: #fcd84a;
-  --color-amber-700: #fde68a;
-  --color-amber-800: #fef08a;
-
-  --color-rose-50: rgba(239, 68, 68, 0.18);
-  --color-rose-100: rgba(239, 68, 68, 0.26);
-  --color-rose-200: rgba(239, 68, 68, 0.36);
-  --color-rose-500: #f87171;
-  --color-rose-600: #fb8a8a;
-  --color-rose-700: #fca5a5;
-
-  --color-teal-100: rgba(13, 148, 136, 0.26);
-  --color-teal-600: #2dd4bf;
-}
 
 /* Selection inside pro */
 [data-theme='pro'] ::selection {
   background-color: #b6d9f0;
   color: #123f5c;
-}
-[data-theme='pro'][data-mode='dark'] ::selection {
-  background-color: #1f6fa8;
-  color: #eef3fa;
 }
 
 /* ============================================================
@@ -624,10 +505,6 @@ body.is-impersonating {
   /* The developmental arc: blue → purple → green → yellow (matches the new palette). */
   --journey-gradient: linear-gradient(90deg, #2563eb 0%, #8b5cf6 36%, #16a34a 70%, #eab308 100%);
   --journey-track: #e2e8f0;
-}
-[data-theme='pro'][data-mode='dark'] {
-  --journey-gradient: linear-gradient(90deg, #3b82f6 0%, #a78bfa 36%, #4ade80 70%, #facc15 100%);
-  --journey-track: rgba(255, 255, 255, 0.07);
 }
 
 /* Soft aurora wash behind the doctor-home hero — pure, restrained decoration.

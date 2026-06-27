@@ -9,7 +9,6 @@ import { todayLongIST } from '../../lib/age';
 import { gsap, prefersReducedMotion } from '../../lib/gsap';
 import { CartButton } from '../shop/CartButton';
 import { AdminBell } from '../shop/AdminBell';
-import { ThemeToggle } from '../ui/ThemeToggle';
 
 export function Topbar({ onOpenSidebar }: { onOpenSidebar: () => void }) {
   const t = useT();
@@ -44,7 +43,6 @@ export function Topbar({ onOpenSidebar }: { onOpenSidebar: () => void }) {
       </div>
 
       <div className="ml-auto flex items-center gap-2">
-        {user?.role === 'admin' && <ThemeToggle />}
         <CartButton />
         {user?.role === 'admin' && <AdminBell />}
         <Link to="/babies/new" className={buttonClass('primary', 'sm')}>

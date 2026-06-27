@@ -7,7 +7,6 @@ import { useAuth } from '../../auth/context';
 import { useT } from '../../i18n/context';
 import { Brand } from './Brand';
 import { BrandTile } from '../ui/BrandTile';
-import { ThemeToggle } from '../ui/ThemeToggle';
 import { Toaster } from '../ui/Toaster';
 import { usePanelMode } from '../../lib/panelTheme';
 import { cn } from '../../lib/cn';
@@ -92,7 +91,6 @@ function DesktopNav({ panelLabel, navItems }: { panelLabel: string; navItems: Pa
             <p className="truncate text-sm font-semibold text-white">{user?.name}</p>
             <p className="truncate text-xs text-slate-400">{user?.email}</p>
           </div>
-          <ThemeToggle />
         </div>
         <button
           onClick={() => void logout()}
@@ -175,7 +173,6 @@ export function PanelShell({
               {it.badge ? <span className="ml-1 inline-grid min-w-4 place-items-center rounded-full bg-rose-500 px-1 text-[0.65rem] font-bold text-white">{it.badge}</span> : null}
             </NavLink>
           ))}
-          <ThemeToggle className="h-7 w-7 rounded-lg" />
           <button onClick={() => void logout()} aria-label="Sign out" className="grid h-7 w-7 place-items-center rounded-lg text-stone-500 hover:bg-stone-100">
             <LogOut className="h-4 w-4" />
           </button>
