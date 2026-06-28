@@ -98,15 +98,15 @@ export function SectionCard({
     <Card data-entrance="card" className={cn('p-5 sm:p-6', className)}>
       {(title || action) && (
         <div className="mb-4 flex items-start justify-between gap-3">
-          <div className="flex items-center gap-2.5">
+          <div className="flex min-w-0 items-center gap-2.5">
             {Icon && (
               <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-emerald-50 text-emerald-700">
                 <Icon className="h-[18px] w-[18px]" />
               </span>
             )}
-            <div>
-              {eyebrow && <p className="text-[0.64rem] font-bold uppercase tracking-[0.12em] text-stone-400">{eyebrow}</p>}
-              {title && <h2 className="font-display text-base font-bold leading-tight text-stone-900 sm:text-[1.0625rem]">{title}</h2>}
+            <div className="min-w-0">
+              {eyebrow && <p className="truncate text-[0.64rem] font-bold uppercase tracking-[0.12em] text-stone-400">{eyebrow}</p>}
+              {title && <h2 className="truncate font-display text-base font-bold leading-tight text-stone-900 sm:text-[1.0625rem]">{title}</h2>}
             </div>
           </div>
           {action}
@@ -150,13 +150,13 @@ export function Kpi({
   const theme = useChartTheme();
   return (
     <Card data-entrance="card" className="relative overflow-hidden p-4 sm:p-5">
-      <div className="flex items-start justify-between gap-2">
+      <div className="flex items-start justify-between gap-2.5">
         <CountUp
           value={value}
           decimals={decimals}
           prefix={prefix}
           suffix={suffix}
-          className="font-display text-[1.7rem] font-extrabold leading-none text-stone-900 sm:text-[2rem]"
+          className="block min-w-0 truncate font-display text-[1.7rem] font-extrabold leading-none text-stone-900 sm:text-[2rem]"
           style={{ fontVariantNumeric: 'tabular-nums' }}
         />
         <span className={cn('grid h-9 w-9 shrink-0 place-items-center rounded-xl', toneBadge[tone])}>
