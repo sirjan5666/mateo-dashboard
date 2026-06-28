@@ -138,6 +138,7 @@ export default function Symptoms() {
 
   async function handleDelete(logId: string) {
     if (id === undefined) return;
+    if (!window.confirm('Delete this entry? This permanently removes the logged temperature and symptoms and cannot be undone.')) return;
     setDeletingId(logId);
     try {
       await deleteSymptom(id, logId);

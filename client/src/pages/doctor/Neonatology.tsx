@@ -172,7 +172,7 @@ export default function Neonatology() {
             <span className={labelClass}>Day of life</span>
             <input type="number" inputMode="numeric" min={1} step={1} value={dol} onChange={(e) => setDol(e.target.value)} placeholder="e.g. 3" className={inputClass} />
           </label>
-          <label className="block">
+          <label className="block min-w-0">
             <span className={labelClass}>Feed frequency</span>
             <div className="overflow-x-auto pb-1">
               <SegmentedControl options={FREQ_OPTIONS} value={freq} onChange={setFreq} />

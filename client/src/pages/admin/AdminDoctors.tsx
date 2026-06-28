@@ -326,7 +326,7 @@ export default function AdminDoctors() {
         ) : doctors.length === 0 ? (
           <p className="p-8 text-center text-sm text-stone-500">No doctors yet. Add the first one.</p>
         ) : (
-          <table className="w-full min-w-[680px] text-left text-sm [&_td]:whitespace-nowrap [&_th]:whitespace-nowrap">
+          <table className="w-full min-w-[920px] text-left text-sm [&_td]:whitespace-nowrap [&_th]:whitespace-nowrap">
             <thead className="border-b border-stone-200 bg-stone-50 text-xs uppercase tracking-wide text-stone-500">
               <tr>
                 <th className="px-5 py-3 font-semibold">Name</th>

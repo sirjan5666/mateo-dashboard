@@ -188,7 +188,7 @@ export default function PatientDetail() {
       <div className="mt-6 grid gap-6 lg:grid-cols-3">
         {/* Main column — tabbed hub. Sections stay mounted (show/hide) so the
             record form keeps unsaved edits and lists don't refetch on tab change. */}
-        <div className="space-y-4 lg:col-span-2">
+        <div className="min-w-0 space-y-4 lg:col-span-2">
           <Tabs<PdTab>
             items={[
               { value: 'record', label: t('doctor.pd.tabRecord') },

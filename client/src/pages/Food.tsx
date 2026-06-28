@@ -133,6 +133,21 @@ export default function Food() {
     return allergies.find((a) => a.name && f.includes(a.name.toLowerCase()))?.name ?? null;
   }, [foodName, allergies]);
 
+  // IMS Act 1992 (CLAUDE.md rule 4): never normalize infant formula / milk
+  // substitutes; feeding stays breastfeeding-first. Mirror of the server-side
+  // detector (server/src/ai/compliance.ts) so a typed food name like "Lactogen
+  // formula milk" surfaces a gentle, NON-blocking note. Keep in sync with the
+  // server list if brands change.
+  const mentionsFormula = useMemo(() => {
+    const f = foodName.toLowerCase();
+    if (!f.trim()) return false;
+    return (
+      /\bformulas?\b/.test(f) ||
+      /\b(infant|breast[-\s]?milk|milk)\s+substitutes?\b/.test(f) ||
+      /\b(cerelac|lactogen|nan\s?pro|nanpro|similac|enfamil|dexolac|nestogen|aptamil|farex|nusobee)\b/.test(f)
+    );
+  }, [foodName]);
+
   function toggleGroup(g: string) {
     setGroups((prev) => (prev.includes(g) ? prev.filter((x) => x !== g) : [...prev, g]));
   }
@@ -177,6 +192,7 @@ export default function Food() {
 
   async function handleDelete(logId: string) {
     if (id === undefined) return;
+    if (!window.confirm('Delete this meal? This permanently removes the logged entry and cannot be undone.')) return;
     setDeletingId(logId);
     try {
       await deleteFood(id, logId);
@@ -269,6 +285,12 @@ export default function Food() {
                   <p className="mt-1.5 flex items-start gap-1.5 rounded-lg bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700">
                     <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                     <span>Heads up — your baby is allergic to <b>{matchedAllergen}</b>. Please avoid foods containing it.</span>
+                  </p>
+                )}
+                {mentionsFormula && (
+                  <p className="mt-1.5 flex items-start gap-1.5 rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
+                    <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                    <span>Mother&apos;s milk is best for your baby. Breastfeeding (or expressed breastmilk) is recommended through the first year — from 6 months alongside freshly prepared homemade foods. Mateo&apos;s feeding guidance stays brand-neutral and never recommends infant formula or milk substitutes. You can still log this entry.</span>
                   </p>
                 )}
               </div>

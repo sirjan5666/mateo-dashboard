@@ -217,11 +217,17 @@ export default function AdminHome() {
 
   const firstName = user?.name?.split(' ')[0] || 'Admin';
   const primary = attention[0];
+  // Headline the same population the admin actually manages: derive families/
+  // doctors from the authoritative lists (parents list + doctors table) and fall
+  // back to the /admin/overview aggregate only if a list failed to load. The
+  // aggregate counts raw User docs, so an orphaned/half-created doctor or parent
+  // User would otherwise make the hero + KPIs disagree with the table below.
+  const familyCount = parents?.length ?? counts?.parents ?? 0;
+  const doctorCount = doctors?.length ?? counts?.doctors ?? 0;
+  const babyCount = counts?.babies ?? 0;
   const summary = !loaded
     ? 'Loading platform overview…'
-    : counts
-      ? `${plural(counts.parents, 'family', 'families')} · ${plural(counts.doctors, 'doctor', 'doctors')} · ${plural(counts.babies, 'baby', 'babies')} on Mateo`
-      : 'Welcome back.';
+    : `${plural(familyCount, 'family', 'families')} · ${plural(doctorCount, 'doctor', 'doctors')} · ${plural(babyCount, 'baby', 'babies')} on Mateo`;
 
   if (!loaded) return <AdminSkeleton />;
 
@@ -265,13 +271,13 @@ export default function AdminHome() {
         <Kpi
           icon={Users}
           label="Families"
-          value={counts?.parents ?? 0}
+          value={familyCount}
           tone="violet"
           sub={newFamiliesThisWeek > 0 ? 'this week' : 'on Mateo'}
           delta={newFamiliesThisWeek > 0 ? { dir: 'up', text: `+${newFamiliesThisWeek}` } : undefined}
         />
-        <Kpi icon={Stethoscope} label="Doctors" value={counts?.doctors ?? 0} tone="sky" sub={`${doctorStatus.approved} approved`} />
-        <Kpi icon={Baby} label="Babies" value={counts?.babies ?? 0} tone="emerald" sub="tracked" />
+        <Kpi icon={Stethoscope} label="Doctors" value={doctorCount} tone="sky" sub={`${doctorStatus.approved} approved`} />
+        <Kpi icon={Baby} label={babyCount === 1 ? 'Baby' : 'Babies'} value={babyCount} tone="emerald" sub="tracked" />
         <Kpi icon={IndianRupee} label="Revenue" value={orderAgg.revenue} prefix="₹" tone="amber" sub={`${orderAgg.total} order${orderAgg.total === 1 ? '' : 's'}`} spark={revenueSpark.some((v) => v > 0) ? revenueSpark : undefined} />
       </div>
 
@@ -376,7 +382,7 @@ export default function AdminHome() {
             {donutDoctors.length === 0 ? (
               <EmptyState icon={Stethoscope} text="No doctors onboarded yet." />
             ) : (
-              <Donut data={donutDoctors} centerValue={counts?.doctors ?? 0} centerLabel="doctors" size={148} />
+              <Donut data={donutDoctors} centerValue={doctorCount} centerLabel="doctors" size={148} />
             )}
           </SectionCard>
 

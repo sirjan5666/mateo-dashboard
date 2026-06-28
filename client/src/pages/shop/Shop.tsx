@@ -302,7 +302,7 @@ export default function Shop() {
                   className="w-full border-none bg-transparent text-sm text-stone-700 outline-none placeholder:text-stone-400 sm:w-36"
                 />
               </div>
-              <div className="scrollbar-thin -mx-1 flex gap-2.5 overflow-x-auto px-1 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:p-0">
+              <div className="scrollbar-thin -mx-1 flex min-w-0 flex-1 gap-2.5 overflow-x-auto px-1 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:p-0">
                 {CATEGORIES.map((c) => (
                   <button
                     key={c}

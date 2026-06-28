@@ -122,7 +122,7 @@ export default function AdminChats() {
       {error && <Card className="mt-5 border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{error}</Card>}
 
       {/* Overview */}
-      <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+      <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-6">
         {counts === null ? (
           Array.from({ length: 6 }).map((_, i) => <Card key={i} className="p-4"><Skeleton className="h-12 w-full" /></Card>)
         ) : (
@@ -169,7 +169,7 @@ export default function AdminChats() {
         ) : filtered.length === 0 ? (
           <p className="p-8 text-center text-sm text-stone-500">{sessions.length === 0 ? 'No chats yet. Parents’ mateo.ai conversations will show up here.' : 'No chats match this filter.'}</p>
         ) : (
-          <table className="w-full min-w-[720px] text-left text-sm [&_td]:whitespace-nowrap [&_th]:whitespace-nowrap">
+          <table className="w-full min-w-[860px] text-left text-sm [&_td]:whitespace-nowrap [&_th]:whitespace-nowrap">
             <thead className="border-b border-stone-200 bg-stone-50 text-xs uppercase tracking-wide text-stone-500">
               <tr>
                 <th className="px-5 py-3 font-semibold">Status</th>

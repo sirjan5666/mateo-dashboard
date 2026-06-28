@@ -38,6 +38,9 @@ export function TrackerInsight({ babyId, tracker, hasData, signature, className 
   const [error, setError] = useState<string | null>(null);
   const [fetchedSig, setFetchedSig] = useState<string | number | null>(null);
   const autoTried = useRef(false);
+  // Mirror of fetchedSig as a ref so the auto-refetch effect can compare without
+  // taking fetchedSig as a dependency (which would cascade off run()'s setState).
+  const fetchedSigRef = useRef<string | number | null>(null);
 
   const run = useCallback(async () => {
     setView('loading');
@@ -45,6 +48,7 @@ export function TrackerInsight({ babyId, tracker, hasData, signature, className 
     try {
       const r = await getTrackerInsight(babyId, tracker, lang);
       setFetchedSig(signature ?? null);
+      fetchedSigRef.current = signature ?? null;
       setResult(r);
       setView(r.enabled ? 'done' : 'disabled');
     } catch (e) {
@@ -59,6 +63,19 @@ export function TrackerInsight({ babyId, tracker, hasData, signature, className 
     autoTried.current = true;
     void run();
   }, [hasData, run]);
+
+  // Re-run automatically when the underlying entries change after the first
+  // fetch (e.g. a red-flag entry was deleted): otherwise a stale — possibly
+  // emergency — suggestion would linger until a manual refresh. We compare
+  // against the ref (not fetchedSig state) so the refetch can't cascade off
+  // run()'s own setState; run() resets the ref, so it self-terminates.
+  useEffect(() => {
+    if (!autoTried.current || !hasData) return;
+    const sig = signature ?? null;
+    if (sig == null || fetchedSigRef.current == null) return;
+    if (sig === fetchedSigRef.current) return;
+    void run();
+  }, [signature, hasData, run]);
 
   // Assistant isn't configured server-side → show nothing at all.
   if (view === 'disabled') return null;

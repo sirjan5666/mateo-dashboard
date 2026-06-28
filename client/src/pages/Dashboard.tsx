@@ -419,7 +419,12 @@ function GreetingHero({ greeting, firstName, baby, appts }: { greeting: string; 
     : `${baby.name} is ${formatAge(baby.dob)}. A couple of things could use a gentle look today.`;
   const tip = milestonesForAge(ageInMonths(baby.dob))[0];
   const pills: { Icon: LucideIcon; text: string; bg: string; color: string }[] = [];
-  if (baby.nextDue) pills.push({ Icon: Syringe, text: `Next vaccine · ${formatDateIST(baby.nextDue.dueDate)}`, bg: 'var(--cat-vaccine-bg)', color: 'var(--cat-vaccine-text)' });
+  if (baby.nextDue)
+    pills.push(
+      baby.nextDue.status === 'overdue'
+        ? { Icon: AlertCircle, text: `Vaccine overdue · ${formatDateIST(baby.nextDue.dueDate)}`, bg: 'var(--status-overdue-bg)', color: 'var(--status-overdue-text)' }
+        : { Icon: Syringe, text: `Next vaccine · ${formatDateIST(baby.nextDue.dueDate)}`, bg: 'var(--cat-vaccine-bg)', color: 'var(--cat-vaccine-text)' },
+    );
   if (nextAppt) pills.push({ Icon: CalendarCheck, text: `Next visit · ${formatDateIST(nextAppt.scheduledAt)}`, bg: 'var(--cat-record-bg)', color: 'var(--cat-record-text)' });
   if (tip) pills.push({ Icon: Sprout, text: `Today · ${tip}`, bg: 'var(--accent)', color: 'var(--accent-foreground)' });
   const actions: { label: string; Icon: LucideIcon; seg: string; color: string; bg: string }[] = [
@@ -528,14 +533,14 @@ function StatStrip({ done, due, overdue }: { done: number; due: number; overdue:
     { label: 'Overdue', value: overdue, dot: 'var(--status-overdue-text)', active: overdue > 0, color: overdue > 0 ? 'var(--status-overdue-text)' : 'var(--foreground)' },
   ];
   return (
-    <div style={{ display: 'flex', flex: 1, minWidth: 200, backgroundColor: 'var(--secondary)', borderRadius: 16, overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flex: 1, minWidth: 180, backgroundColor: 'var(--secondary)', borderRadius: 16, overflow: 'hidden' }}>
       {segs.map((s, i) => (
-        <div key={s.label} style={{ flex: 1, padding: '1rem 1.1rem', display: 'flex', flexDirection: 'column', gap: 7, borderLeft: i > 0 ? '1px solid var(--border)' : undefined, minWidth: 78 }}>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.72rem', fontWeight: 700, color: 'var(--muted-foreground)', lineHeight: 1.3 }}>
+        <div key={s.label} style={{ flex: 1, minWidth: 0, padding: '0.9rem 0.85rem', display: 'flex', flexDirection: 'column', gap: 7, borderLeft: i > 0 ? '1px solid var(--border)' : undefined }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, fontSize: '0.72rem', fontWeight: 700, color: 'var(--muted-foreground)', lineHeight: 1.3 }}>
             <span aria-hidden="true" style={{ width: 7, height: 7, borderRadius: '50%', backgroundColor: s.active ? s.dot : 'var(--text-muted-color)', opacity: s.active ? 1 : 0.35, flexShrink: 0 }} />
-            {s.label}
+            <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.label}</span>
           </span>
-          <CountUp value={s.value} style={{ fontSize: '1.6rem', fontWeight: 800, color: s.color, lineHeight: 1.05, ...NUMERAL }} />
+          <CountUp value={s.value} style={{ fontSize: '1.5rem', fontWeight: 800, color: s.color, lineHeight: 1.05, ...NUMERAL }} />
         </div>
       ))}
     </div>

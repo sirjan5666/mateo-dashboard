@@ -33,7 +33,7 @@ function metricText(log: { metrics: Growth['logs'][number]['metrics'] }, indicat
   const m = log.metrics[indicator];
   if (!m) return null;
   const unit = indicator === 'weight' ? 'kg' : 'cm';
-  return `${m.value} ${unit} · ${ordinal(Math.round(m.percentile))}`;
+  return `${m.value} ${unit} · ${ordinal(Math.max(1, Math.round(m.percentile)))}`;
 }
 
 export default function Growth() {
@@ -48,6 +48,7 @@ export default function Growth() {
   const [headCm, setHeadCm] = useState('');
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
 
   // Manual refetch used after add/delete.
   const load = useCallback(async () => {
@@ -81,9 +82,10 @@ export default function Growth() {
     const lengthVal = lengthCm.trim() ? parseFloat(lengthCm) : undefined;
     const headVal = headCm.trim() ? parseFloat(headCm) : undefined;
     if (weightG === undefined && lengthVal === undefined && headVal === undefined) {
-      setError('Add at least one measurement');
+      setFormError('Add at least one measurement (weight, length or head).');
       return;
     }
+    setFormError(null);
     setError(null);
     setSaving(true);
     try {
@@ -93,7 +95,7 @@ export default function Growth() {
       setHeadCm('');
       await load();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Something went wrong, please try again');
+      setFormError(err instanceof ApiError ? err.message : 'Something went wrong, please try again');
     } finally {
       setSaving(false);
     }
@@ -260,6 +262,7 @@ export default function Growth() {
                     <input id="headCm" type="number" step="0.1" min="0" value={headCm} onChange={(e) => setHeadCm(e.target.value)} className={inputCls} />
                   </div>
                 </div>
+                {formError && <p className="text-sm text-rose-600">{formError}</p>}
                 <Button type="submit" disabled={saving} className="w-full">
                   {saving ? 'Saving…' : 'Add measurement'}
                 </Button>

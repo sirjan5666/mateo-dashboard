@@ -366,7 +366,7 @@ export function Donut({
   return (
     <div className="flex flex-wrap items-center gap-5">
       <div className="relative shrink-0" style={{ width: size, height: size }}>
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer width={size} height={size}>
           <PieChart>
             <Pie
               data={total === 0 ? [{ label: 'none', value: 1, color: 'var(--surface-sunken)' }] : data}
