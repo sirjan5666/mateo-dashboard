@@ -117,6 +117,10 @@ const SEX_LABEL: Record<string, string> = { male: 'Boys', female: 'Girls', other
 const APPT_STATUS_LABEL: Record<string, string> = { scheduled: 'Scheduled', completed: 'Completed', cancelled: 'Cancelled', no_show: 'No-show' };
 const APPT_MODE_LABEL: Record<string, string> = { in_person: 'In-person', phone: 'Phone', video: 'Video' };
 const ENC_KIND_LABEL: Record<string, string> = { visit: 'Visit', follow_up: 'Follow-up', phone: 'Phone', procedure: 'Procedure', note: 'Note' };
+// Acquisition source is honest, not invented: a patient linked to a parent-app
+// account (parentUserId set) came in through the family dashboard; everyone else
+// was registered directly at the clinic. No fabricated funnel/lead stages.
+const SOURCE_LABEL: Record<string, string> = { parent_app: 'Parent app', clinic: 'Clinic' };
 
 router.get('/analytics/report', auditAccess('analytics'), async (req, res) => {
   const { from, to } = reportRange.parse(req.query);
@@ -126,7 +130,7 @@ router.get('/analytics/report', auditAccess('analytics'), async (req, res) => {
   const tz = 'Asia/Kolkata';
   const doctorId = new Types.ObjectId(req.userId);
 
-  const [revByDayAgg, paidInvoices, billTotals, newPatients, genderAgg, statusAgg, dobDocs, apptStatusAgg, apptModeAgg, apptDurAgg, encKindAgg] =
+  const [revByDayAgg, paidInvoices, billTotals, newPatients, genderAgg, statusAgg, sourceAgg, dobDocs, apptStatusAgg, apptModeAgg, apptDurAgg, encKindAgg] =
     await Promise.all([
       Invoice.aggregate<{ _id: string; amount: number }>([
         { $match: { doctorUserId: doctorId, status: { $ne: 'cancelled' }, paidAt: { $gte: start, $lte: end } } },
@@ -145,6 +149,12 @@ router.get('/analytics/report', auditAccess('analytics'), async (req, res) => {
       Patient.aggregate<{ _id: string; count: number }>([
         { $match: { doctorUserId: doctorId, archivedAt: { $exists: false } } },
         { $group: { _id: '$status', count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+      ]),
+      // Acquisition source over ALL active patients (pairs with the Total Patients KPI).
+      Patient.aggregate<{ _id: string; count: number }>([
+        { $match: { doctorUserId: doctorId, archivedAt: { $exists: false } } },
+        { $group: { _id: { $cond: [{ $ifNull: ['$parentUserId', false] }, 'parent_app', 'clinic'] }, count: { $sum: 1 } } },
         { $sort: { count: -1 } },
       ]),
       Patient.find({ doctorUserId: doctorId, createdAt: { $gte: start, $lte: end } }).select('dob'),
@@ -209,6 +219,7 @@ router.get('/analytics/report', auditAccess('analytics'), async (req, res) => {
       byGender: label(SEX_LABEL, genderAgg),
       byAge: Object.entries(buckets).filter(([, v]) => v > 0).map(([lbl, count]) => ({ label: lbl, count })),
       byStatus: statusAgg.map((s) => ({ label: s._id, count: s.count })),
+      bySource: label(SOURCE_LABEL, sourceAgg),
     },
     appointments: {
       total: apptDurAgg[0]?.total ?? 0,

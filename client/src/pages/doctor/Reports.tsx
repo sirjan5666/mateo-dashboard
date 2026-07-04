@@ -97,6 +97,7 @@ export default function Reports() {
       ['Patients — new', String(report.patients.newCount)],
       ['By gender', ...report.patients.byGender.map((g) => `${g.label}: ${g.count}`)],
       ['By age', ...report.patients.byAge.map((a) => `${a.label}: ${a.count}`)],
+      ['By source', ...report.patients.bySource.map((s) => `${s.label}: ${s.count}`)],
       [],
       ['Appointments — total', String(report.appointments.total)],
       ['Avg duration (min)', String(report.appointments.avgDurationMin)],
@@ -140,7 +141,7 @@ export default function Reports() {
       </div>
       <h3>Top days</h3><table>${report.revenue.topDays.map((d) => `<tr><td>${d.date}</td><td class="n">${inr(d.amount)}</td></tr>`).join('') || '<tr><td>No collections</td></tr>'}</table>
       <h2>Patients</h2><div class="kpis"><div class="kpi"><b>${report.patients.newCount}</b><span>New in range</span></div></div>
-      ${section('By gender', report.patients.byGender)}${section('By age', report.patients.byAge)}
+      ${section('By gender', report.patients.byGender)}${section('By age', report.patients.byAge)}${section('By source', report.patients.bySource)}
       <h2>Appointments</h2><div class="kpis"><div class="kpi"><b>${report.appointments.total}</b><span>Total</span></div><div class="kpi"><b>${report.appointments.avgDurationMin}m</b><span>Avg duration</span></div></div>
       ${section('By status', report.appointments.byStatus)}${section('By mode', report.appointments.byMode)}
       <h2>Consultations</h2><div class="kpis"><div class="kpi"><b>${report.consultations.total}</b><span>Visit notes</span></div></div>
@@ -256,6 +257,9 @@ export default function Reports() {
               </SectionCard>
               <SectionCard title="Active roster by status" icon={Users}>
                 <Breakdown rows={report.patients.byStatus} empty="No patients yet." />
+              </SectionCard>
+              <SectionCard title="By source" icon={Users} eyebrow="How families joined">
+                <Breakdown rows={report.patients.bySource} empty="No patients yet." />
               </SectionCard>
             </>
           )}

@@ -492,6 +492,71 @@ body.is-impersonating {
   --color-teal-600: #0d9488;
 }
 
+/* ============================================================
+   DOCTOR PANEL SKIN — [data-theme="pro"][data-panel="doctor"]
+   A deeper, more clinical identity for the doctor panel ONLY: navy primary
+   (#1e3a8a), medical green (#059669) for success, teal (#0d9488) accent, on a
+   #f9fafb canvas. This selector is MORE specific than [data-theme="pro"], so it
+   wins for the doctor subtree while Admin (AppShell) and the Patient portal —
+   which never set data-panel="doctor" — keep the base blue pro theme unchanged.
+   ============================================================ */
+[data-theme='pro'][data-panel='doctor'] {
+  --card-radius: 12px;
+  --radius: 0.75rem;
+
+  --background: #f9fafb;
+  --foreground: #1f2937;
+  --card-foreground: #1f2937;
+  --primary: #1e3a8a;
+  --primary-foreground: #ffffff;
+  --accent: #eef2ff;
+  --accent-foreground: #1e3a8a;
+  --ring: #1e3a8a;
+  --input-background: #f9fafb;
+
+  --surface-app: #f9fafb;
+  --surface-sunken: #f3f4f6;
+  --hairline: #e5e7eb;
+  --border: #e5e7eb;
+  --text-muted-color: #6b7280;
+
+  --brand-purple: #1e3a8a;
+  --brand-purple-deep: #172554;
+  --brand-purple-tint: #eef2ff;
+  --brand-gradient: linear-gradient(135deg, #2952c8 0%, #1e3a8a 55%, #172554 100%);
+
+  --status-ontrack-bg: #ecfdf5;
+  --status-ontrack-text: #047857;
+  --status-info-bg: #f0fdfa;
+  --status-info-text: #0f766e;
+
+  /* Brand ramp (emerald slot) → navy #1e3a8a family */
+  --color-emerald-50: #eef2ff;
+  --color-emerald-100: #e0e7ff;
+  --color-emerald-200: #c7d2fe;
+  --color-emerald-500: #3b5bd9;
+  --color-emerald-600: #1e3a8a;
+  --color-emerald-700: #1b3378;
+  --color-emerald-800: #172554;
+  --color-emerald-900: #131c40;
+
+  /* Success (green slot) → #059669 */
+  --color-green-50: #ecfdf5;
+  --color-green-100: #d1fae5;
+  --color-green-500: #10b981;
+  --color-green-600: #059669;
+  --color-green-700: #047857;
+  --color-green-800: #065f46;
+
+  /* Info/accent (sky slot) → teal #0d9488 */
+  --color-sky-50: #f0fdfa;
+  --color-sky-100: #ccfbf1;
+  --color-sky-500: #14b8a6;
+  --color-sky-600: #0d9488;
+  --color-sky-700: #0f766e;
+  --color-sky-800: #115e59;
+}
+
 /* Headings inside pro use the display font + a tighter, corporate tracking */
 [data-theme='pro'] h1,
 [data-theme='pro'] h2,

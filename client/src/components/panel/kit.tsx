@@ -133,8 +133,10 @@ export function Kpi({
   suffix,
   sub,
   tone = 'emerald',
+  accent,
   delta,
   spark,
+  sparkColor,
 }: {
   icon: LucideIcon;
   label: string;
@@ -144,8 +146,11 @@ export function Kpi({
   suffix?: string;
   sub?: string;
   tone?: Tone;
+  /** Explicit chip colours (overrides `tone`) — for panels that theme with exact hex. */
+  accent?: { bg: string; fg: string };
   delta?: { dir: 'up' | 'down' | 'flat'; text: string };
   spark?: number[];
+  sparkColor?: string;
 }) {
   const theme = useChartTheme();
   return (
@@ -159,7 +164,10 @@ export function Kpi({
           className="block min-w-0 truncate font-display text-[1.7rem] font-extrabold leading-none text-stone-900 sm:text-[2rem]"
           style={{ fontVariantNumeric: 'tabular-nums' }}
         />
-        <span className={cn('grid h-9 w-9 shrink-0 place-items-center rounded-xl', toneBadge[tone])}>
+        <span
+          className={cn('grid h-9 w-9 shrink-0 place-items-center rounded-xl', !accent && toneBadge[tone])}
+          style={accent ? { backgroundColor: accent.bg, color: accent.fg } : undefined}
+        >
           <Icon className="h-[18px] w-[18px]" />
         </span>
       </div>
@@ -176,7 +184,7 @@ export function Kpi({
       </div>
       {spark && spark.length > 1 && (
         <div className="mt-3 h-9">
-          <Sparkline values={spark} color={theme.brand} />
+          <Sparkline values={spark} color={sparkColor ?? accent?.fg ?? theme.brand} />
         </div>
       )}
     </Card>

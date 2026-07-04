@@ -41,6 +41,7 @@ export interface DoctorReport {
     byGender: LabelCount[];
     byAge: LabelCount[];
     byStatus: LabelCount[];
+    bySource: LabelCount[];
   };
   appointments: {
     total: number;
