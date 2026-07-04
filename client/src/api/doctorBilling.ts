@@ -61,3 +61,28 @@ export function updateInvoice(id: string, status: 'paid' | 'unpaid' | 'cancelled
 export function getBillingSummary() {
   return api<BillingSummary>('/doctor/billing/summary');
 }
+
+// ── Ledger (money-movement transactions) ──
+export type TransactionType = 'credit' | 'debit';
+
+export interface LedgerTransaction {
+  id: string;
+  amount: number;
+  type: TransactionType;
+  date: string;
+  description: string;
+  relatedInvoiceId: string | null;
+}
+
+export interface LedgerResponse {
+  transactions: LedgerTransaction[];
+  totals: { credits: number; debits: number; net: number };
+}
+
+export function listTransactions(range?: { from?: string; to?: string }) {
+  const qs = new URLSearchParams();
+  if (range?.from) qs.set('from', range.from);
+  if (range?.to) qs.set('to', range.to);
+  const suffix = qs.toString() ? `?${qs.toString()}` : '';
+  return api<LedgerResponse>(`/doctor/billing/transactions${suffix}`);
+}

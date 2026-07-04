@@ -33,6 +33,7 @@ const en: Dict = {
   'doctor.nav.labs': 'Labs',
   'doctor.nav.neonatology': 'Neonatology',
   'doctor.nav.analytics': 'Analytics',
+  'doctor.nav.reports': 'Reports',
   'doctor.nav.billing': 'Billing',
   'doctor.nav.profile': 'Profile',
   // Doctor panel — shell chrome (top bar, command palette, quick-add)

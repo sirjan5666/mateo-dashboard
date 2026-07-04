@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Ban, CircleCheck, Clock, Plus, ReceiptText, TrendingUp, Wallet, X } from 'lucide-react';
+import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, Ban, CircleCheck, Clock, Plus, ReceiptText, TrendingUp, Wallet, X } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { ApiError } from '../../api/client';
-import { createInvoice, getBillingSummary, listInvoices, updateInvoice } from '../../api/doctorBilling';
-import type { BillingSummary, InvoiceListItem, InvoiceStatus } from '../../api/doctorBilling';
+import { createInvoice, getBillingSummary, listInvoices, listTransactions, updateInvoice } from '../../api/doctorBilling';
+import type { BillingSummary, InvoiceListItem, InvoiceStatus, LedgerResponse } from '../../api/doctorBilling';
 import { listPatients } from '../../api/doctorPatients';
 import type { Patient } from '../../api/doctorPatients';
 import { useT } from '../../i18n/context';
@@ -44,6 +44,7 @@ export default function Billing() {
 
   const [summary, setSummary] = useState<BillingSummary | null>(null);
   const [invoices, setInvoices] = useState<InvoiceListItem[] | null>(null);
+  const [ledger, setLedger] = useState<LedgerResponse | null>(null);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [filter, setFilter] = useState<Filter>('all');
   const [error, setError] = useState<string | null>(null);
@@ -60,6 +61,9 @@ export default function Billing() {
       .catch((e: unknown) => setError(e instanceof ApiError ? e.message : t('doctor.billing.errLoad')));
     getBillingSummary()
       .then(setSummary)
+      .catch(() => undefined);
+    listTransactions()
+      .then(setLedger)
       .catch(() => undefined);
   }
 
@@ -277,6 +281,44 @@ export default function Billing() {
                 </div>
               );
             })}
+          </div>
+        )}
+      </SectionCard>
+
+      {/* Money ledger — an append-only history of collections (credit) and reversals (debit). */}
+      <SectionCard
+        title="Ledger"
+        icon={ArrowLeftRight}
+        eyebrow="Money movements"
+        action={
+          ledger ? (
+            <p className="text-sm font-semibold tabular-nums" style={{ color: ledger.totals.net >= 0 ? '#059669' : '#e11d48' }}>
+              Net {inr(ledger.totals.net)}
+            </p>
+          ) : undefined
+        }
+      >
+        {!ledger ? (
+          <SkeletonRows n={4} />
+        ) : ledger.transactions.length === 0 ? (
+          <EmptyState icon={ArrowLeftRight} text="No money movements yet. Marking an invoice paid records a credit here." />
+        ) : (
+          <div className="space-y-1.5">
+            {ledger.transactions.map((tx) => (
+              <div key={tx.id} className="flex items-center gap-3 rounded-xl border p-2.5" style={{ borderColor: 'var(--hairline)' }}>
+                <span className={cn('grid h-8 w-8 shrink-0 place-items-center rounded-lg', tx.type === 'credit' ? 'bg-green-50 text-green-600' : 'bg-rose-50 text-rose-600')}>
+                  {tx.type === 'credit' ? <ArrowDownLeft className="h-4 w-4" /> : <ArrowUpRight className="h-4 w-4" />}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-stone-800">{tx.description}</p>
+                  <p className="text-xs tabular-nums text-stone-400">{formatDateIST(tx.date)}</p>
+                </div>
+                <p className={cn('font-display font-bold tabular-nums', tx.type === 'credit' ? 'text-green-700' : 'text-rose-600')}>
+                  {tx.type === 'credit' ? '+' : '−'}
+                  {inr(tx.amount)}
+                </p>
+              </div>
+            ))}
           </div>
         )}
       </SectionCard>

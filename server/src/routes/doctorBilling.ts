@@ -7,6 +7,7 @@ import { auditAccess, recordAudit } from '../middleware/audit.js';
 import { scopeToDoctor } from '../middleware/loadOwnedPatient.js';
 import { Invoice, INVOICE_STATUSES } from '../models/Invoice.js';
 import type { IInvoice, InvoiceStatus } from '../models/Invoice.js';
+import { Transaction } from '../models/Transaction.js';
 import { Patient } from '../models/Patient.js';
 import { decryptField, decryptOptional } from '../lib/crypto/fieldCipher.js';
 import { istDateString } from '../lib/ist.js';
@@ -162,6 +163,7 @@ router.patch('/billing/invoices/:id', auditAccess('invoice'), async (req, res) =
     return;
   }
   const { status } = patchSchema.parse(req.body);
+  const prevPaid = inv.amountPaid;
   if (status === 'paid') {
     inv.amountPaid = inv.total;
     inv.paidAt = new Date();
@@ -178,6 +180,22 @@ router.patch('/billing/invoices/:id', auditAccess('invoice'), async (req, res) =
     inv.paidAt = undefined;
   }
   await inv.save();
+
+  // Ledger: record the change in collected money. Paid (0→total) writes a credit;
+  // reversing a payment (unpaid/cancel after paid) writes a matching debit. The
+  // description carries only the invoice number — never a patient name (not PHI).
+  const delta = inv.amountPaid - prevPaid;
+  if (delta !== 0) {
+    await Transaction.create({
+      doctorUserId: req.userId,
+      amount: Math.abs(delta),
+      type: delta > 0 ? 'credit' : 'debit',
+      date: new Date(),
+      description: delta > 0 ? `Payment received · ${inv.number}` : `${status === 'cancelled' ? 'Cancellation reversal' : 'Payment reversed'} · ${inv.number}`,
+      relatedInvoiceId: inv._id,
+    });
+  }
+
   await recordAudit(req, {
     action: 'update',
     resourceType: 'invoice',
@@ -188,6 +206,37 @@ router.patch('/billing/invoices/:id', auditAccess('invoice'), async (req, res) =
   });
   const names = await namesFor(req, [inv]);
   res.json({ invoice: fullShape(inv, names.get(inv.patientId.toString()) ?? 'Patient') });
+});
+
+// GET /api/doctor/billing/transactions?from=&to= — the money ledger (credits/debits).
+const rangeSchema = z.object({ from: z.string().max(40).optional(), to: z.string().max(40).optional() });
+router.get('/billing/transactions', auditAccess('billing'), async (req, res) => {
+  const { from, to } = rangeSchema.parse(req.query);
+  const dateMatch: Record<string, unknown> = {};
+  if (from || to) {
+    const df: Record<string, Date> = {};
+    if (from) df.$gte = istDayStartUTC(new Date(from));
+    if (to) df.$lte = new Date(`${istDateString(new Date(to))}T23:59:59+05:30`);
+    dateMatch.date = df;
+  }
+  const txns = await Transaction.find(scopeToDoctor(req, dateMatch)).sort({ date: -1, createdAt: -1 }).limit(500);
+  let credits = 0;
+  let debits = 0;
+  for (const t of txns) {
+    if (t.type === 'credit') credits += t.amount;
+    else debits += t.amount;
+  }
+  res.json({
+    transactions: txns.map((t) => ({
+      id: t._id,
+      amount: t.amount,
+      type: t.type,
+      date: t.date,
+      description: t.description,
+      relatedInvoiceId: t.relatedInvoiceId ?? null,
+    })),
+    totals: { credits, debits, net: Math.round((credits - debits) * 100) / 100 },
+  });
 });
 
 // GET /api/doctor/billing/summary — outstanding + collections (plain-field aggregates).

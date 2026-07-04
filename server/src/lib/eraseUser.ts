@@ -33,6 +33,8 @@ import { DoctorPrescription } from '../models/DoctorPrescription.js';
 import { CareMessage } from '../models/CareMessage.js';
 import { SpecialtyTemplate } from '../models/SpecialtyTemplate.js';
 import { ConsentRecord } from '../models/ConsentRecord.js';
+import { Invoice } from '../models/Invoice.js';
+import { Transaction } from '../models/Transaction.js';
 import { User } from '../models/User.js';
 import { uploadsDir } from '../middleware/upload.js';
 
@@ -98,6 +100,8 @@ export async function eraseUserData(userId: string): Promise<void> {
     DoctorPrescription.deleteMany({ doctorUserId: userId }),
     CareMessage.deleteMany({ doctorUserId: userId }),
     ConsentRecord.deleteMany({ doctorUserId: userId }),
+    Invoice.deleteMany({ doctorUserId: userId }),
+    Transaction.deleteMany({ doctorUserId: userId }),
   ]);
   await Patient.deleteMany({ doctorUserId: userId });
   await SpecialtyTemplate.deleteMany({ ownerUserId: userId });

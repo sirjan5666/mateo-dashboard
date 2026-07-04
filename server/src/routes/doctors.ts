@@ -9,6 +9,7 @@ import { User } from '../models/User.js';
 import type { Types } from 'mongoose';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { generateSlots } from '../doctors/slots.js';
+import { decryptOptional } from '../lib/crypto/fieldCipher.js';
 
 const router = Router();
 
@@ -28,6 +29,28 @@ const availabilitySchema = z.object({
   slotMinutes: z.number().int().min(5).max(120),
 });
 
+const dayHoursSchema = z.object({
+  start: z.string().regex(/^\d{2}:\d{2}$/, 'Use HH:MM'),
+  end: z.string().regex(/^\d{2}:\d{2}$/, 'Use HH:MM'),
+  closed: z.boolean(),
+});
+const workingHoursSchema = z.object({
+  monday: dayHoursSchema,
+  tuesday: dayHoursSchema,
+  wednesday: dayHoursSchema,
+  thursday: dayHoursSchema,
+  friday: dayHoursSchema,
+  saturday: dayHoursSchema,
+  sunday: dayHoursSchema,
+});
+const bankDetailsSchema = z.object({
+  accountHolder: z.string().trim().max(120),
+  accountNumber: z.string().trim().max(40),
+  ifsc: z.string().trim().max(20),
+  bankName: z.string().trim().max(120),
+});
+const notificationsSchema = z.object({ email: z.boolean(), sms: z.boolean(), reminders: z.boolean() });
+
 const profileSchema = z.object({
   specialization: z.string().trim().min(2).max(80),
   qualifications: z.string().trim().max(160).optional().default(''),
@@ -37,9 +60,24 @@ const profileSchema = z.object({
   consultationFee: z.number().int().min(0).max(100000),
   languages: z.array(z.string().trim().min(1).max(40)).max(10).optional().default([]),
   clinicName: z.string().trim().max(120).optional(),
+  clinicAddress: z.string().trim().max(300).optional(),
   city: z.string().trim().max(80).optional(),
   availability: availabilitySchema.optional(),
+  workingHours: workingHoursSchema.optional(),
+  notifications: notificationsSchema.optional(),
+  bankDetails: bankDetailsSchema.optional(),
 });
+
+// Decrypt the payout-banking blob for the owner's own view only.
+function decryptBank(enc?: string) {
+  const json = decryptOptional(enc || undefined);
+  if (!json) return null;
+  try {
+    return JSON.parse(json) as z.infer<typeof bankDetailsSchema>;
+  } catch {
+    return null;
+  }
+}
 
 // The doctor's own view — includes approval status.
 function publicSelf(p: IDoctorProfile & { id: string }, name: string) {
@@ -54,8 +92,12 @@ function publicSelf(p: IDoctorProfile & { id: string }, name: string) {
     consultationFee: p.consultationFee,
     languages: p.languages,
     clinicName: p.clinicName ?? null,
+    clinicAddress: p.clinicAddress ?? null,
     city: p.city ?? null,
     availability: p.availability,
+    workingHours: p.workingHours ?? null,
+    notifications: p.notifications ?? { email: true, sms: false, reminders: true },
+    bankDetails: decryptBank(p.bankDetailsEnc),
     status: p.status,
     createdAt: p.createdAt,
     updatedAt: p.updatedAt,
@@ -88,17 +130,25 @@ router.get('/doctors/me', requireAuth, requireRole('doctor'), async (req, res) =
 
 router.put('/doctors/me', requireAuth, requireRole('doctor'), async (req, res) => {
   const body = profileSchema.parse(req.body);
+  // Bank details are encrypted separately (bankDetailsEnc) — never set as a plain field.
+  const { bankDetails, ...rest } = body;
   const existing = await DoctorProfile.findOne({ userId: req.userId });
   // No admin approval step right now — profiles go live on save. When the admin
   // panel returns, gate visibility behind 'pending' → admin approval again.
   if (existing) {
-    existing.set(body);
+    existing.set(rest);
+    if (bankDetails) existing.bankDetailsEnc = JSON.stringify(bankDetails); // encrypted on save
     existing.status = 'approved';
     await existing.save();
     res.json({ profile: publicSelf(existing, req.authUser!.name) });
     return;
   }
-  const created = await DoctorProfile.create({ userId: req.userId, ...body, status: 'approved' });
+  const created = await DoctorProfile.create({
+    userId: req.userId,
+    ...rest,
+    bankDetailsEnc: bankDetails ? JSON.stringify(bankDetails) : undefined,
+    status: 'approved',
+  });
   res.status(201).json({ profile: publicSelf(created, req.authUser!.name) });
 });
 

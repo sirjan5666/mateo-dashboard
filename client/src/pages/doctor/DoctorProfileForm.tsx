@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { ArrowLeft } from 'lucide-react';
-import { getMyDoctorProfile, saveMyDoctorProfile } from '../../api/doctors';
+import { getMyDoctorProfile, saveMyDoctorProfile, WEEK_DAYS } from '../../api/doctors';
+import type { WorkingHours, DoctorNotifications, WeekDay, DayHours } from '../../api/doctors';
 import { ApiError } from '../../api/client';
 import { useT } from '../../i18n/context';
 import { Card } from '../../components/ui/Card';
@@ -13,6 +14,16 @@ import { cn } from '../../lib/cn';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const SLOT_OPTIONS = [15, 20, 30, 45, 60];
+
+const DEFAULT_HOURS: WorkingHours = {
+  monday: { start: '10:00', end: '17:00', closed: false },
+  tuesday: { start: '10:00', end: '17:00', closed: false },
+  wednesday: { start: '10:00', end: '17:00', closed: false },
+  thursday: { start: '10:00', end: '17:00', closed: false },
+  friday: { start: '10:00', end: '17:00', closed: false },
+  saturday: { start: '10:00', end: '14:00', closed: false },
+  sunday: { start: '10:00', end: '14:00', closed: true },
+};
 
 export default function DoctorProfileForm() {
   const t = useT();
@@ -33,6 +44,10 @@ export default function DoctorProfileForm() {
   const [startTime, setStartTime] = useState('10:00');
   const [endTime, setEndTime] = useState('17:00');
   const [slotMinutes, setSlotMinutes] = useState(30);
+  const [clinicAddress, setClinicAddress] = useState('');
+  const [workingHours, setWorkingHours] = useState<WorkingHours>(DEFAULT_HOURS);
+  const [bank, setBank] = useState({ accountHolder: '', accountNumber: '', ifsc: '', bankName: '' });
+  const [notif, setNotif] = useState<DoctorNotifications>({ email: true, sms: false, reminders: true });
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -53,11 +68,15 @@ export default function DoctorProfileForm() {
           setBio(p.bio);
           setLanguages(p.languages.join(', '));
           setClinicName(p.clinicName ?? '');
+          setClinicAddress(p.clinicAddress ?? '');
           setCity(p.city ?? '');
           setDays(p.availability.days);
           setStartTime(p.availability.startTime);
           setEndTime(p.availability.endTime);
           setSlotMinutes(p.availability.slotMinutes);
+          if (p.workingHours) setWorkingHours(p.workingHours);
+          if (p.bankDetails) setBank(p.bankDetails);
+          setNotif(p.notifications);
         }
         setLoaded(true);
       })
@@ -74,6 +93,10 @@ export default function DoctorProfileForm() {
 
   function toggleDay(d: number) {
     setDays((prev) => (prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d].sort((a, b) => a - b)));
+  }
+
+  function setDay(day: WeekDay, partial: Partial<DayHours>) {
+    setWorkingHours((prev) => ({ ...prev, [day]: { ...prev[day], ...partial } }));
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -99,8 +122,20 @@ export default function DoctorProfileForm() {
         consultationFee: fee,
         languages: languages.split(',').map((s) => s.trim()).filter(Boolean),
         clinicName: clinicName.trim() || undefined,
+        clinicAddress: clinicAddress.trim() || undefined,
         city: city.trim() || undefined,
         availability: { days, startTime, endTime, slotMinutes },
+        workingHours,
+        notifications: notif,
+        bankDetails:
+          bank.accountHolder.trim() || bank.accountNumber.trim() || bank.ifsc.trim() || bank.bankName.trim()
+            ? {
+                accountHolder: bank.accountHolder.trim(),
+                accountNumber: bank.accountNumber.trim(),
+                ifsc: bank.ifsc.trim(),
+                bankName: bank.bankName.trim(),
+              }
+            : undefined,
       });
       navigate('/doctor');
     } catch (err) {
@@ -166,6 +201,11 @@ export default function DoctorProfileForm() {
             </div>
 
             <div>
+              <label htmlFor="clinicAddress" className="block text-sm font-medium text-stone-700">Clinic address</label>
+              <input id="clinicAddress" value={clinicAddress} onChange={(e) => setClinicAddress(e.target.value)} placeholder="Street, area, city" className={inputCls} />
+            </div>
+
+            <div>
               <label htmlFor="bio" className="block text-sm font-medium text-stone-700">{t('doctor.profile.about')}</label>
               <textarea id="bio" rows={3} value={bio} onChange={(e) => setBio(e.target.value)} placeholder={t('doctor.profile.aboutPlaceholder')} className={cn(inputCls, 'resize-none')} />
             </div>
@@ -206,6 +246,76 @@ export default function DoctorProfileForm() {
                     ))}
                   </select>
                 </div>
+              </div>
+            </div>
+
+            {/* Working hours — per-day clinic opening times (distinct from the booking window above) */}
+            <div className="rounded-xl border border-stone-200 p-4">
+              <h2 className="text-sm font-semibold text-stone-800">Working hours</h2>
+              <p className="mt-0.5 text-xs text-stone-500">Your clinic opening hours, per day. (Online booking uses the availability window above.)</p>
+              <div className="mt-3 space-y-2">
+                {WEEK_DAYS.map((day) => {
+                  const h = workingHours[day];
+                  return (
+                    <div key={day} className="flex flex-wrap items-center gap-2">
+                      <span className="w-24 text-sm font-medium capitalize text-stone-700">{day}</span>
+                      <label className="inline-flex items-center gap-1.5 text-xs text-stone-500">
+                        <input type="checkbox" checked={!h.closed} onChange={(e) => setDay(day, { closed: !e.target.checked })} className="h-4 w-4 rounded border-stone-300" />
+                        Open
+                      </label>
+                      {h.closed ? (
+                        <span className="text-xs font-medium text-stone-400">Closed</span>
+                      ) : (
+                        <>
+                          <input type="time" value={h.start} onChange={(e) => setDay(day, { start: e.target.value })} className={cn(inputCls, 'w-32')} />
+                          <span className="text-stone-400">–</span>
+                          <input type="time" value={h.end} onChange={(e) => setDay(day, { end: e.target.value })} className={cn(inputCls, 'w-32')} />
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Bank details — encrypted at rest; only the owner sees them */}
+            <div className="rounded-xl border border-stone-200 p-4">
+              <h2 className="text-sm font-semibold text-stone-800">Bank details</h2>
+              <p className="mt-0.5 text-xs text-stone-500">For payouts from collections. Stored encrypted — only you can see it.</p>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="block text-xs text-stone-500">Account holder</label>
+                  <input value={bank.accountHolder} onChange={(e) => setBank((b) => ({ ...b, accountHolder: e.target.value }))} className={inputCls} autoComplete="off" />
+                </div>
+                <div>
+                  <label className="block text-xs text-stone-500">Account number</label>
+                  <input value={bank.accountNumber} onChange={(e) => setBank((b) => ({ ...b, accountNumber: e.target.value }))} className={cn(inputCls, 'tabular')} autoComplete="off" />
+                </div>
+                <div>
+                  <label className="block text-xs text-stone-500">IFSC code</label>
+                  <input value={bank.ifsc} onChange={(e) => setBank((b) => ({ ...b, ifsc: e.target.value.toUpperCase() }))} className={inputCls} autoComplete="off" />
+                </div>
+                <div>
+                  <label className="block text-xs text-stone-500">Bank name</label>
+                  <input value={bank.bankName} onChange={(e) => setBank((b) => ({ ...b, bankName: e.target.value }))} className={inputCls} autoComplete="off" />
+                </div>
+              </div>
+            </div>
+
+            {/* Notification preferences */}
+            <div className="rounded-xl border border-stone-200 p-4">
+              <h2 className="text-sm font-semibold text-stone-800">Notifications</h2>
+              <div className="mt-3 space-y-2">
+                {([
+                  ['email', 'Email notifications'],
+                  ['sms', 'SMS notifications'],
+                  ['reminders', 'Appointment reminders'],
+                ] as const).map(([key, label]) => (
+                  <label key={key} className="flex items-center gap-2.5 text-sm text-stone-700">
+                    <input type="checkbox" checked={notif[key]} onChange={(e) => setNotif((n) => ({ ...n, [key]: e.target.checked }))} className="h-4 w-4 rounded border-stone-300" />
+                    {label}
+                  </label>
+                ))}
               </div>
             </div>
 

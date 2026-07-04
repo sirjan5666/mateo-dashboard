@@ -18,3 +18,46 @@ export interface Analytics {
 export function getAnalytics() {
   return api<Analytics>('/doctor/analytics');
 }
+
+// ── Date-range Reports ──
+export interface LabelCount {
+  label: string;
+  count: number;
+}
+
+export interface DoctorReport {
+  range: { from: string; to: string };
+  revenue: {
+    total: number;
+    paidInvoices: number;
+    collectionRate: number | null;
+    collected: number;
+    invoiced: number;
+    byDay: { date: string; amount: number }[];
+    topDays: { date: string; amount: number }[];
+  };
+  patients: {
+    newCount: number;
+    byGender: LabelCount[];
+    byAge: LabelCount[];
+    byStatus: LabelCount[];
+  };
+  appointments: {
+    total: number;
+    avgDurationMin: number;
+    byStatus: LabelCount[];
+    byMode: LabelCount[];
+  };
+  consultations: {
+    total: number;
+    byKind: LabelCount[];
+  };
+}
+
+export function getReport(range?: { from?: string; to?: string }) {
+  const qs = new URLSearchParams();
+  if (range?.from) qs.set('from', range.from);
+  if (range?.to) qs.set('to', range.to);
+  const suffix = qs.toString() ? `?${qs.toString()}` : '';
+  return api<DoctorReport>(`/doctor/analytics/report${suffix}`);
+}

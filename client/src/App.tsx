@@ -1,6 +1,6 @@
 import { lazy, useEffect, useState } from 'react';
 import { Navigate, Route, Routes } from 'react-router';
-import { BarChart3, CalendarClock, CreditCard, HeartPulse, MessageSquare, Stethoscope, UserCog, Users } from 'lucide-react';
+import { BarChart3, CalendarClock, CreditCard, FileText, HeartPulse, MessageSquare, Stethoscope, UserCog, Users } from 'lucide-react';
 import { AuthProvider } from './auth/AuthProvider';
 import { useAuth } from './auth/context';
 import { AppShell } from './components/layout/AppShell';
@@ -37,6 +37,7 @@ import DoctorAppointments from './pages/doctor/DoctorAppointments';
 import Patients from './pages/doctor/Patients';
 import PatientDetail from './pages/doctor/PatientDetail';
 import AnalyticsPage from './pages/doctor/Analytics';
+import Reports from './pages/doctor/Reports';
 import Billing from './pages/doctor/Billing';
 import Schedule from './pages/doctor/Schedule';
 import DoctorMessages from './pages/doctor/Messages';
@@ -72,6 +73,7 @@ const DOCTOR_NAV: PanelNavItem[] = [
   { to: '/doctor/messages', label: 'doctor.nav.messages', icon: MessageSquare, section: 'doctor.section.patients' },
   { to: '/doctor/appointments', label: 'doctor.nav.consultations', icon: CalendarClock, section: 'doctor.section.patients' },
   { to: '/doctor/analytics', label: 'doctor.nav.analytics', icon: BarChart3, section: 'doctor.section.practice' },
+  { to: '/doctor/reports', label: 'doctor.nav.reports', icon: FileText, section: 'doctor.section.practice' },
   { to: '/doctor/billing', label: 'doctor.nav.billing', icon: CreditCard, section: 'doctor.section.practice' },
   { to: '/doctor/profile', label: 'doctor.nav.profile', icon: UserCog, section: 'doctor.section.practice' },
 ];
@@ -128,6 +130,7 @@ function AppRoutes() {
           <Route path="/doctor/patients" element={<Patients />} />
           <Route path="/doctor/patients/:id" element={<PatientDetail />} />
           <Route path="/doctor/analytics" element={<AnalyticsPage />} />
+          <Route path="/doctor/reports" element={<Reports />} />
           <Route path="/doctor/billing" element={<Billing />} />
           <Route path="/doctor/schedule" element={<Schedule />} />
           <Route path="/doctor/messages" element={<DoctorMessages />} />

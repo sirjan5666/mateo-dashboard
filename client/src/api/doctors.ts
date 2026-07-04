@@ -9,6 +9,29 @@ export interface DoctorAvailability {
   slotMinutes: number;
 }
 
+export type WeekDay = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
+export const WEEK_DAYS: WeekDay[] = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+
+export interface DayHours {
+  start: string; // "HH:MM"
+  end: string;
+  closed: boolean;
+}
+export type WorkingHours = Record<WeekDay, DayHours>;
+
+export interface DoctorNotifications {
+  email: boolean;
+  sms: boolean;
+  reminders: boolean;
+}
+
+export interface BankDetails {
+  accountHolder: string;
+  accountNumber: string;
+  ifsc: string;
+  bankName: string;
+}
+
 export interface DoctorProfile {
   id: string;
   name: string;
@@ -20,8 +43,12 @@ export interface DoctorProfile {
   consultationFee: number;
   languages: string[];
   clinicName: string | null;
+  clinicAddress: string | null;
   city: string | null;
   availability: DoctorAvailability;
+  workingHours: WorkingHours | null;
+  notifications: DoctorNotifications;
+  bankDetails: BankDetails | null;
   status: DoctorStatus;
   createdAt: string;
   updatedAt: string;
@@ -36,8 +63,12 @@ export interface DoctorProfileInput {
   consultationFee: number;
   languages?: string[];
   clinicName?: string;
+  clinicAddress?: string;
   city?: string;
   availability?: DoctorAvailability;
+  workingHours?: WorkingHours;
+  notifications?: DoctorNotifications;
+  bankDetails?: BankDetails;
 }
 
 export function getMyDoctorProfile() {
