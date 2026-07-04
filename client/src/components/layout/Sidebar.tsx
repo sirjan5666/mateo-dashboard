@@ -5,6 +5,8 @@ import { Activity, Apple, Baby, BookText, CalendarClock, Droplets, FileText, Gif
 import type { LucideIcon } from 'lucide-react';
 import { useAuth } from '../../auth/context';
 import { useT } from '../../i18n/context';
+import { useSubscribed } from '../../lib/subscription';
+import { PaidBadge } from '../subscription/bits';
 import { listBabies } from '../../api/babies';
 import { Brand } from './Brand';
 import { BrandTile } from '../ui/BrandTile';
@@ -67,6 +69,7 @@ export function Sidebar({
 }) {
   const { user, logout } = useAuth();
   const t = useT();
+  const subscribed = useSubscribed();
   const location = useLocation();
   const [firstBabyId, setFirstBabyId] = useState<string | null>(null);
   const initial = user?.name?.trim().charAt(0).toUpperCase() || 'M';
@@ -247,7 +250,14 @@ export function Sidebar({
                 {({ isActive }) => (
                   <>
                     <NavIcon icon={icon} active={isActive} color={color} />
-                    {!collapsed && t(label)}
+                    {!collapsed && (
+                      <>
+                        <span className="min-w-0 flex-1 truncate">{t(label)}</span>
+                        {/* Trackers are part of the plan — the route guard sends
+                            unsubscribed parents to /subscribe. */}
+                        {!subscribed && <PaidBadge />}
+                      </>
+                    )}
                   </>
                 )}
               </NavLink>

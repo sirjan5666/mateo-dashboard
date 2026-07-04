@@ -106,6 +106,9 @@ export async function eraseUserData(userId: string): Promise<void> {
   // are retained under the lawful treatment basis.
   // COMPLIANCE: confirm the retention basis for portal-patient erasure with legal.
   await Patient.updateMany({ patientUserId: userId }, { $unset: { patientUserId: '' } });
+  // Same for a doctor-invited PARENT: sever the invite-bridge provenance links
+  // (the doctor's clinical Patient record itself is retained, as above).
+  await Patient.updateMany({ parentUserId: userId }, { $unset: { parentUserId: '', babyId: '' } });
   // Mirror the unlink onto append-only consent history: a portal patient's
   // identifier (subjectUserId) and the metadata captured at grant time must not
   // survive their erasure. $unset preserves the grant/withdraw history (purpose,

@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { GrowthLog } from '../models/GrowthLog.js';
 import type { IGrowthLog } from '../models/GrowthLog.js';
 import { requireAuth } from '../middleware/auth.js';
+import { requireSubscription } from '../middleware/subscription.js';
 import { loadOwnedBaby } from '../middleware/ownership.js';
 import { bandCurves, computePercentile, percentileZone } from '../growth/percentile.js';
 import type { Indicator, Sex } from '../growth/percentile.js';
@@ -53,7 +54,7 @@ function publicLog(log: IGrowthLog & { id: string }, dob: Date) {
 
 const router = Router();
 
-router.get('/babies/:id/growth', requireAuth, loadOwnedBaby, async (req, res) => {
+router.get('/babies/:id/growth', requireAuth, requireSubscription, loadOwnedBaby, async (req, res) => {
   const baby = req.baby!;
   const sex = baby.sex as Sex;
   const logs = await GrowthLog.find({ babyId: baby._id }).sort({ loggedAt: 1 });
@@ -84,7 +85,7 @@ router.get('/babies/:id/growth', requireAuth, loadOwnedBaby, async (req, res) =>
   });
 });
 
-router.post('/babies/:id/growth', requireAuth, loadOwnedBaby, async (req, res) => {
+router.post('/babies/:id/growth', requireAuth, requireSubscription, loadOwnedBaby, async (req, res) => {
   const baby = req.baby!;
   const body = createLogSchema.parse(req.body);
   if (body.loggedAt.getTime() < baby.dob.getTime()) {
@@ -95,7 +96,7 @@ router.post('/babies/:id/growth', requireAuth, loadOwnedBaby, async (req, res) =
   res.status(201).json({ log: publicLog(log, baby.dob) });
 });
 
-router.delete('/babies/:id/growth/:logId', requireAuth, loadOwnedBaby, async (req, res) => {
+router.delete('/babies/:id/growth/:logId', requireAuth, requireSubscription, loadOwnedBaby, async (req, res) => {
   const baby = req.baby!;
   const { logId } = req.params;
   const log = isValidObjectId(logId) ? await GrowthLog.findById(logId) : null;

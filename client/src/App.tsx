@@ -1,6 +1,6 @@
 import { lazy, useEffect, useState } from 'react';
 import { Navigate, Route, Routes } from 'react-router';
-import { Activity, Baby, BarChart3, Calculator, CalendarClock, CalendarDays, CreditCard, FlaskConical, HeartPulse, MessageSquare, Stethoscope, Syringe, TrendingUp, UserCog, Users } from 'lucide-react';
+import { Activity, Baby, BarChart3, Calculator, CalendarClock, CreditCard, FlaskConical, HeartPulse, MessageSquare, Stethoscope, Syringe, TrendingUp, UserCog, Users } from 'lucide-react';
 import { AuthProvider } from './auth/AuthProvider';
 import { useAuth } from './auth/context';
 import { AppShell } from './components/layout/AppShell';
@@ -9,6 +9,8 @@ import { ImpersonationBanner } from './components/ImpersonationBanner';
 import type { PanelNavItem } from './components/layout/PanelShell';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
+import Subscribe from './pages/Subscribe';
+import { RequireSubscribed } from './components/subscription/RequireSubscribed';
 import BabyForm from './pages/BabyForm';
 import Vaccines from './pages/Vaccines';
 import Skin from './pages/Skin';
@@ -72,7 +74,6 @@ const Growth = lazy(() => import('./pages/Growth'));
 const DOCTOR_NAV: PanelNavItem[] = [
   { to: '/doctor', label: 'doctor.nav.home', icon: Stethoscope, end: true, section: 'doctor.section.today' },
   { to: '/doctor/patients', label: 'doctor.nav.patients', icon: Users, section: 'doctor.section.patients' },
-  { to: '/doctor/schedule', label: 'doctor.nav.schedule', icon: CalendarDays, section: 'doctor.section.patients' },
   { to: '/doctor/messages', label: 'doctor.nav.messages', icon: MessageSquare, section: 'doctor.section.patients' },
   { to: '/doctor/appointments', label: 'doctor.nav.consultations', icon: CalendarClock, section: 'doctor.section.patients' },
   { to: '/doctor/growth', label: 'doctor.nav.growth', icon: TrendingUp, section: 'doctor.section.clinical' },
@@ -178,26 +179,31 @@ function AppRoutes() {
         <Route path="/" element={isAdmin ? <AdminHome /> : <Dashboard />} />
         <Route path="/babies/new" element={<BabyForm />} />
         <Route path="/babies/:id/edit" element={<BabyForm />} />
-        <Route path="/babies/:id/vaccines" element={<Vaccines />} />
-        <Route path="/babies/:id/growth" element={<Growth />} />
-        <Route path="/babies/:id/skin" element={<Skin />} />
-        <Route path="/babies/:id/food" element={<Food />} />
-        <Route path="/babies/:id/feeds" element={<Feeds />} />
-        <Route path="/babies/:id/sleep" element={<Sleep />} />
-        <Route path="/babies/:id/diapers" element={<Diapers />} />
-        <Route path="/babies/:id/symptoms" element={<Symptoms />} />
-        <Route path="/babies/:id/medicines" element={<Medicines />} />
-        <Route path="/babies/:id/allergies" element={<Allergies />} />
-        <Route path="/babies/:id/milestones" element={<Milestones />} />
-        <Route path="/babies/:id/records" element={<Health />} />
-        <Route path="/babies/:id/chat" element={<Chat />} />
+        {/* Paid features — trackers, Tara chat and the report sit behind the plan.
+            Unsubscribed parents land on /subscribe; the server 402s the APIs too. */}
+        <Route element={<RequireSubscribed />}>
+          <Route path="/babies/:id/vaccines" element={<Vaccines />} />
+          <Route path="/babies/:id/growth" element={<Growth />} />
+          <Route path="/babies/:id/skin" element={<Skin />} />
+          <Route path="/babies/:id/food" element={<Food />} />
+          <Route path="/babies/:id/feeds" element={<Feeds />} />
+          <Route path="/babies/:id/sleep" element={<Sleep />} />
+          <Route path="/babies/:id/diapers" element={<Diapers />} />
+          <Route path="/babies/:id/symptoms" element={<Symptoms />} />
+          <Route path="/babies/:id/medicines" element={<Medicines />} />
+          <Route path="/babies/:id/allergies" element={<Allergies />} />
+          <Route path="/babies/:id/milestones" element={<Milestones />} />
+          <Route path="/babies/:id/records" element={<Health />} />
+          <Route path="/babies/:id/chat" element={<Chat />} />
+          <Route path="/report" element={<Report />} />
+        </Route>
+        <Route path="/subscribe" element={<Subscribe />} />
         <Route path="/find-doctor" element={<FindDoctor />} />
         <Route path="/find-doctor/:id" element={<FindDoctor />} />
         <Route path="/consultations" element={<MyConsultations />} />
         <Route path="/consultations/:id" element={<ConsultationDetail />} />
         <Route path="/refer" element={<ReferEarn />} />
         <Route path="/community" element={<Community />} />
-        <Route path="/report" element={<Report />} />
         <Route path="/shop" element={<Shop />} />
         <Route path="/shop/p/:id" element={<ProductDetail />} />
         <Route path="/shop/cart" element={<Cart />} />

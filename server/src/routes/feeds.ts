@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { FeedLog, FEED_KINDS, FEED_SIDES } from '../models/FeedLog.js';
 import type { IFeedLog, FeedKind, FeedSide } from '../models/FeedLog.js';
 import { requireAuth } from '../middleware/auth.js';
+import { requireSubscription } from '../middleware/subscription.js';
 import { loadOwnedBaby } from '../middleware/ownership.js';
 import { isFutureISTDate, istDateString } from '../lib/ist.js';
 
@@ -36,7 +37,7 @@ function publicLog(log: IFeedLog & { id: string }) {
 
 const router = Router();
 
-router.get('/babies/:id/feeds', requireAuth, loadOwnedBaby, async (req, res) => {
+router.get('/babies/:id/feeds', requireAuth, requireSubscription, loadOwnedBaby, async (req, res) => {
   const baby = req.baby!;
   const logs = await FeedLog.find({ babyId: baby._id }).sort({ loggedAt: -1, createdAt: -1 });
   const today = istDateString(new Date());
@@ -69,7 +70,7 @@ router.get('/babies/:id/feeds', requireAuth, loadOwnedBaby, async (req, res) => 
   });
 });
 
-router.post('/babies/:id/feeds', requireAuth, loadOwnedBaby, async (req, res) => {
+router.post('/babies/:id/feeds', requireAuth, requireSubscription, loadOwnedBaby, async (req, res) => {
   const baby = req.baby!;
   const body = createFeedSchema.parse(req.body);
   if (body.loggedAt.getTime() < baby.dob.getTime()) {
@@ -80,7 +81,7 @@ router.post('/babies/:id/feeds', requireAuth, loadOwnedBaby, async (req, res) =>
   res.status(201).json({ log: publicLog(log) });
 });
 
-router.delete('/babies/:id/feeds/:logId', requireAuth, loadOwnedBaby, async (req, res) => {
+router.delete('/babies/:id/feeds/:logId', requireAuth, requireSubscription, loadOwnedBaby, async (req, res) => {
   const baby = req.baby!;
   const { logId } = req.params;
   const log = isValidObjectId(logId) ? await FeedLog.findById(logId) : null;

@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { VaccineDose } from '../models/VaccineDose.js';
 import type { IVaccineDose } from '../models/VaccineDose.js';
 import { requireAuth } from '../middleware/auth.js';
+import { requireSubscription } from '../middleware/subscription.js';
 import { loadOwnedBaby, loadOwnedDose } from '../middleware/ownership.js';
 import {
   ageLabelForOffsetDays,
@@ -44,7 +45,7 @@ const markDoseSchema = z.object({
 
 const router = Router();
 
-router.get('/babies/:id/vaccines', requireAuth, loadOwnedBaby, async (req, res) => {
+router.get('/babies/:id/vaccines', requireAuth, requireSubscription, loadOwnedBaby, async (req, res) => {
   const baby = req.baby!;
   const doses = await VaccineDose.find({ babyId: baby._id }).sort({ dueDate: 1, vaccineName: 1 });
   const today = istToday();
@@ -62,7 +63,7 @@ router.get('/babies/:id/vaccines', requireAuth, loadOwnedBaby, async (req, res) 
   res.json({ doses: items, summary });
 });
 
-router.patch('/vaccines/:doseId', requireAuth, loadOwnedDose, async (req, res) => {
+router.patch('/vaccines/:doseId', requireAuth, requireSubscription, loadOwnedDose, async (req, res) => {
   const { administeredOn } = markDoseSchema.parse(req.body);
   const dose = req.dose!;
   const baby = req.baby!;

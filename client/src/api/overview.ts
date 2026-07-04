@@ -39,6 +39,9 @@ export interface UpcomingItem {
 }
 
 export interface Overview {
+  // True for unsubscribed parents: babies + profile basics only, vaccine
+  // aggregates zeroed server-side (the plan gates tracker-derived data).
+  locked?: boolean;
   babies: OverviewBaby[];
   totals: {
     babies: number;

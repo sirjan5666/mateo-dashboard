@@ -30,6 +30,18 @@ export function updateProfile(name: string) {
   });
 }
 
+export function changePassword(currentPassword: string, newPassword: string) {
+  return api<{ ok: true }>(`/account/password`, {
+    method: 'POST',
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
+}
+
+// DPDP: a doctor-invited parent personally affirms the consent screen on first login.
+export function confirmConsent() {
+  return api<{ ok: true }>(`/account/confirm-consent`, { method: 'POST' });
+}
+
 export function exportData() {
   return api<Record<string, unknown>>(`/account/export`);
 }

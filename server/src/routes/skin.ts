@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { SkinLog } from '../models/SkinLog.js';
 import type { ISkinLog } from '../models/SkinLog.js';
 import { requireAuth } from '../middleware/auth.js';
+import { requireSubscription } from '../middleware/subscription.js';
 import { loadOwnedBaby } from '../middleware/ownership.js';
 import { uploadPhoto, uploadsDir } from '../middleware/upload.js';
 import { isFutureISTDate } from '../lib/ist.js';
@@ -49,14 +50,14 @@ function handleUpload(req: Request, res: Response, next: NextFunction): void {
 
 const router = Router();
 
-router.get('/babies/:id/skin', requireAuth, loadOwnedBaby, async (req, res) => {
+router.get('/babies/:id/skin', requireAuth, requireSubscription, loadOwnedBaby, async (req, res) => {
   const baby = req.baby!;
   // Newest observation first; createdAt breaks ties when several share a date.
   const logs = await SkinLog.find({ babyId: baby._id }).sort({ loggedAt: -1, createdAt: -1 });
   res.json({ logs: logs.map((l) => publicLog(l, baby.id)) });
 });
 
-router.post('/babies/:id/skin', requireAuth, loadOwnedBaby, handleUpload, async (req, res) => {
+router.post('/babies/:id/skin', requireAuth, requireSubscription, loadOwnedBaby, handleUpload, async (req, res) => {
   const baby = req.baby!;
   const cleanupFile = async () => {
     if (req.file) await unlink(req.file.path).catch(() => {});
@@ -79,7 +80,7 @@ router.post('/babies/:id/skin', requireAuth, loadOwnedBaby, handleUpload, async 
   res.status(201).json({ log: publicLog(log, baby.id) });
 });
 
-router.get('/babies/:id/skin/:logId/photo', requireAuth, loadOwnedBaby, async (req, res) => {
+router.get('/babies/:id/skin/:logId/photo', requireAuth, requireSubscription, loadOwnedBaby, async (req, res) => {
   const baby = req.baby!;
   const { logId } = req.params;
   const log = isValidObjectId(logId) ? await SkinLog.findById(logId) : null;
@@ -90,7 +91,7 @@ router.get('/babies/:id/skin/:logId/photo', requireAuth, loadOwnedBaby, async (r
   res.sendFile(path.join(uploadsDir, log.photoFile));
 });
 
-router.delete('/babies/:id/skin/:logId', requireAuth, loadOwnedBaby, async (req, res) => {
+router.delete('/babies/:id/skin/:logId', requireAuth, requireSubscription, loadOwnedBaby, async (req, res) => {
   const baby = req.baby!;
   const { logId } = req.params;
   const log = isValidObjectId(logId) ? await SkinLog.findById(logId) : null;

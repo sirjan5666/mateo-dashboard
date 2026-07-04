@@ -6,6 +6,7 @@ import { SymptomLog } from '../models/SymptomLog.js';
 import type { ISymptomLog } from '../models/SymptomLog.js';
 import type { IBaby } from '../models/Baby.js';
 import { requireAuth } from '../middleware/auth.js';
+import { requireSubscription } from '../middleware/subscription.js';
 import { loadOwnedBaby } from '../middleware/ownership.js';
 import { isFutureISTDate } from '../lib/ist.js';
 import { assessSymptoms, SYMPTOM_KEYS } from '../health/symptoms.js';
@@ -55,7 +56,7 @@ function publicLog(log: HydratedDocument<ISymptomLog>, baby: IBaby) {
 
 const router = Router();
 
-router.get('/babies/:id/symptoms', requireAuth, loadOwnedBaby, async (req, res) => {
+router.get('/babies/:id/symptoms', requireAuth, requireSubscription, loadOwnedBaby, async (req, res) => {
   const baby = req.baby!;
   const logs = await SymptomLog.find({ babyId: baby._id }).sort({ loggedAt: -1, createdAt: -1 });
   const views = logs.map((l) => publicLog(l, baby));
@@ -72,7 +73,7 @@ router.get('/babies/:id/symptoms', requireAuth, loadOwnedBaby, async (req, res) 
   });
 });
 
-router.post('/babies/:id/symptoms', requireAuth, loadOwnedBaby, async (req, res) => {
+router.post('/babies/:id/symptoms', requireAuth, requireSubscription, loadOwnedBaby, async (req, res) => {
   const baby = req.baby!;
   const body = createSymptomSchema.parse(req.body);
   if (body.loggedAt.getTime() < baby.dob.getTime()) {
@@ -89,7 +90,7 @@ router.post('/babies/:id/symptoms', requireAuth, loadOwnedBaby, async (req, res)
   res.status(201).json({ log: publicLog(log, baby) });
 });
 
-router.delete('/babies/:id/symptoms/:logId', requireAuth, loadOwnedBaby, async (req, res) => {
+router.delete('/babies/:id/symptoms/:logId', requireAuth, requireSubscription, loadOwnedBaby, async (req, res) => {
   const baby = req.baby!;
   const { logId } = req.params;
   const log = isValidObjectId(logId) ? await SymptomLog.findById(logId) : null;

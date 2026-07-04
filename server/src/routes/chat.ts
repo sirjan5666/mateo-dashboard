@@ -7,6 +7,7 @@ import type { IChatMessage } from '../models/ChatMessage.js';
 import { ChatSession } from '../models/ChatSession.js';
 import type { IChatSession } from '../models/ChatSession.js';
 import { requireAuth } from '../middleware/auth.js';
+import { requireSubscription } from '../middleware/subscription.js';
 import { loadOwnedBaby } from '../middleware/ownership.js';
 import { checkRedFlags } from '../ai/red-flags.js';
 import { babyAge, buildBabyContext } from '../ai/context.js';
@@ -77,7 +78,7 @@ function coalesce(msgs: IChatMessage[]): { role: 'user' | 'assistant'; content: 
 const router = Router();
 
 // List this baby's chat threads, newest activity first, for the side panel.
-router.get('/babies/:id/chat/sessions', requireAuth, loadOwnedBaby, async (req, res) => {
+router.get('/babies/:id/chat/sessions', requireAuth, requireSubscription, loadOwnedBaby, async (req, res) => {
   const sessions = await ChatSession.find({ babyId: req.baby!._id })
     .sort({ lastMessageAt: -1 })
     .limit(MAX_SESSIONS);
@@ -85,7 +86,7 @@ router.get('/babies/:id/chat/sessions', requireAuth, loadOwnedBaby, async (req, 
 });
 
 // Fetch the messages of a single thread.
-router.get('/babies/:id/chat/sessions/:sessionId', requireAuth, loadOwnedBaby, async (req, res) => {
+router.get('/babies/:id/chat/sessions/:sessionId', requireAuth, requireSubscription, loadOwnedBaby, async (req, res) => {
   const session = await loadSession(req.baby!._id, String(req.params.sessionId));
   if (!session) {
     res.status(404).json({ error: 'Chat not found' });
@@ -100,7 +101,7 @@ router.get('/babies/:id/chat/sessions/:sessionId', requireAuth, loadOwnedBaby, a
 });
 
 // Delete a thread and all of its messages.
-router.delete('/babies/:id/chat/sessions/:sessionId', requireAuth, loadOwnedBaby, async (req, res) => {
+router.delete('/babies/:id/chat/sessions/:sessionId', requireAuth, requireSubscription, loadOwnedBaby, async (req, res) => {
   const session = await loadSession(req.baby!._id, String(req.params.sessionId));
   if (!session) {
     res.status(404).json({ error: 'Chat not found' });
@@ -113,7 +114,7 @@ router.delete('/babies/:id/chat/sessions/:sessionId', requireAuth, loadOwnedBaby
 
 // Send a message. With no sessionId we open a new thread (titled from this
 // message); otherwise we append to the named thread.
-router.post('/babies/:id/chat', requireAuth, loadOwnedBaby, async (req, res) => {
+router.post('/babies/:id/chat', requireAuth, requireSubscription, loadOwnedBaby, async (req, res) => {
   const baby = req.baby!;
   const { message, sessionId, language } = sendSchema.parse(req.body);
   const { ageMonths, ageDays } = babyAge(baby.dob);

@@ -2,12 +2,23 @@ import { api } from './client';
 
 export type UserRole = 'parent' | 'doctor' | 'admin' | 'patient';
 
+export type SubscriptionSource = 'mateo' | 'purchase' | 'doctor';
+
 export interface User {
   id: string;
   name: string;
   email: string;
   role: UserRole;
   consentAcceptedAt?: string;
+  // DPDP: doctor-invited parents confirm the consent screen on first login.
+  consentPending?: boolean;
+  // Paid-plan state (server-computed; the server enforces separately with 402s).
+  // Undefined (old cached shape) reads as subscribed — matches the server's
+  // grandfather rule for pre-paywall accounts.
+  subscribed?: boolean;
+  subscriptionSource?: SubscriptionSource;
+  subscriptionPlan?: 'monthly' | 'yearly';
+  subscriptionExpiresAt?: string;
   createdAt?: string;
   // True when an admin is currently impersonating this user.
   impersonating?: boolean;

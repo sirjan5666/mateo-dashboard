@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import type { LucideIcon } from 'lucide-react';
 import {
@@ -65,14 +65,17 @@ import {
 } from '../../components/panel/kit';
 import type { ChartTheme } from '../../components/panel/kit';
 import { cn } from '../../lib/cn';
-import { gsap, prefersReducedMotion, useEntrance, useReveal } from '../../lib/gsap';
+import { useEntrance, useReveal } from '../../lib/gsap';
+import { JOURNEY_TOTAL, daysSinceDob } from '../../lib/journey';
 import { greetingIST, todayLongIST, formatTimeIST, relativePastIST, relativeUpcomingIST } from '../../lib/age';
 
 type T = ReturnType<typeof useT>;
 
 // ── constants ────────────────────────────────────────────────────────────────
+// JOURNEY_TOTAL + daysSinceDob come from lib/journey — the single source of
+// day-N math shared with the parent dashboard's First-2000-Days card (the band
+// itself moved there; this page keeps the per-patient day for Recent patients).
 const MS_PER_DAY = 86_400_000;
-const JOURNEY_TOTAL = 2000; // the "first 2000 days" window (~5.5 years)
 
 // Developmental stages across the 0→2000-day arc (cumulative end-day).
 const STAGES: { key: string; labelKey: string; end: number }[] = [
@@ -121,28 +124,10 @@ function toneHex(t: Tone, theme: ChartTheme): string {
   return { emerald: theme.green, sky: theme.sky, violet: theme.brand2, amber: theme.amber, rose: theme.rose, stone: theme.axis }[t];
 }
 
-function daysSinceDob(dob: string): number {
-  return Math.floor((Date.now() - Date.parse(dob)) / MS_PER_DAY);
-}
-
 // Kept at module scope (not inline in render) so the time read stays out of
 // React's purity-checked render path — same convention as lib/age.ts.
 function isWithinDays(iso: string, days: number): boolean {
   return Date.now() - Date.parse(iso) <= days * MS_PER_DAY;
-}
-
-function median(nums: number[]): number {
-  if (!nums.length) return 0;
-  const s = [...nums].sort((a, b) => a - b);
-  const m = Math.floor(s.length / 2);
-  return s.length % 2 ? s[m] : Math.round((s[m - 1] + s[m]) / 2);
-}
-
-// Stable 0–4 vertical lane for a dot, so children don't stack on one line.
-function laneOf(id: string): number {
-  let h = 0;
-  for (let i = 0; i < id.length; i += 1) h = (h * 31 + id.charCodeAt(i)) % 997;
-  return h % 5;
 }
 
 function stageLabel(day: number, t: T): string {
@@ -157,121 +142,10 @@ interface JourneyChild {
   status: string;
 }
 
-// ── signature: First 2000 Days journey band ──────────────────────────────────
-function JourneyBand({ kids, graduates, undated }: { kids: JourneyChild[]; graduates: number; undated: number }) {
-  const t = useT();
-  const bandRef = useRef<HTMLDivElement>(null);
-  const med = median(kids.map((c) => c.day));
-
-  // Stagger the plotted children in once they render (scale-pop along the track).
-  useEffect(() => {
-    const root = bandRef.current;
-    if (!root || prefersReducedMotion()) return;
-    const dots = root.querySelectorAll('[data-journey-dot]');
-    if (!dots.length) return;
-    const tween = gsap.fromTo(
-      dots,
-      { scale: 0, opacity: 0 },
-      { scale: 1, opacity: 1, duration: 0.5, ease: 'back.out(2)', stagger: { each: 0.04, amount: Math.min(0.8, dots.length * 0.04) }, delay: 0.25 },
-    );
-    return () => {
-      tween.kill();
-      gsap.set(dots, { clearProps: 'scale,opacity,transform' });
-    };
-  }, [kids]);
-
-  return (
-    <div className="mt-6 border-t pt-5" style={{ borderColor: 'var(--hairline)' }}>
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-[0.64rem] font-bold uppercase tracking-[0.16em] text-stone-400">{t('doctor.home.journeyTitle')}</p>
-          <p className="mt-0.5 text-sm text-stone-600">
-            <span className="font-bold tabular-nums text-stone-900">{kids.length}</span>{' '}
-            {t(kids.length === 1 ? 'doctor.home.journeyChildOne' : 'doctor.home.journeyChildMany', { n: kids.length }).replace(/^\d+\s*/, '')}
-            {kids.length > 0 && (
-              <span className="text-stone-400">
-                {' · '}
-                {t('doctor.home.journeyMedian', { day: med.toLocaleString('en-IN'), stage: stageLabel(med, t) })}
-              </span>
-            )}
-          </p>
-        </div>
-        {(graduates > 0 || undated > 0) && (
-          <div className="flex items-center gap-1.5 text-[0.7rem] font-semibold">
-            {graduates > 0 && <span className="rounded-full bg-stone-100 px-2 py-1 tabular-nums text-stone-500">{t('doctor.home.journeyGraduated', { n: graduates })}</span>}
-            {undated > 0 && <span className="rounded-full bg-stone-100 px-2 py-1 tabular-nums text-stone-400">{t('doctor.home.journeyUndated', { n: undated })}</span>}
-          </div>
-        )}
-      </div>
-
-      {/* stage labels */}
-      <div className="mt-4 flex text-[0.62rem] font-bold uppercase tracking-[0.08em] text-stone-400">
-        {STAGES.map((s, i) => {
-          const prev = i === 0 ? 0 : STAGES[i - 1].end;
-          const w = ((s.end - prev) / JOURNEY_TOTAL) * 100;
-          return (
-            <span key={s.key} className="truncate px-1" style={{ width: `${w}%` }}>
-              {t(s.labelKey)}
-            </span>
-          );
-        })}
-      </div>
-
-      {/* the band */}
-      <div ref={bandRef} className="relative mt-1.5 h-[78px] overflow-hidden rounded-2xl" style={{ background: 'var(--journey-track)' }}>
-        {/* developmental gradient underlay */}
-        <div aria-hidden="true" className="absolute inset-0 opacity-[0.16]" style={{ background: 'var(--journey-gradient)' }} />
-        {/* stage dividers */}
-        {STAGES.slice(0, -1).map((s) => (
-          <span key={s.key} aria-hidden="true" className="absolute inset-y-0 w-px" style={{ left: `${(s.end / JOURNEY_TOTAL) * 100}%`, background: 'var(--hairline)' }} />
-        ))}
-
-        {/* median marker */}
-        {kids.length > 0 && (
-          <div aria-hidden="true" className="absolute inset-y-0" style={{ left: `${(med / JOURNEY_TOTAL) * 100}%` }}>
-            <span className="absolute inset-y-2 -left-px w-0.5 rounded-full bg-[var(--primary)] opacity-60" />
-            <span className="journey-now absolute left-1/2 top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--primary)]" />
-          </div>
-        )}
-
-        {/* plotted children */}
-        {kids.map((c) => {
-          const top = 12 + laneOf(c.id) * 13; // 12 → 64px lanes within the 78px band
-          return (
-            <span
-              key={c.id}
-              data-journey-dot
-              title={`${c.name} · Day ${c.day.toLocaleString('en-IN')} · ${stageLabel(c.day, t)}`}
-              className={cn('absolute h-2.5 w-2.5 -translate-x-1/2 rounded-full ring-2 ring-[var(--surface-card)]', toneDotBg(statusTone(c.status)))}
-              style={{ left: `${(c.day / JOURNEY_TOTAL) * 100}%`, top }}
-            />
-          );
-        })}
-
-        {kids.length === 0 && (
-          <p className="absolute inset-0 grid place-items-center px-4 text-center text-xs text-stone-400">{t('doctor.home.journeyEmpty')}</p>
-        )}
-      </div>
-
-      {/* axis */}
-      <div className="mt-2 flex justify-between text-[0.66rem] font-semibold tabular-nums text-stone-400">
-        <span>{t('doctor.home.journeyStart')}</span>
-        <span>{t('doctor.home.journeyEnd')}</span>
-      </div>
-    </div>
-  );
-}
-
-function toneDotBg(t: Tone): string {
-  return {
-    emerald: 'bg-green-500',
-    amber: 'bg-amber-500',
-    rose: 'bg-rose-500',
-    sky: 'bg-sky-500',
-    violet: 'bg-violet-500',
-    stone: 'bg-stone-400',
-  }[t];
-}
+// NOTE: the "First 2000 Days" journey band moved to the PARENT dashboard
+// (components/journey/BabyJourneyCard) per the owner's call — parents see their
+// own child's journey; this page keeps only the per-patient Day-N math, which
+// still powers the "Day N · Stage" line in Recent patients below.
 
 // ── quick action tile ────────────────────────────────────────────────────────
 function ActionTile({ icon: Icon, label, to, tone }: { icon: LucideIcon; label: string; to: string; tone: Tone }) {
@@ -487,20 +361,17 @@ function Dashboard({ data, patients, firstName, profile }: { data: Overview; pat
               <Plus className="h-4 w-4" />
               {t('doctor.home.addPatient')}
             </Link>
-            <Link to="/doctor/schedule" className={buttonClass('secondary', 'md')}>
-              <CalendarDays className="h-4 w-4" />
-              {t('doctor.nav.schedule')}
-            </Link>
           </div>
         </div>
 
-        {journey ? (
-          <JourneyBand kids={journey.children} graduates={journey.graduates} undated={journey.undated} />
-        ) : (
-          <div className="mt-6 border-t pt-5" style={{ borderColor: 'var(--hairline)' }}>
-            <div className="h-3 w-32 animate-pulse rounded bg-stone-200/70" />
-            <div className="mt-4 h-[78px] animate-pulse rounded-2xl bg-stone-200/50" />
-          </div>
+        {/* The full journey band now lives on each parent's dashboard; the hero
+            keeps a one-line pulse of the practice's 2000-day cohort. */}
+        {journey && journey.children.length > 0 && (
+          <p className="mt-5 border-t pt-4 text-sm text-stone-500" style={{ borderColor: 'var(--hairline)' }}>
+            <span className="font-bold tabular-nums text-stone-800">{journey.children.length}</span>{' '}
+            {t(journey.children.length === 1 ? 'doctor.home.journeyChildOne' : 'doctor.home.journeyChildMany', { n: journey.children.length }).replace(/^\d+\s*/, '')}
+            {journey.graduates > 0 && <span className="text-stone-400"> · {t('doctor.home.journeyGraduated', { n: journey.graduates })}</span>}
+          </p>
         )}
       </Card>
 

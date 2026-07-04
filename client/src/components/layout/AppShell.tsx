@@ -3,7 +3,9 @@ import { Outlet, useLocation } from 'react-router';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
 import { AssistantLauncher } from '../assistant/AssistantLauncher';
+import { ConsentScreen } from '../ConsentScreen';
 import { useAuth } from '../../auth/context';
+import { useSubscribed } from '../../lib/subscription';
 import { usePanelMode } from '../../lib/panelTheme';
 import { cn } from '../../lib/cn';
 import { gsap, prefersReducedMotion } from '../../lib/gsap';
@@ -23,6 +25,7 @@ export function AppShell() {
   const { user } = useAuth();
   const pro = user?.role === 'admin';
   const mode = usePanelMode();
+  const subscribed = useSubscribed();
   const [open, setOpen] = useState(false);
 
   // Match the document background to the panel theme so overscroll / short pages
@@ -130,6 +133,10 @@ export function AppShell() {
     return () => window.removeEventListener('keydown', onKey);
   }, [open]);
 
+  // DPDP: doctor-invited parents personally confirm consent before the app
+  // shows anything. (After all hooks — render branch only.)
+  if (user?.consentPending) return <ConsentScreen />;
+
   return (
     <div
       data-theme={pro ? 'pro' : undefined}
@@ -174,8 +181,9 @@ export function AppShell() {
         </main>
       </div>
 
-      {/* Tara — the floating AI assistant, on every page */}
-      <AssistantLauncher />
+      {/* Tara — the floating AI assistant. Part of the plan: hidden for
+          unsubscribed parents (the chat/insight APIs 402 for them anyway). */}
+      {subscribed && <AssistantLauncher />}
     </div>
   );
 }

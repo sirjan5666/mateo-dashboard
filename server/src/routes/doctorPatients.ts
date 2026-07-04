@@ -10,6 +10,10 @@ import { requireConsent } from '../middleware/requireConsent.js';
 import { Patient, PATIENT_SEXES } from '../models/Patient.js';
 import type { IPatient } from '../models/Patient.js';
 import { User } from '../models/User.js';
+import { Baby } from '../models/Baby.js';
+import { syncDosesForBaby } from '../vaccines/sync.js';
+import { generatePassword } from '../lib/password.js';
+import { sendParentInviteEmail } from '../lib/inviteEmail.js';
 import { SpecialtyTemplate } from '../models/SpecialtyTemplate.js';
 import type { ISpecialtyTemplate } from '../models/SpecialtyTemplate.js';
 import { PatientRecord } from '../models/PatientRecord.js';
@@ -179,16 +183,20 @@ router.get('/patients', auditAccess('patient'), async (req, res) => {
 
 router.get('/patients/:id', auditAccess('patient'), loadOwnedPatient, async (req, res) => {
   const patient = req.patient as HydratedDocument<IPatient>;
-  const [template, record, portalUser] = await Promise.all([
+  const [template, record, portalUser, parentUser] = await Promise.all([
     SpecialtyTemplate.findById(patient.specialtyTemplateId),
     PatientRecord.findOne(scopeToDoctor(req, { patientId: patient._id })),
     patient.patientUserId ? User.findById(patient.patientUserId).select('email') : null,
+    patient.parentUserId ? User.findById(patient.parentUserId).select('email') : null,
   ]);
   res.json({
     patient: publicPatient(patient),
     template: template ? publicTemplate(template) : null,
     record: record && template ? publicRecord(record, template) : null,
     portal: { active: !!portalUser, email: portalUser?.email ?? null },
+    // Family-dashboard bridge (invite-parent flow): active once a parent-app
+    // account has been created from this patient.
+    parentAccess: { active: !!parentUser, email: parentUser?.email ?? null },
   });
 });
 
@@ -229,6 +237,106 @@ router.post('/patients/:id/portal', loadOwnedPatient, async (req, res) => {
   await patient.save();
   await recordAudit(req, { action: 'create', resourceType: 'portal_access', resourceId: user._id, patientId: patient._id, changedFields: ['patientUserId'], outcome: 'allow' });
   res.status(201).json({ portal: { active: true, email: user.email } });
+});
+
+// POST /api/doctor/patients/:id/invite-parent — create (or re-invite) the PARENT-app
+// account for this child: a role='parent' User + a Baby copied one-time from the
+// patient's demographics, credentials emailed (or returned show-once when SMTP is
+// unset). This is the playful family dashboard, NOT the read-only patient portal —
+// the portal route above remains the path for adult/unspecified patients.
+// The new parent starts WITHOUT the paid plan (subscription source 'doctor'):
+// trackers show as "Paid" until they subscribe. DPDP: the doctor recorded
+// in-clinic consent at intake; consentPending makes the parent personally confirm
+// the consent screen on first login before the app shows any data.
+const MIN_BABY_DOB = new Date('2000-01-01T00:00:00.000Z');
+const inviteParentSchema = z.object({
+  email: z.string().trim().toLowerCase().email(),
+  parentName: z.string().trim().min(1).max(100).optional(),
+});
+
+router.post('/patients/:id/invite-parent', loadOwnedPatient, async (req, res) => {
+  const patient = req.patient as HydratedDocument<IPatient>;
+  const body = inviteParentSchema.parse(req.body);
+
+  // Idempotent re-invite: already bridged → rotate the password and resend.
+  // Never creates a duplicate Baby.
+  if (patient.parentUserId) {
+    const user = await User.findById(patient.parentUserId);
+    if (user) {
+      const tempPassword = generatePassword();
+      user.passwordHash = await bcrypt.hash(tempPassword, 12);
+      await user.save();
+      const emailSent = await sendParentInviteEmail({
+        to: user.email,
+        parentName: user.name,
+        babyName: decryptField(patient.displayName),
+        doctorName: req.authUser?.name ?? 'your doctor',
+        tempPassword,
+      });
+      await recordAudit(req, { action: 'update', resourceType: 'parent_access', resourceId: user._id, patientId: patient._id, changedFields: ['password'], outcome: 'allow' });
+      res.json({ invite: { email: user.email, emailSent, ...(emailSent ? {} : { tempPassword }) } });
+      return;
+    }
+    // bound user vanished (erased) — fall through and recreate
+  }
+
+  // The family dashboard is baby-centric: it needs a real DOB (growth percentiles,
+  // IAP schedule) and a male/female sex (WHO LMS tables). Adult or incomplete
+  // patients keep the read-only portal instead.
+  const dobRaw = decryptOptional(patient.dob);
+  const dob = dobRaw ? new Date(dobRaw) : null;
+  if (!dob || Number.isNaN(dob.getTime()) || dob.getTime() < MIN_BABY_DOB.getTime() || dob.getTime() > Date.now()) {
+    res.status(422).json({ error: "Add the child's date of birth to the patient record first — the family dashboard needs it for growth and vaccine schedules." });
+    return;
+  }
+  if (patient.sex !== 'male' && patient.sex !== 'female') {
+    res.status(422).json({ error: "Set the child's sex (boy/girl) on the patient record first — WHO growth standards need it." });
+    return;
+  }
+
+  // v1 keeps the portal route's rule: an email bound to ANY existing account is a
+  // 409 (linking a doctor's patient to an existing Mateo parent needs the PARENT
+  // to accept in-app — an explicit flow for a later phase, never a silent merge).
+  if (await User.findOne({ email: body.email })) {
+    res.status(409).json({ error: 'That email is already in use by another account' });
+    return;
+  }
+
+  const babyName = decryptField(patient.displayName);
+  const tempPassword = generatePassword();
+  const passwordHash = await bcrypt.hash(tempPassword, 12);
+  const user = await User.create({
+    email: body.email,
+    name: body.parentName ?? `${babyName}'s parent`,
+    passwordHash,
+    role: 'parent',
+    consentAcceptedAt: new Date(), // in-clinic consent at intake (recorded above)
+    consentPending: true, // parent re-affirms on first login (DPDP)
+    subscription: { active: false, source: 'doctor' },
+  });
+  const baby = await Baby.create({ userId: user._id, name: babyName, dob, sex: patient.sex });
+  await syncDosesForBaby({ id: baby.id, dob: baby.dob, sex: baby.sex }); // IAP vaccine schedule
+  patient.parentUserId = user._id;
+  patient.babyId = baby._id;
+  await patient.save(); // .save(), never updateOne — encrypted-fields plugin
+
+  await recordAudit(req, {
+    action: 'create',
+    resourceType: 'parent_access',
+    resourceId: user._id,
+    patientId: patient._id,
+    changedFields: ['parentUserId', 'babyId'],
+    outcome: 'allow',
+  });
+
+  const emailSent = await sendParentInviteEmail({
+    to: user.email,
+    parentName: user.name,
+    babyName,
+    doctorName: req.authUser?.name ?? 'your doctor',
+    tempPassword,
+  });
+  res.status(201).json({ invite: { email: user.email, emailSent, ...(emailSent ? {} : { tempPassword }) } });
 });
 
 const updatePatientSchema = z.object({

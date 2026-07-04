@@ -13,6 +13,12 @@ export const PATIENT_SEXES: PatientSex[] = ['male', 'female', 'other', 'unspecif
 export interface IPatient {
   doctorUserId: Types.ObjectId; // TENANT
   patientUserId?: Types.ObjectId; // portal link (sparse, until claimed)
+  // Parent-app bridge (doctor "invite parent" flow): the parent User + Baby that
+  // were created FROM this patient's demographics. Provenance-only, one-time copy
+  // — later edits to Baby never sync back here and doctor routes never read Baby
+  // data through these ids. Used for idempotent re-invites + erasure unlinking.
+  parentUserId?: Types.ObjectId;
+  babyId?: Types.ObjectId;
   specialtyTemplateId: Types.ObjectId;
   displayName: string; // PHI — encrypted at rest
   dob?: string; // PHI — encrypted ISO date string at rest
@@ -28,6 +34,8 @@ const patientSchema = new Schema<IPatient>(
   {
     doctorUserId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     patientUserId: { type: Schema.Types.ObjectId, ref: 'User', index: true, sparse: true },
+    parentUserId: { type: Schema.Types.ObjectId, ref: 'User', index: true, sparse: true },
+    babyId: { type: Schema.Types.ObjectId, ref: 'Baby', index: true, sparse: true },
     specialtyTemplateId: { type: Schema.Types.ObjectId, ref: 'SpecialtyTemplate', required: true },
     displayName: { type: String, required: true },
     dob: { type: String },

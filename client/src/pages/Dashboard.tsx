@@ -31,6 +31,9 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import { useAuth } from '../auth/context';
 import { useT } from '../i18n/context';
+import { useSubscribed } from '../lib/subscription';
+import { LockedOverlay } from '../components/subscription/bits';
+import { BabyJourneyCard } from '../components/journey/BabyJourneyCard';
 import { getOverview } from '../api/overview';
 import type { Overview, OverviewBaby, UpcomingItem } from '../api/overview';
 import { getGrowth } from '../api/growth';
@@ -230,6 +233,7 @@ function EmptyTile({ icon: Icon, bg, color, text }: { icon: LucideIcon; bg: stri
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const subscribed = useSubscribed();
   const [data, setData] = useState<Overview | null>(null);
   const [activeBabyId, setActiveBabyId] = useState<string | null>(null);
   const [growth, setGrowth] = useState<Growth | null>(null);
@@ -261,8 +265,10 @@ export default function Dashboard() {
   }, []);
 
   // Load the selected baby's snapshots whenever the active baby changes.
+  // Unsubscribed parents skip these — the tracker APIs are part of the plan and
+  // would 402; the cards render locked instead.
   useEffect(() => {
-    if (activeBabyId === null) return;
+    if (activeBabyId === null || !subscribed) return;
     let cancelled = false;
     const id = activeBabyId;
     getGrowth(id).then((g) => !cancelled && setGrowth(g)).catch(() => {});
@@ -280,7 +286,7 @@ export default function Dashboard() {
     return () => {
       cancelled = true;
     };
-  }, [activeBabyId]);
+  }, [activeBabyId, subscribed]);
 
   // Orchestrated GSAP entrance — runs once the overview has loaded and the real
   // content (not the skeleton) is mounted. Reduced-motion safe.
@@ -314,29 +320,89 @@ export default function Dashboard() {
     <div ref={scope} className="flex flex-col gap-4">
       {data.babies.length > 1 && <BabySwitcher babies={data.babies} activeId={baby.id} onSelect={selectBaby} />}
       <GreetingHero greeting={greeting} firstName={firstName} baby={baby} appts={appts} />
-      <AskTaraBar babyId={baby.id} />
+      {/* The emotional headline under the hero: where this child is on the
+          first-2000-days arc. Pure props — works for locked accounts too. */}
+      <BabyJourneyCard baby={baby} />
+      {!subscribed && <SubscribeBanner />}
+      {subscribed && <AskTaraBar babyId={baby.id} />}
 
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[1fr_312px]">
         <div className="flex flex-col gap-4">
-          <WellbeingCard baby={baby} />
+          <Lockable locked={!subscribed}>
+            <WellbeingCard baby={baby} />
+          </Lockable>
           <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[1.4fr_1fr]">
-            <GrowthSnapshotCard babyId={baby.id} growth={growth} />
-            <SkinSnapshotCard babyId={baby.id} skin={skin} />
+            <Lockable locked={!subscribed}>
+              <GrowthSnapshotCard babyId={baby.id} growth={growth} />
+            </Lockable>
+            <Lockable locked={!subscribed}>
+              <SkinSnapshotCard babyId={baby.id} skin={skin} />
+            </Lockable>
           </div>
           <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-2">
-            <FoodSnapshotCard babyId={baby.id} baby={baby} food={food} underSix={foodUnderSix ?? ageInMonths(baby.dob) < 6} />
-            <SleepSnapshotCard babyId={baby.id} sleep={sleep} />
+            <Lockable locked={!subscribed}>
+              <FoodSnapshotCard babyId={baby.id} baby={baby} food={food} underSix={foodUnderSix ?? ageInMonths(baby.dob) < 6} />
+            </Lockable>
+            <Lockable locked={!subscribed}>
+              <SleepSnapshotCard babyId={baby.id} sleep={sleep} />
+            </Lockable>
           </div>
-          <UpNextCard items={data.upcoming} />
-          <ActivityCard growth={growth} skin={skin} />
+          <Lockable locked={!subscribed}>
+            <UpNextCard items={data.upcoming} />
+          </Lockable>
+          <Lockable locked={!subscribed}>
+            <ActivityCard growth={growth} skin={skin} />
+          </Lockable>
         </div>
 
         <div className="flex flex-col gap-4">
           <BabyProfileCard baby={baby} growth={growth} />
-          <MilestonesCard babyId={baby.id} milestones={milestones} />
+          <Lockable locked={!subscribed}>
+            <MilestonesCard babyId={baby.id} milestones={milestones} />
+          </Lockable>
         </div>
       </div>
     </div>
+  );
+}
+
+// Frosted lock veil for plan-gated cards. The wrapped card renders its empty/
+// skeleton state (unsubscribed clients never receive tracker data), so the veil
+// is the honest presentation, not a curtain over real numbers.
+function Lockable({ locked, children }: { locked: boolean; children: ReactNode }) {
+  if (!locked) return <>{children}</>;
+  return (
+    <div className="relative rounded-[26px]">
+      {children}
+      <LockedOverlay />
+    </div>
+  );
+}
+
+// Unsubscribed hero CTA — where the "Paid" journey starts.
+function SubscribeBanner() {
+  return (
+    <Link
+      to="/subscribe"
+      data-entrance="card"
+      className="block rounded-[26px] px-6 py-5 text-white shadow-card transition-transform hover:-translate-y-0.5"
+      style={{ background: 'linear-gradient(120deg, #7c5cfc 0%, #9c6cf9 45%, #ff7ac0 100%)' }}
+    >
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="flex items-center gap-1.5 text-[0.7rem] font-bold uppercase tracking-wide text-white/85">
+            <Sparkles className="h-3 w-3" />
+            The Mateo plan
+          </p>
+          <p className="mt-1 text-[1.05rem] font-extrabold leading-snug">Unlock every tracker, Tara AI and the health report</p>
+          <p className="mt-0.5 text-sm text-white/85">Your doctor stays free — the full toolkit is one small step away.</p>
+        </div>
+        <span className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-white px-4 py-2.5 text-sm font-bold text-violet-700">
+          See plans
+          <ArrowRight className="h-4 w-4" />
+        </span>
+      </div>
+    </Link>
   );
 }
 

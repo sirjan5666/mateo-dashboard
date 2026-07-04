@@ -39,6 +39,9 @@ const envSchema = z.object({
   MAIL_FROM: z.string().optional(),
   // Where new-order emails go. Falls back to every admin user's email if unset.
   ADMIN_NOTIFICATION_EMAIL: z.string().email().optional(),
+  // Public URL of the dashboard, used in credential-invite emails ("sign in at …").
+  // Optional; dev default matches the Vite preview port.
+  APP_BASE_URL: z.string().default('http://localhost:5190'),
 }).superRefine((cfg, ctx) => {
   // Validate the PHI encryption key at BOOT (not lazily on first write). When
   // present it must be a 32-byte base64 value and MUST differ from JWT_SECRET

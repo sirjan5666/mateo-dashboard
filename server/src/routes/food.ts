@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { FoodLog } from '../models/FoodLog.js';
 import type { IFoodLog } from '../models/FoodLog.js';
 import { requireAuth } from '../middleware/auth.js';
+import { requireSubscription } from '../middleware/subscription.js';
 import { loadOwnedBaby } from '../middleware/ownership.js';
 import { ageInWholeMonthsIST, isFutureISTDate } from '../lib/ist.js';
 import {
@@ -54,7 +55,7 @@ function publicLog(log: IFoodLog & { id: string }) {
 
 const router = Router();
 
-router.get('/babies/:id/food', requireAuth, loadOwnedBaby, async (req, res) => {
+router.get('/babies/:id/food', requireAuth, requireSubscription, loadOwnedBaby, async (req, res) => {
   const baby = req.baby!;
   // Newest meal first; createdAt breaks ties when several share a date.
   const logs = await FoodLog.find({ babyId: baby._id }).sort({ loggedAt: -1, createdAt: -1 });
@@ -75,7 +76,7 @@ router.get('/babies/:id/food', requireAuth, loadOwnedBaby, async (req, res) => {
   });
 });
 
-router.post('/babies/:id/food', requireAuth, loadOwnedBaby, async (req, res) => {
+router.post('/babies/:id/food', requireAuth, requireSubscription, loadOwnedBaby, async (req, res) => {
   const baby = req.baby!;
   const body = createFoodSchema.parse(req.body);
   if (body.loggedAt.getTime() < baby.dob.getTime()) {
@@ -86,7 +87,7 @@ router.post('/babies/:id/food', requireAuth, loadOwnedBaby, async (req, res) => 
   res.status(201).json({ log: publicLog(log) });
 });
 
-router.delete('/babies/:id/food/:logId', requireAuth, loadOwnedBaby, async (req, res) => {
+router.delete('/babies/:id/food/:logId', requireAuth, requireSubscription, loadOwnedBaby, async (req, res) => {
   const baby = req.baby!;
   const { logId } = req.params;
   const log = isValidObjectId(logId) ? await FoodLog.findById(logId) : null;

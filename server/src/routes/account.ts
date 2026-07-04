@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { isValidObjectId } from 'mongoose';
+import bcrypt from 'bcrypt';
 import { z } from 'zod';
 import { User } from '../models/User.js';
 import { Baby } from '../models/Baby.js';
@@ -99,6 +100,47 @@ router.get('/export', async (req, res) => {
 router.delete('/', async (req, res) => {
   await eraseUserData(req.userId!);
   res.clearCookie(AUTH_COOKIE, { httpOnly: true, sameSite: 'lax', secure: env.NODE_ENV === 'production', path: '/' });
+  res.json({ ok: true });
+});
+
+// POST /api/account/password — change the account password. Exists mainly so
+// doctor-invited parents can rotate the emailed temporary password; requires the
+// current password so a stolen cookie alone can't take over the account.
+const passwordSchema = z.object({
+  currentPassword: z.string().min(1),
+  newPassword: z.string().min(8, 'New password must be at least 8 characters').max(128),
+});
+router.post('/password', async (req, res) => {
+  const { currentPassword, newPassword } = passwordSchema.parse(req.body);
+  const user = await User.findById(req.userId!);
+  if (!user) {
+    res.status(404).json({ error: 'Account not found' });
+    return;
+  }
+  const valid = await bcrypt.compare(currentPassword, user.passwordHash);
+  if (!valid) {
+    res.status(401).json({ error: 'Current password is incorrect' });
+    return;
+  }
+  user.passwordHash = await bcrypt.hash(newPassword, 12);
+  await user.save();
+  res.json({ ok: true });
+});
+
+// POST /api/account/confirm-consent — DPDP: a doctor-invited parent personally
+// affirms the consent screen on first login (the doctor recorded in-clinic
+// consent at intake; this captures the parent's own acceptance).
+router.post('/confirm-consent', async (req, res) => {
+  const user = await User.findById(req.userId!);
+  if (!user) {
+    res.status(404).json({ error: 'Account not found' });
+    return;
+  }
+  if (user.consentPending) {
+    user.consentPending = false;
+    user.consentAcceptedAt = new Date();
+    await user.save();
+  }
   res.json({ ok: true });
 });
 

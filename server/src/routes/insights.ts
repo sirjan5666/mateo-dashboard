@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { requireAuth } from '../middleware/auth.js';
+import { requireSubscription } from '../middleware/subscription.js';
 import { loadOwnedBaby } from '../middleware/ownership.js';
 import { assistantConfigured } from '../ai/provider.js';
 import { buildTrackerInsight, INSIGHT_TRACKERS } from '../ai/insights.js';
@@ -16,7 +17,7 @@ const router = Router();
 // "mateo.ai's take" on a single tracker's logged data. Same safety posture as the
 // chat: the deterministic gate runs first (inside buildTrackerInsight); the LLM
 // provider key stays server-side and is never exposed to the client.
-router.post('/babies/:id/insight', requireAuth, loadOwnedBaby, async (req, res) => {
+router.post('/babies/:id/insight', requireAuth, requireSubscription, loadOwnedBaby, async (req, res) => {
   const { tracker, language } = insightSchema.parse(req.body);
 
   if (!assistantConfigured()) {

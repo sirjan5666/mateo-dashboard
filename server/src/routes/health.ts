@@ -6,6 +6,7 @@ import type { IHealthRecord } from '../models/HealthRecord.js';
 import { Appointment } from '../models/Appointment.js';
 import type { IAppointment } from '../models/Appointment.js';
 import { requireAuth } from '../middleware/auth.js';
+import { requireSubscription } from '../middleware/subscription.js';
 import { loadOwnedBaby } from '../middleware/ownership.js';
 import { isFutureISTDate } from '../lib/ist.js';
 
@@ -62,13 +63,13 @@ function publicAppointment(a: IAppointment & { id: string }) {
 const router = Router();
 
 // ---- Records ----
-router.get('/babies/:id/records', requireAuth, loadOwnedBaby, async (req, res) => {
+router.get('/babies/:id/records', requireAuth, requireSubscription, loadOwnedBaby, async (req, res) => {
   const baby = req.baby!;
   const records = await HealthRecord.find({ babyId: baby._id }).sort({ recordDate: -1, createdAt: -1 });
   res.json({ records: records.map((r) => publicRecord(r)) });
 });
 
-router.post('/babies/:id/records', requireAuth, loadOwnedBaby, async (req, res) => {
+router.post('/babies/:id/records', requireAuth, requireSubscription, loadOwnedBaby, async (req, res) => {
   const baby = req.baby!;
   const body = recordSchema.parse(req.body);
   if (body.recordDate.getTime() < baby.dob.getTime()) {
@@ -79,7 +80,7 @@ router.post('/babies/:id/records', requireAuth, loadOwnedBaby, async (req, res) 
   res.status(201).json({ record: publicRecord(record) });
 });
 
-router.delete('/babies/:id/records/:recordId', requireAuth, loadOwnedBaby, async (req, res) => {
+router.delete('/babies/:id/records/:recordId', requireAuth, requireSubscription, loadOwnedBaby, async (req, res) => {
   const baby = req.baby!;
   const recordId = String(req.params.recordId);
   const record = isValidObjectId(recordId) ? await HealthRecord.findById(recordId) : null;
@@ -92,13 +93,13 @@ router.delete('/babies/:id/records/:recordId', requireAuth, loadOwnedBaby, async
 });
 
 // ---- Appointments ----
-router.get('/babies/:id/appointments', requireAuth, loadOwnedBaby, async (req, res) => {
+router.get('/babies/:id/appointments', requireAuth, requireSubscription, loadOwnedBaby, async (req, res) => {
   const baby = req.baby!;
   const appointments = await Appointment.find({ babyId: baby._id }).sort({ scheduledAt: 1 });
   res.json({ appointments: appointments.map((a) => publicAppointment(a)) });
 });
 
-router.post('/babies/:id/appointments', requireAuth, loadOwnedBaby, async (req, res) => {
+router.post('/babies/:id/appointments', requireAuth, requireSubscription, loadOwnedBaby, async (req, res) => {
   const baby = req.baby!;
   const body = appointmentSchema.parse(req.body);
   const appt = await Appointment.create({ babyId: baby._id, ...body });
@@ -107,7 +108,7 @@ router.post('/babies/:id/appointments', requireAuth, loadOwnedBaby, async (req, 
 
 const patchSchema = z.object({ completed: z.boolean() });
 
-router.patch('/babies/:id/appointments/:apptId', requireAuth, loadOwnedBaby, async (req, res) => {
+router.patch('/babies/:id/appointments/:apptId', requireAuth, requireSubscription, loadOwnedBaby, async (req, res) => {
   const baby = req.baby!;
   const apptId = String(req.params.apptId);
   const appt = isValidObjectId(apptId) ? await Appointment.findById(apptId) : null;
@@ -121,7 +122,7 @@ router.patch('/babies/:id/appointments/:apptId', requireAuth, loadOwnedBaby, asy
   res.json({ appointment: publicAppointment(appt) });
 });
 
-router.delete('/babies/:id/appointments/:apptId', requireAuth, loadOwnedBaby, async (req, res) => {
+router.delete('/babies/:id/appointments/:apptId', requireAuth, requireSubscription, loadOwnedBaby, async (req, res) => {
   const baby = req.baby!;
   const apptId = String(req.params.apptId);
   const appt = isValidObjectId(apptId) ? await Appointment.findById(apptId) : null;

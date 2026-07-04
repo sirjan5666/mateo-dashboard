@@ -11,6 +11,7 @@ import { MedicineDoseLog } from '../models/MedicineDoseLog.js';
 import { MedicineCourse } from '../models/MedicineCourse.js';
 import { User } from '../models/User.js';
 import { requireAuth } from '../middleware/auth.js';
+import { requireSubscription } from '../middleware/subscription.js';
 import { loadOwnedBaby } from '../middleware/ownership.js';
 import { uploadImage } from '../middleware/upload.js';
 import { istDateString } from '../lib/ist.js';
@@ -47,7 +48,7 @@ async function loadCourse(
 }
 
 // ── List this baby's medicines (from prescriptions) + adherence ────────
-router.get('/babies/:id/medicines', requireAuth, loadOwnedBaby, async (req, res) => {
+router.get('/babies/:id/medicines', requireAuth, requireSubscription, loadOwnedBaby, async (req, res) => {
   const baby = req.baby!;
   const prescriptions = await Prescription.find({ parentUserId: req.userId, babyId: baby._id }).sort({ createdAt: -1 });
   if (prescriptions.length === 0) {
@@ -112,7 +113,7 @@ const manualSchema = z.object({
     .max(30),
 });
 
-router.post('/babies/:id/medicines/manual', requireAuth, loadOwnedBaby, async (req, res) => {
+router.post('/babies/:id/medicines/manual', requireAuth, requireSubscription, loadOwnedBaby, async (req, res) => {
   const baby = req.baby!;
   const body = manualSchema.parse(req.body);
   await Prescription.create({
@@ -136,7 +137,7 @@ function handleImageUpload(req: Request, res: Response, next: NextFunction): voi
   });
 }
 
-router.post('/babies/:id/medicines/ocr', requireAuth, loadOwnedBaby, handleImageUpload, async (req, res) => {
+router.post('/babies/:id/medicines/ocr', requireAuth, requireSubscription, loadOwnedBaby, handleImageUpload, async (req, res) => {
   const cleanup = async () => {
     if (req.file) await unlink(req.file.path).catch(() => {});
   };
@@ -161,7 +162,7 @@ router.post('/babies/:id/medicines/ocr', requireAuth, loadOwnedBaby, handleImage
 });
 
 // ── Log a dose given ───────────────────────────────────────────────────
-router.post('/babies/:id/medicines/:prescriptionId/:itemIndex/doses', requireAuth, loadOwnedBaby, async (req, res) => {
+router.post('/babies/:id/medicines/:prescriptionId/:itemIndex/doses', requireAuth, requireSubscription, loadOwnedBaby, async (req, res) => {
   const baby = req.baby!;
   const ctx = await loadCourse(req.userId, baby, String(req.params.prescriptionId), String(req.params.itemIndex));
   if (!ctx) {
@@ -181,7 +182,7 @@ router.post('/babies/:id/medicines/:prescriptionId/:itemIndex/doses', requireAut
 });
 
 // ── Undo the most recent dose ──────────────────────────────────────────
-router.delete('/babies/:id/medicines/:prescriptionId/:itemIndex/doses', requireAuth, loadOwnedBaby, async (req, res) => {
+router.delete('/babies/:id/medicines/:prescriptionId/:itemIndex/doses', requireAuth, requireSubscription, loadOwnedBaby, async (req, res) => {
   const baby = req.baby!;
   const ctx = await loadCourse(req.userId, baby, String(req.params.prescriptionId), String(req.params.itemIndex));
   if (!ctx) {
@@ -197,7 +198,7 @@ router.delete('/babies/:id/medicines/:prescriptionId/:itemIndex/doses', requireA
 // ── Mark a course finished / active again ──────────────────────────────
 const patchSchema = z.object({ active: z.boolean() });
 
-router.patch('/babies/:id/medicines/:prescriptionId/:itemIndex', requireAuth, loadOwnedBaby, async (req, res) => {
+router.patch('/babies/:id/medicines/:prescriptionId/:itemIndex', requireAuth, requireSubscription, loadOwnedBaby, async (req, res) => {
   const baby = req.baby!;
   const ctx = await loadCourse(req.userId, baby, String(req.params.prescriptionId), String(req.params.itemIndex));
   if (!ctx) {

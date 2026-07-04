@@ -26,6 +26,7 @@ import diapersRouter from './routes/diapers.js';
 import allergiesRouter from './routes/allergies.js';
 import insightsRouter from './routes/insights.js';
 import shopRouter from './routes/shop.js';
+import subscriptionRouter from './routes/subscription.js';
 import dosingRouter from './routes/dosing.js';
 import doctorPatientsRouter from './routes/doctorPatients.js';
 import doctorEncountersRouter from './routes/doctorEncounters.js';
@@ -104,6 +105,8 @@ export function createApp() {
   app.use('/api', chatRouter);
   // Shop: Mateo + Neucomed catalog, cart checkout (Razorpay), orders + admin
   app.use('/api/shop', shopRouter);
+  // Parent paid plan: status + checkout/verify (Razorpay, labelled mock in dev)
+  app.use('/api', subscriptionRouter);
   // Pediatric dose-check (doctor decision-support) — catalog + deterministic check
   app.use('/api/dosing', dosingRouter);
   // Doctor EHR: single-doctor patient management (doctor-owned, tenant-scoped PHI)

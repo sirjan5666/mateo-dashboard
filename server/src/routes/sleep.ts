@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { SleepLog } from '../models/SleepLog.js';
 import type { ISleepLog } from '../models/SleepLog.js';
 import { requireAuth } from '../middleware/auth.js';
+import { requireSubscription } from '../middleware/subscription.js';
 import { loadOwnedBaby } from '../middleware/ownership.js';
 import { isFutureISTDate, istDateString } from '../lib/ist.js';
 
@@ -35,7 +36,7 @@ function publicLog(log: ISleepLog & { id: string }) {
 
 const router = Router();
 
-router.get('/babies/:id/sleep', requireAuth, loadOwnedBaby, async (req, res) => {
+router.get('/babies/:id/sleep', requireAuth, requireSubscription, loadOwnedBaby, async (req, res) => {
   const baby = req.baby!;
   const logs = await SleepLog.find({ babyId: baby._id }).sort({ loggedAt: -1, createdAt: -1 });
   // Light summary over today (IST) + the last 7 IST days, computed server-side.
@@ -68,7 +69,7 @@ router.get('/babies/:id/sleep', requireAuth, loadOwnedBaby, async (req, res) => 
   });
 });
 
-router.post('/babies/:id/sleep', requireAuth, loadOwnedBaby, async (req, res) => {
+router.post('/babies/:id/sleep', requireAuth, requireSubscription, loadOwnedBaby, async (req, res) => {
   const baby = req.baby!;
   const body = createSleepSchema.parse(req.body);
   if (body.loggedAt.getTime() < baby.dob.getTime()) {
@@ -79,7 +80,7 @@ router.post('/babies/:id/sleep', requireAuth, loadOwnedBaby, async (req, res) =>
   res.status(201).json({ log: publicLog(log) });
 });
 
-router.delete('/babies/:id/sleep/:logId', requireAuth, loadOwnedBaby, async (req, res) => {
+router.delete('/babies/:id/sleep/:logId', requireAuth, requireSubscription, loadOwnedBaby, async (req, res) => {
   const baby = req.baby!;
   const { logId } = req.params;
   const log = isValidObjectId(logId) ? await SleepLog.findById(logId) : null;

@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link } from 'react-router';
-import { ArrowLeft, Download, Languages, Phone, Plus, ShieldCheck, Trash2, TriangleAlert } from 'lucide-react';
+import { ArrowLeft, Download, KeyRound, Languages, Phone, Plus, ShieldCheck, Trash2, TriangleAlert } from 'lucide-react';
 import { useAuth } from '../auth/context';
 import { useLang, useT } from '../i18n/context';
 import { LANGS } from '../i18n/translations';
-import { addContact, deleteAccount, deleteContact, exportData, listContacts, updateProfile } from '../api/account';
+import { addContact, changePassword, deleteAccount, deleteContact, exportData, listContacts, updateProfile } from '../api/account';
 import type { EmergencyContact } from '../api/account';
 import { ApiError } from '../api/client';
 import { Card } from '../components/ui/Card';
@@ -33,6 +33,13 @@ export default function Settings() {
 
   const [exporting, setExporting] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  // Security — change password (doctor-invited parents rotate their emailed temp password here).
+  const [curPw, setCurPw] = useState('');
+  const [newPw, setNewPw] = useState('');
+  const [newPw2, setNewPw2] = useState('');
+  const [pwSaving, setPwSaving] = useState(false);
+  const [pwError, setPwError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -62,6 +69,32 @@ export default function Settings() {
       fail(err);
     } finally {
       setSavingName(false);
+    }
+  }
+
+  async function submitPassword(e: FormEvent) {
+    e.preventDefault();
+    setPwError(null);
+    setNotice(null);
+    if (newPw.length < 8) {
+      setPwError('New password must be at least 8 characters.');
+      return;
+    }
+    if (newPw !== newPw2) {
+      setPwError('The new passwords don’t match.');
+      return;
+    }
+    setPwSaving(true);
+    try {
+      await changePassword(curPw, newPw);
+      setCurPw('');
+      setNewPw('');
+      setNewPw2('');
+      setNotice('Your password has been changed.');
+    } catch (err) {
+      setPwError(err instanceof ApiError ? err.message : 'Something went wrong, please try again');
+    } finally {
+      setPwSaving(false);
     }
   }
 
@@ -155,6 +188,37 @@ export default function Settings() {
           </div>
           <Button type="submit" size="sm" disabled={savingName || name.trim() === (user?.name ?? '')}>
             {savingName ? 'Saving…' : 'Save name'}
+          </Button>
+        </form>
+      </Card>
+
+      {/* Security */}
+      <Card className="mt-4 p-5">
+        <div className="flex items-center gap-2">
+          <KeyRound className="h-4 w-4 text-stone-500" />
+          <h2 className="font-bold text-stone-800">Password</h2>
+        </div>
+        <p className="mt-1 text-sm text-stone-500">
+          If your doctor set this account up for you, change the emailed temporary password to one only you know.
+        </p>
+        <form onSubmit={submitPassword} className="mt-3 space-y-3">
+          <div>
+            <label htmlFor="curPw" className="block text-sm font-medium text-stone-700">Current password</label>
+            <input id="curPw" type="password" required autoComplete="current-password" value={curPw} onChange={(e) => setCurPw(e.target.value)} className={inputCls} />
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label htmlFor="newPw" className="block text-sm font-medium text-stone-700">New password</label>
+              <input id="newPw" type="password" required minLength={8} autoComplete="new-password" value={newPw} onChange={(e) => setNewPw(e.target.value)} className={inputCls} />
+            </div>
+            <div>
+              <label htmlFor="newPw2" className="block text-sm font-medium text-stone-700">Repeat new password</label>
+              <input id="newPw2" type="password" required minLength={8} autoComplete="new-password" value={newPw2} onChange={(e) => setNewPw2(e.target.value)} className={inputCls} />
+            </div>
+          </div>
+          {pwError && <p className="text-sm text-rose-600">{pwError}</p>}
+          <Button type="submit" size="sm" disabled={pwSaving || !curPw || !newPw}>
+            {pwSaving ? 'Saving…' : 'Change password'}
           </Button>
         </form>
       </Card>

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { MilestoneAchievement } from '../models/MilestoneAchievement.js';
 import { requireAuth } from '../middleware/auth.js';
+import { requireSubscription } from '../middleware/subscription.js';
 import { loadOwnedBaby } from '../middleware/ownership.js';
 import { isFutureISTDate } from '../lib/ist.js';
 import { milestones, milestoneById, milestoneStatus } from '../milestones/milestones.js';
@@ -19,7 +20,7 @@ const markSchema = z.object({
 
 const router = Router();
 
-router.get('/babies/:id/milestones', requireAuth, loadOwnedBaby, async (req, res) => {
+router.get('/babies/:id/milestones', requireAuth, requireSubscription, loadOwnedBaby, async (req, res) => {
   const baby = req.baby!;
   const ageMonths = (Date.now() - baby.dob.getTime()) / MS_PER_MONTH;
   const achievements = await MilestoneAchievement.find({ babyId: baby._id });
@@ -51,7 +52,7 @@ router.get('/babies/:id/milestones', requireAuth, loadOwnedBaby, async (req, res
   });
 });
 
-router.post('/babies/:id/milestones/:milestoneId', requireAuth, loadOwnedBaby, async (req, res) => {
+router.post('/babies/:id/milestones/:milestoneId', requireAuth, requireSubscription, loadOwnedBaby, async (req, res) => {
   const baby = req.baby!;
   const milestoneId = String(req.params.milestoneId);
   if (!milestoneById.has(milestoneId)) {
@@ -71,7 +72,7 @@ router.post('/babies/:id/milestones/:milestoneId', requireAuth, loadOwnedBaby, a
   res.json({ ok: true });
 });
 
-router.delete('/babies/:id/milestones/:milestoneId', requireAuth, loadOwnedBaby, async (req, res) => {
+router.delete('/babies/:id/milestones/:milestoneId', requireAuth, requireSubscription, loadOwnedBaby, async (req, res) => {
   const baby = req.baby!;
   const milestoneId = String(req.params.milestoneId);
   await MilestoneAchievement.deleteOne({ babyId: baby._id, milestoneId });

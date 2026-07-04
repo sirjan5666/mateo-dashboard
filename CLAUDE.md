@@ -14,9 +14,11 @@ brand. See PROJECT_SPEC.md for full scope, data models, and AI agent rules.
 - AI: server-side LLM, model name via env var (never hardcoded). Provider is
   auto-selected — DeepSeek (OpenAI-compatible) if DEEPSEEK_API_KEY is set, else
   Anthropic. See `server/src/ai/provider.ts`.
-- Email reminders: Resend (or Nodemailer + SMTP), scheduled with node-cron.
-  Admin order notifications also use Nodemailer (`server/src/lib/mailer.ts`),
-  optional — they no-op without SMTP and always land in-app regardless.
+- Email: Nodemailer + SMTP via `server/src/lib/mailer.ts`, OPTIONAL — it no-ops
+  without SMTP config. Used for admin order notifications (which always land
+  in-app regardless) and credential-invite emails for doctor-added parents
+  (`server/src/lib/inviteEmail.ts`; when SMTP is unset the doctor UI shows the
+  credentials once instead). No cron/scheduled email exists yet.
 - Payments (shop): Razorpay — the server creates the order and verifies the
   HMAC signature (`server/src/lib/razorpay.ts`); when keys are unset, checkout
   falls back to a clearly-labelled mock payment so dev works end-to-end.
@@ -95,3 +97,22 @@ optional email). The Neucomed/formula section sits behind a mandatory IMS-Act
 statutory-warning popup and is presented factually with no promotions — see hard
 rule 4's carve-out. Catalog: `server/src/data/shop-catalog.ts` (static; placeholder
 prices to replace with real MRP). Routes: `server/src/routes/shop.ts`.
+Subscription + doctor→parent onboarding added 2026-06-28: the trackers, Tara AI
+and the PDF report sit behind the paid "Mateo plan"; doctor access,
+consultations, shop, community and settings stay free. Enforcement is
+server-side (402 `subscription_required` from
+`server/src/middleware/subscription.ts`, applied PER-ROUTE — never router.use,
+the tracker routers share one `/api` mount) plus a client guard
+(`RequireSubscribed` → `/subscribe`, Razorpay checkout with a labelled mock
+fallback in dev; plan prices in `server/src/routes/subscription.ts` are
+PLACEHOLDERS). GRANDFATHER RULE (load-bearing): a parent User with NO
+`subscription` sub-doc is subscribed (source `mateo`) — pre-paywall accounts
+never lock; admin-created parents are granted `mateo`; doctor-invited parents
+start unsubscribed (source `doctor`). Only three places may write the sub-doc:
+admin parent-create, the invite flow, and subscription checkout/verify.
+Doctor→parent bridge: `POST /api/doctor/patients/:id/invite-parent` creates the
+parent-app account + Baby (one-time copy of the patient's demographics, IAP
+schedule synced), links `Patient.parentUserId/babyId`, emails credentials, and
+sets `consentPending` → the parent personally confirms the DPDP consent screen
+on first login before the app renders. The "First 2000 Days" journey band lives
+on the PARENT dashboard (`client/src/components/journey/`), not DoctorHome.

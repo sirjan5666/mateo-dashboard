@@ -1,13 +1,11 @@
 import { Search } from 'lucide-react';
 import { useT } from '../../i18n/context';
 import { Breadcrumbs } from './Breadcrumbs';
-import { QuickAdd } from './QuickAdd';
-import { DensityToggle } from '../ui/DensityToggle';
 import { openCommand } from '../../lib/commandPalette';
 
 const META = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/i.test(navigator.userAgent) ? '⌘' : 'Ctrl';
 
-/** Desktop top bar for the doctor panel: breadcrumbs + ⌘K search + quick-add + density. */
+/** Desktop top bar for the doctor panel: breadcrumbs + ⌘K search. */
 export function DoctorTopBar() {
   const t = useT();
   return (
@@ -25,8 +23,6 @@ export function DoctorTopBar() {
             {META}K
           </kbd>
         </button>
-        <QuickAdd />
-        <DensityToggle />
       </div>
     </div>
   );

@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
+import { User, hasActiveSubscription } from '../models/User.js';
 import { Baby } from '../models/Baby.js';
 import { VaccineDose } from '../models/VaccineDose.js';
 import type { IVaccineDose } from '../models/VaccineDose.js';
@@ -29,6 +30,34 @@ function emptyCounts(): VaccineCounts {
  */
 router.get('/', async (req, res) => {
   const babies = await Baby.find({ userId: req.userId }).sort({ createdAt: -1 });
+
+  // Unsubscribed parents keep the dashboard shell (baby list + profile basics —
+  // needed for the greeting, the 2000-days journey and the subscribe pitch) but
+  // NEVER receive tracker-derived data. This is server-side enforcement, not a
+  // UI nicety: the vaccine names/dates below are exactly what the paid trackers
+  // sell, and hard rule 5 says never trust the client to hide health data.
+  const user = await User.findById(req.userId);
+  if (user && !hasActiveSubscription(user)) {
+    res.json({
+      locked: true,
+      babies: babies.map((b) => ({
+        id: b.id as string,
+        name: b.name,
+        dob: b.dob,
+        sex: b.sex,
+        birthWeightG: b.birthWeightG,
+        birthLengthCm: b.birthLengthCm,
+        birthHeadCircCm: b.birthHeadCircCm,
+        createdAt: b.createdAt,
+        vaccines: emptyCounts(),
+        nextDue: null,
+      })),
+      totals: { babies: babies.length, dosesGiven: 0, dueSoon: 0, overdue: 0, upToDatePct: 0 },
+      upcoming: [],
+    });
+    return;
+  }
+
   const babyIds = babies.map((b) => b._id);
   const doses = babyIds.length > 0 ? await VaccineDose.find({ babyId: { $in: babyIds } }) : [];
   const today = istToday();

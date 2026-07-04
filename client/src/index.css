@@ -93,6 +93,12 @@
   --hairline: var(--border);
   --card-radius: 26px;
 
+  /* First-2000-days journey band (parent flavour) — candy remap of the same
+     developmental arc; the [data-theme="pro"] scope overrides both for panels.
+     Without these :root values the parent band's track renders transparent. */
+  --journey-track: var(--secondary);
+  --journey-gradient: linear-gradient(90deg, #7c5cfc 0%, #ff7ac0 36%, #25c281 70%, #ffc93c 100%);
+
   /* Height of the admin "viewing as" top bar. 0 normally; the shells reserve
      this much space at the top, so the bar never overlaps the sidebar/topbar. */
   --imp-bar-h: 0px;
@@ -223,6 +229,18 @@ body.is-impersonating {
   }
   :focus-visible {
     @apply outline-none ring-2 ring-emerald-500/55 ring-offset-2 ring-offset-white;
+  }
+  /* Hide the native number-input spin buttons (the little up/down arrows). The
+     app's forms are custom-styled and the browser default clashes with them;
+     typing + arrow-key stepping still work. Applies app-wide (all panels). */
+  input[type='number']::-webkit-inner-spin-button,
+  input[type='number']::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type='number'] {
+    -moz-appearance: textfield;
+    appearance: textfield;
   }
 }
 

@@ -99,11 +99,26 @@ export interface PortalStatus {
 }
 
 export function getPatient(id: string) {
-  return api<{ patient: Patient; template: Template | null; record: RecordData | null; portal: PortalStatus }>(`/doctor/patients/${id}`);
+  return api<{ patient: Patient; template: Template | null; record: RecordData | null; portal: PortalStatus; parentAccess: PortalStatus }>(
+    `/doctor/patients/${id}`,
+  );
 }
 
 export function createPortalLogin(patientId: string, body: { email: string; password: string }) {
   return api<{ portal: PortalStatus }>(`/doctor/patients/${patientId}/portal`, { method: 'POST', body: JSON.stringify(body) });
+}
+
+// Family-dashboard bridge: creates (or re-invites) the parent-app account for
+// this child. tempPassword is present ONLY when the credential email couldn't
+// be sent (SMTP unset) — show it once for the doctor to share.
+export interface ParentInviteResult {
+  email: string;
+  emailSent: boolean;
+  tempPassword?: string;
+}
+
+export function inviteParent(patientId: string, body: { email: string; parentName?: string }) {
+  return api<{ invite: ParentInviteResult }>(`/doctor/patients/${patientId}/invite-parent`, { method: 'POST', body: JSON.stringify(body) });
 }
 
 export function createPatient(body: CreatePatientInput) {

@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { DiaperLog, DIAPER_KINDS, STOOL_CONSISTENCIES, STOOL_COLORS, CONCERNING_COLORS } from '../models/DiaperLog.js';
 import type { IDiaperLog, DiaperKind, StoolColor, StoolConsistency } from '../models/DiaperLog.js';
 import { requireAuth } from '../middleware/auth.js';
+import { requireSubscription } from '../middleware/subscription.js';
 import { loadOwnedBaby } from '../middleware/ownership.js';
 import { isFutureISTDate, istDateString } from '../lib/ist.js';
 
@@ -36,7 +37,7 @@ function publicLog(log: IDiaperLog & { id: string }) {
 
 const router = Router();
 
-router.get('/babies/:id/diapers', requireAuth, loadOwnedBaby, async (req, res) => {
+router.get('/babies/:id/diapers', requireAuth, requireSubscription, loadOwnedBaby, async (req, res) => {
   const baby = req.baby!;
   const logs = await DiaperLog.find({ babyId: baby._id }).sort({ loggedAt: -1, createdAt: -1 });
   const today = istDateString(new Date());
@@ -67,7 +68,7 @@ router.get('/babies/:id/diapers', requireAuth, loadOwnedBaby, async (req, res) =
   });
 });
 
-router.post('/babies/:id/diapers', requireAuth, loadOwnedBaby, async (req, res) => {
+router.post('/babies/:id/diapers', requireAuth, requireSubscription, loadOwnedBaby, async (req, res) => {
   const baby = req.baby!;
   const body = createDiaperSchema.parse(req.body);
   if (body.loggedAt.getTime() < baby.dob.getTime()) {
@@ -78,7 +79,7 @@ router.post('/babies/:id/diapers', requireAuth, loadOwnedBaby, async (req, res) 
   res.status(201).json({ log: publicLog(log) });
 });
 
-router.delete('/babies/:id/diapers/:logId', requireAuth, loadOwnedBaby, async (req, res) => {
+router.delete('/babies/:id/diapers/:logId', requireAuth, requireSubscription, loadOwnedBaby, async (req, res) => {
   const baby = req.baby!;
   const { logId } = req.params;
   const log = isValidObjectId(logId) ? await DiaperLog.findById(logId) : null;

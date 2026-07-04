@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
+import { requireSubscription } from '../middleware/subscription.js';
 import { loadOwnedBaby } from '../middleware/ownership.js';
 import { VaccineDose } from '../models/VaccineDose.js';
 import { GrowthLog } from '../models/GrowthLog.js';
@@ -25,7 +26,7 @@ const emptyCounts = (): Counts => ({ done: 0, due: 0, overdue: 0, upcoming: 0, t
 
 // Full per-baby health snapshot for the printable parent report. Owner-scoped
 // (loadOwnedBaby) — a parent can only generate their own baby's report.
-router.get('/babies/:id/report', requireAuth, loadOwnedBaby, async (req, res) => {
+router.get('/babies/:id/report', requireAuth, requireSubscription, loadOwnedBaby, async (req, res) => {
   const baby = req.baby!;
   const today = istToday();
   const [parent, doses, growth, skin, food, sleep, milestones, records, appointments, symptoms, feeds, diapers, allergies] = await Promise.all([

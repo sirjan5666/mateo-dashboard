@@ -99,7 +99,18 @@ router.post('/parents', async (req, res) => {
   const tempPassword = password ?? generatePassword();
   const passwordHash = await bcrypt.hash(tempPassword, 12);
   // Admin-created on the parent's behalf after they opted in on the website.
-  const user = await User.create({ name, email, phone, role: 'parent', passwordHash, consentAcceptedAt: new Date(), referredByCode });
+  // Mateo-origin parents get the plan included from day one (see the grandfather
+  // rule on IUser.subscription) — only doctor-invited parents start unsubscribed.
+  const user = await User.create({
+    name,
+    email,
+    phone,
+    role: 'parent',
+    passwordHash,
+    consentAcceptedAt: new Date(),
+    referredByCode,
+    subscription: { active: true, source: 'mateo', activatedAt: new Date() },
+  });
   res.status(201).json({ user: { id: user.id, name: user.name, email: user.email, role: user.role }, tempPassword });
 });
 

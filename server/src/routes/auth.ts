@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import bcrypt from 'bcrypt';
 import { z } from 'zod';
-import { User } from '../models/User.js';
+import { User, hasActiveSubscription } from '../models/User.js';
 import type { IUser } from '../models/User.js';
 import { AUTH_COOKIE, requireAuth, setAuthCookie } from '../middleware/auth.js';
 import { loginRateLimiter } from '../middleware/security.js';
@@ -18,6 +18,14 @@ function publicUser(user: IUser & { id: string }, impersonating = false) {
     email: user.email,
     role: user.role,
     consentAcceptedAt: user.consentAcceptedAt,
+    // DPDP: doctor-invited parents confirm consent on first login before the app
+    // shows any of the child's data.
+    consentPending: user.consentPending === true,
+    // Paid-plan state the client gates trackers on (server enforces separately).
+    subscribed: hasActiveSubscription(user),
+    subscriptionSource: user.subscription?.source ?? (user.role === 'parent' ? 'mateo' : undefined),
+    subscriptionPlan: user.subscription?.plan,
+    subscriptionExpiresAt: user.subscription?.expiresAt,
     createdAt: user.createdAt,
     impersonating,
   };

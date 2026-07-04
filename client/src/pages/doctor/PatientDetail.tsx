@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { Activity, AlertTriangle, ArrowLeft, Archive, Baby, Calculator, CalendarClock, ChevronRight, FileText, FlaskConical, KeyRound, Pencil, Pill as PillIcon, Plus, Save, ShieldCheck, Stethoscope, Syringe, TrendingUp } from 'lucide-react';
+import { Activity, AlertTriangle, ArrowLeft, Archive, Baby, Calculator, CalendarClock, CheckCircle2, ChevronRight, Copy, FileText, FlaskConical, Home, Mail, Pencil, Pill as PillIcon, Plus, Save, ShieldCheck, Stethoscope, Syringe, TrendingUp } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { ApiError } from '../../api/client';
-import { archivePatient, createPortalLogin, getPatient, savePatientRecord, updatePatient } from '../../api/doctorPatients';
-import type { FieldDef, Patient, PortalStatus, RecordData, Template } from '../../api/doctorPatients';
+import { archivePatient, getPatient, inviteParent, savePatientRecord, updatePatient } from '../../api/doctorPatients';
+import type { FieldDef, ParentInviteResult, Patient, PortalStatus, RecordData, Template } from '../../api/doctorPatients';
 import { createEncounter, listEncounters, updateEncounter } from '../../api/doctorEncounters';
 import type { Encounter, EncounterInput, EncounterKind } from '../../api/doctorEncounters';
 import { createAppointment, listPatientAppointments, updateAppointment } from '../../api/doctorAppointments';
@@ -33,6 +33,16 @@ import type { Tone } from '../../components/ui/tones';
 const TONES: Tone[] = ['emerald', 'amber', 'rose', 'sky', 'violet', 'stone'];
 const asTone = (t?: string): Tone => (TONES.includes(t as Tone) ? (t as Tone) : 'stone');
 const titleCase = (s: string) => s.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+
+// The family dashboard is baby-centric — it needs a plausible child DOB (WHO
+// growth + IAP schedules) and a boy/girl sex. Mirrors the server's 422 guards;
+// adult or incomplete patients keep the read-only portal path instead.
+function canInviteParent(p: Patient): boolean {
+  if (p.sex !== 'male' && p.sex !== 'female') return false;
+  if (!p.dob) return false;
+  const dob = new Date(p.dob);
+  return !Number.isNaN(dob.getTime()) && dob.getTime() >= Date.parse('2000-01-01') && dob.getTime() <= Date.now();
+}
 
 type PdTab = 'record' | 'encounters' | 'prescriptions' | 'appointments' | 'messages' | 'tools';
 
@@ -74,10 +84,10 @@ export default function PatientDetail() {
   const [encounters, setEncounters] = useState<Encounter[] | null>(null);
   const [appointments, setAppointments] = useState<Appointment[] | null>(null);
   const [prescriptions, setPrescriptions] = useState<Prescription[] | null>(null);
-  const [portal, setPortal] = useState<PortalStatus | null>(null);
+  const [parentAccess, setParentAccess] = useState<PortalStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
-  const [portalOpen, setPortalOpen] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
   const [tab, setTab] = useState<PdTab>('record');
 
   useEffect(() => {
@@ -88,7 +98,7 @@ export default function PatientDetail() {
         setPatient(d.patient);
         setTemplate(d.template);
         setRecord(d.record);
-        setPortal(d.portal);
+        setParentAccess(d.parentAccess);
       })
       .catch((e: unknown) => {
         if (!cancelled) setError(e instanceof ApiError ? e.message : 'Could not load this patient');
@@ -167,20 +177,24 @@ export default function PatientDetail() {
             )}
           </div>
           <div className="flex flex-wrap gap-2">
-            <button onClick={() => setPortalOpen(true)} className={buttonClass('secondary', 'sm')}>
-              <KeyRound className="h-3.5 w-3.5" />
-              {portal?.active ? t('doctor.pd.portalAccess') : t('doctor.pd.invitePortal')}
-            </button>
+            {/* Family dashboard invite — only for children with the demographics
+                the parent app needs (DOB + boy/girl); adults keep the portal. */}
+            {canInviteParent(patient) && (
+              <button onClick={() => setInviteOpen(true)} className={buttonClass(parentAccess?.active ? 'secondary' : 'primary', 'sm')}>
+                <Home className="h-3.5 w-3.5" />
+                {parentAccess?.active ? 'Family dashboard' : 'Invite parent'}
+              </button>
+            )}
             <button onClick={() => setEditing(true)} className={buttonClass('secondary', 'sm')}>
               <Pencil className="h-3.5 w-3.5" />
               {t('doctor.pd.editDetails')}
             </button>
           </div>
         </div>
-        {portal?.active && (
+        {parentAccess?.active && (
           <p className="relative mt-3 inline-flex items-center gap-1.5 text-xs text-stone-500">
-            <KeyRound className="h-3.5 w-3.5 text-emerald-600" />
-            {t('doctor.pd.portalActive', { email: portal.email ?? '' })}
+            <Home className="h-3.5 w-3.5 text-emerald-600" />
+            Parent dashboard active · {parentAccess.email ?? ''}
           </p>
         )}
       </Card>
@@ -252,15 +266,12 @@ export default function PatientDetail() {
         />
       )}
 
-      {portalOpen && (
-        <PortalLoginModal
+      {inviteOpen && (
+        <InviteParentModal
           patientId={id}
-          portal={portal}
-          onClose={() => setPortalOpen(false)}
-          onSaved={(p) => {
-            setPortal(p);
-            setPortalOpen(false);
-          }}
+          parentAccess={parentAccess}
+          onClose={() => setInviteOpen(false)}
+          onInvited={(email) => setParentAccess({ active: true, email })}
         />
       )}
     </div>
@@ -304,76 +315,126 @@ function ClinicalToolsTab({ patient }: { patient: Patient }) {
   );
 }
 
-// ── patient portal login (doctor sets credentials) ──────────────────────────
-function PortalLoginModal({
+// ── family-dashboard invite (creates the parent-app account + emails credentials) ──
+function InviteParentModal({
   patientId,
-  portal,
+  parentAccess,
   onClose,
-  onSaved,
+  onInvited,
 }: {
   patientId: string;
-  portal: PortalStatus | null;
+  parentAccess: PortalStatus | null;
   onClose: () => void;
-  onSaved: (p: PortalStatus) => void;
+  onInvited: (email: string) => void;
 }) {
-  const active = !!portal?.active;
-  const [form, setForm] = useState({ email: portal?.email ?? '', password: '' });
+  const active = !!parentAccess?.active;
+  const [form, setForm] = useState({ email: parentAccess?.email ?? '', parentName: '' });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<ParentInviteResult | null>(null);
+  const [copied, setCopied] = useState(false);
 
   async function save() {
     if (!active && !form.email.trim()) {
-      setError('Enter an email for the patient login.');
-      return;
-    }
-    if (form.password.length < 8) {
-      setError('Password must be at least 8 characters.');
+      setError('Enter the parent’s email address.');
       return;
     }
     setSaving(true);
     setError(null);
     try {
-      const { portal: updated } = await createPortalLogin(patientId, { email: form.email.trim(), password: form.password });
-      onSaved(updated);
+      const { invite } = await inviteParent(patientId, {
+        email: (active ? (parentAccess?.email ?? '') : form.email).trim(),
+        parentName: form.parentName.trim() || undefined,
+      });
+      setResult(invite);
+      onInvited(invite.email);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Could not set up portal access');
+      setError(e instanceof ApiError ? e.message : 'Could not set up the family dashboard');
     } finally {
       setSaving(false);
     }
   }
 
+  function copyCredentials() {
+    if (!result?.tempPassword) return;
+    void navigator.clipboard?.writeText(`Mateo dashboard\nEmail: ${result.email}\nTemporary password: ${result.tempPassword}`).then(() => setCopied(true));
+  }
+
+  // Result view — either "invite emailed" or the show-once credentials panel.
+  if (result) {
+    return (
+      <Modal open title="Family dashboard ready" onClose={onClose} size="md">
+        <p className="flex items-start gap-2 rounded-xl bg-emerald-50 px-3 py-2.5 text-sm text-emerald-800">
+          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+          {result.emailSent
+            ? `An invite with sign-in details was emailed to ${result.email}. Trackers show as "Paid" until the family subscribes.`
+            : 'The account is ready. Email isn’t configured on this server, so share these sign-in details with the parent securely — they are shown only once.'}
+        </p>
+        {!result.emailSent && result.tempPassword && (
+          <div className="mt-3 space-y-1 rounded-xl bg-stone-50 p-3 font-mono-ds text-sm text-stone-800">
+            <p>Email: {result.email}</p>
+            <p>Temporary password: {result.tempPassword}</p>
+          </div>
+        )}
+        <p className="mt-3 text-xs text-stone-400">
+          The parent signs in at the normal login and sees the family dashboard for this child. Advise them to change the password in
+          Settings after their first sign-in.
+        </p>
+        <div className="mt-5 flex justify-end gap-2">
+          {!result.emailSent && result.tempPassword && (
+            <button onClick={copyCredentials} className={buttonClass('secondary', 'md')}>
+              <Copy className="h-4 w-4" />
+              {copied ? 'Copied!' : 'Copy details'}
+            </button>
+          )}
+          <button onClick={onClose} className={buttonClass('primary', 'md')}>
+            Done
+          </button>
+        </div>
+      </Modal>
+    );
+  }
+
   return (
-    <Modal open title={active ? 'Portal access' : 'Invite to portal'} onClose={onClose} size="md">
+    <Modal open title={active ? 'Family dashboard' : 'Invite parent to Mateo'} onClose={onClose} size="md">
       {error && <p className="mb-3 rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
       <p className="mb-3 text-sm text-stone-500">
         {active
-          ? 'Reset this patient’s portal password. Share the new password with them securely.'
-          : 'Create a read-only portal login so this patient can view their own record. Share the email and password with them securely.'}
+          ? `The family dashboard is active for ${parentAccess?.email ?? 'this family'}. Send a fresh invite to rotate their password (e.g. if they lost it).`
+          : 'Creates the parent’s own Mateo dashboard for this child — trackers, growth charts and appointment history — and emails them the sign-in details. Trackers show as "Paid" until the family subscribes; talking to you stays free.'}
       </p>
-      <div className="space-y-3">
-        <label className="block text-sm font-medium text-stone-700">
-          Email
-          <input
-            type="email"
-            className={inputCls}
-            value={form.email}
-            disabled={active}
-            onChange={(e) => setForm({ ...form, email: e.target.value })}
-            placeholder="patient@example.com"
-          />
-        </label>
-        <label className="block text-sm font-medium text-stone-700">
-          {active ? 'New password' : 'Temporary password'}
-          <input type="text" className={inputCls} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="At least 8 characters" />
-        </label>
-        <p className="text-xs text-stone-400">The patient signs in at the normal login. They only ever see their own record (read-only).</p>
-      </div>
+      {!active && (
+        <div className="space-y-3">
+          <label className="block text-sm font-medium text-stone-700">
+            Parent’s email
+            <input
+              type="email"
+              className={inputCls}
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+              placeholder="parent@example.com"
+            />
+          </label>
+          <label className="block text-sm font-medium text-stone-700">
+            Parent’s name <span className="font-normal text-stone-400">(optional)</span>
+            <input
+              type="text"
+              className={inputCls}
+              value={form.parentName}
+              onChange={(e) => setForm({ ...form, parentName: e.target.value })}
+              placeholder="e.g. Priya Sharma"
+            />
+          </label>
+          <p className="text-xs text-stone-400">A secure temporary password is generated and emailed automatically — you never have to handle it.</p>
+        </div>
+      )}
       <div className="mt-5 flex justify-end gap-2">
         <button onClick={onClose} className={buttonClass('secondary', 'md')}>
           Cancel
         </button>
         <button onClick={() => void save()} disabled={saving} className={buttonClass('primary', 'md')}>
-          {saving ? 'Saving…' : active ? 'Reset password' : 'Create login'}
+          <Mail className="h-4 w-4" />
+          {saving ? 'Setting up…' : active ? 'Re-send invite' : 'Create & invite'}
         </button>
       </div>
     </Modal>
