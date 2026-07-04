@@ -17,6 +17,7 @@ import { Kpi, EmptyState, SectionCard } from '../../components/panel/kit';
 import { cn } from '../../lib/cn';
 import { useEntrance } from '../../lib/gsap';
 import { ageInMonths } from '../../lib/age';
+import type { ToolPatient } from '../../components/doctor/tools/types';
 
 type Filter = 'all' | 'watch' | 'inwindow' | 'upcoming' | 'achieved';
 
@@ -58,11 +59,14 @@ function ageLabel(m: number): string {
   return rem ? `${y}y ${rem}m` : `${y} year${y === 1 ? '' : 's'}`;
 }
 
-export default function Development() {
+// `patient` present → embedded in the patient workspace (age from the patient's
+// DOB, header/picker hidden). No prop → standalone page.
+export default function Development({ patient }: { patient?: ToolPatient } = {}) {
+  const embedded = !!patient;
   const rootRef = useEntrance<HTMLDivElement>([]);
   const [params] = useSearchParams();
 
-  const [age, setAge] = useState('');
+  const [age, setAge] = useState(() => (patient?.dob ? String(ageInMonths(patient.dob)) : ''));
   const [milestones, setMilestones] = useState<DevMilestone[] | null>(null);
   const [achieved, setAchieved] = useState<Set<string>>(new Set());
   const [filter, setFilter] = useState<Filter>('all');
@@ -73,6 +77,7 @@ export default function Development() {
   const hasAge = age !== '' && ageMonths >= 0 && !Number.isNaN(ageMonths);
 
   useEffect(() => {
+    if (embedded) return; // age seeded from the patient prop
     listPatients()
       .then((d) => {
         const list = d.patients.filter((p) => !p.archivedAt && p.dob);
@@ -141,6 +146,7 @@ export default function Development() {
 
   return (
     <div ref={rootRef} className="space-y-5">
+      {!embedded && (
       <Card data-entrance="hero" className="hero-aurora relative overflow-hidden p-6 sm:p-7">
         <span aria-hidden="true" className="absolute inset-x-0 top-0 h-1 brand-gradient" />
         <div className="flex flex-wrap items-start justify-between gap-4">
@@ -175,12 +181,13 @@ export default function Development() {
           </div>
         </div>
       </Card>
+      )}
 
       {error && <Card className="border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{error}</Card>}
 
       {!hasAge || !milestones ? (
         <Card data-entrance="card" className="p-10">
-          <EmptyState icon={CalendarClock} text="Enter the child’s age (or pick a patient) to load the milestone screen." />
+          <EmptyState icon={CalendarClock} text={embedded ? 'Add a date of birth to this patient’s record to load the milestone screen.' : 'Enter the child’s age (or pick a patient) to load the milestone screen.'} />
         </Card>
       ) : (
         <>

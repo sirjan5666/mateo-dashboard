@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { Activity, AlertTriangle, ArrowLeft, Archive, Baby, Calculator, CalendarClock, CheckCircle2, ChevronRight, Copy, FileText, FlaskConical, Home, Mail, Pencil, Pill as PillIcon, Plus, Save, ShieldCheck, Stethoscope, Syringe, TrendingUp } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
+import { Activity, AlertTriangle, ArrowLeft, Archive, CalendarClock, CheckCircle2, Copy, FileText, Home, Mail, Pencil, Pill as PillIcon, Plus, Save, ShieldCheck, Stethoscope } from 'lucide-react';
 import { ApiError } from '../../api/client';
 import { archivePatient, getPatient, inviteParent, savePatientRecord, updatePatient } from '../../api/doctorPatients';
 import type { FieldDef, ParentInviteResult, Patient, PortalStatus, RecordData, Template } from '../../api/doctorPatients';
@@ -27,7 +26,7 @@ import { StatusPill } from '../../components/ui/StatusPill';
 import { Tabs } from '../../components/ui/Tabs';
 import type { TabItem } from '../../components/ui/Tabs';
 import { statusIcon, statusTone } from '../../components/doctor/status';
-import { toneBadge } from '../../components/ui/tones';
+import { ClinicalToolsWorkspace } from '../../components/doctor/ClinicalToolsWorkspace';
 import type { Tone } from '../../components/ui/tones';
 
 const TONES: Tone[] = ['emerald', 'amber', 'rose', 'sky', 'violet', 'stone'];
@@ -236,7 +235,7 @@ export default function PatientDetail() {
             <MessagesSection patientId={id} />
           </div>
           <div className={cn(tab !== 'tools' && 'hidden')}>
-            <ClinicalToolsTab patient={patient} />
+            <ClinicalToolsWorkspace patient={patient} />
           </div>
         </div>
 
@@ -275,43 +274,6 @@ export default function PatientDetail() {
         />
       )}
     </div>
-  );
-}
-
-// ── in-context clinical tools (pre-scoped to this child) ────────────────────
-function ClinicalToolsTab({ patient }: { patient: Patient }) {
-  const t = useT();
-  const q = `?patient=${patient.id}`;
-  const tools: { icon: LucideIcon; labelKey: string; descKey: string; to: string; tone: Tone }[] = [
-    { icon: TrendingUp, labelKey: 'doctor.home.modGrowth', descKey: 'doctor.home.modGrowthD', to: `/doctor/growth${q}`, tone: 'emerald' },
-    { icon: Syringe, labelKey: 'doctor.home.modVaccines', descKey: 'doctor.home.modVaccinesD', to: `/doctor/vaccines${q}`, tone: 'rose' },
-    { icon: Calculator, labelKey: 'doctor.home.modDose', descKey: 'doctor.home.modDoseD', to: `/doctor/dose${q}`, tone: 'sky' },
-    { icon: Activity, labelKey: 'doctor.home.modDev', descKey: 'doctor.home.modDevD', to: `/doctor/development${q}`, tone: 'violet' },
-    { icon: FlaskConical, labelKey: 'doctor.home.modLabs', descKey: 'doctor.home.modLabsD', to: `/doctor/labs${q}`, tone: 'sky' },
-    { icon: Baby, labelKey: 'doctor.home.modNeo', descKey: 'doctor.home.modNeoD', to: `/doctor/neonatology${q}`, tone: 'amber' },
-  ];
-  return (
-    <Card className="p-5 sm:p-6">
-      <h2 className="font-display text-lg font-semibold text-stone-900">{t('doctor.pd.tabTools')}</h2>
-      <p className="mt-0.5 text-sm text-stone-500">{t('doctor.pd.toolsIntro', { name: patient.displayName })}</p>
-      <div className="mt-4 grid gap-3 sm:grid-cols-2">
-        {tools.map((tool) => (
-          <Link key={tool.to} to={tool.to} className="group">
-            <Card className="pop-hover flex h-full items-start gap-3 p-4">
-              <span className={cn('grid h-10 w-10 shrink-0 place-items-center rounded-xl', toneBadge[tool.tone])}>
-                <tool.icon className="h-5 w-5" />
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-bold text-stone-800">{t(tool.labelKey)}</p>
-                <p className="mt-0.5 truncate text-xs text-stone-400">{t(tool.descKey)}</p>
-              </div>
-              <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-stone-300 transition-colors group-hover:text-stone-500" />
-            </Card>
-          </Link>
-        ))}
-      </div>
-      <p className="mt-4 text-xs text-stone-400">{t('doctor.pd.toolsNote')}</p>
-    </Card>
   );
 }
 

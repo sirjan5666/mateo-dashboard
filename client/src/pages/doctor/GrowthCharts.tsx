@@ -17,6 +17,7 @@ import type { ChartTheme } from '../../components/panel/kit';
 import { cn } from '../../lib/cn';
 import { useEntrance } from '../../lib/gsap';
 import { ageInMonths } from '../../lib/age';
+import { toolSex, type ToolPatient } from '../../components/doctor/tools/types';
 
 type Sex = 'male' | 'female';
 
@@ -122,12 +123,15 @@ function WhoChart({ result, indicator, theme }: { result: PlotResult | null; ind
 }
 
 // ── page ─────────────────────────────────────────────────────────────────────
-export default function GrowthCharts() {
+// `patient` present → embedded (sex + first-point age seeded from the patient;
+// measurements are still typed — no stored growth series). No prop → standalone.
+export default function GrowthCharts({ patient }: { patient?: ToolPatient } = {}) {
+  const embedded = !!patient;
   const theme = useChartTheme();
   const rootRef = useEntrance<HTMLDivElement>([]);
   const [params] = useSearchParams();
 
-  const [sex, setSex] = useState<Sex>('male');
+  const [sex, setSex] = useState<Sex>(() => (patient ? toolSex(patient.sex) : 'male'));
   const [indicator, setIndicator] = useState<Indicator>('weight');
   const [points, setPoints] = useState<PlotInputPoint[]>([]);
   const [result, setResult] = useState<PlotResult | null>(null);
@@ -135,13 +139,14 @@ export default function GrowthCharts() {
   const [patients, setPatients] = useState<Patient[]>([]);
 
   // entry fields
-  const [ageM, setAgeM] = useState('');
+  const [ageM, setAgeM] = useState(() => (patient?.dob ? String(Math.min(MAX_MONTHS, ageInMonths(patient.dob))) : ''));
   const [weightKg, setWeightKg] = useState('');
   const [lengthCm, setLengthCm] = useState('');
   const [headCm, setHeadCm] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (embedded) return; // sex + first-point age seeded from the patient prop
     listPatients()
       .then((d) => {
         const list = d.patients.filter((p) => !p.archivedAt);
@@ -213,9 +218,10 @@ export default function GrowthCharts() {
   return (
     <div ref={rootRef} className="space-y-5">
       {/* header */}
-      <Card data-entrance="hero" className="hero-aurora relative overflow-hidden p-6 sm:p-7">
-        <span aria-hidden="true" className="absolute inset-x-0 top-0 h-1 brand-gradient" />
-        <div className="flex flex-wrap items-start justify-between gap-4">
+      <Card data-entrance="card" className={cn('relative overflow-hidden', embedded ? 'p-3.5 sm:p-4' : 'hero-aurora p-6 sm:p-7')}>
+        {!embedded && <span aria-hidden="true" className="absolute inset-x-0 top-0 h-1 brand-gradient" />}
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          {!embedded && (
           <div className="flex items-center gap-3">
             <span className="grid h-12 w-12 place-items-center rounded-2xl bg-emerald-50 text-emerald-700">
               <TrendingUp className="h-6 w-6" />
@@ -225,7 +231,9 @@ export default function GrowthCharts() {
               <h1 className="mt-0.5 font-display text-2xl font-extrabold leading-tight text-stone-900 sm:text-[1.75rem]">Growth charts</h1>
             </div>
           </div>
+          )}
           <div className="flex flex-wrap items-center gap-3">
+            {embedded && <span className="text-[0.66rem] font-bold uppercase tracking-wide text-stone-400">WHO 0–24 mo · sex</span>}
             <SegmentedControl options={SEX_OPTIONS} value={sex} onChange={setSex} />
             {patients.length > 0 && (
               <select aria-label="Prefill from patient" className={cn(inputClass, 'w-auto cursor-pointer font-semibold')} defaultValue="" onChange={(e) => e.target.value && selectPatient(e.target.value)}>

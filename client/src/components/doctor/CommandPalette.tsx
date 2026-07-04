@@ -2,20 +2,14 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router';
 import {
-  Activity,
   BarChart3,
-  Baby,
-  Calculator,
   CalendarClock,
   CalendarDays,
   CornerDownLeft,
   CreditCard,
-  FlaskConical,
   MessageSquare,
   Search,
   Stethoscope,
-  Syringe,
-  TrendingUp,
   UserCog,
   Users,
 } from 'lucide-react';
@@ -42,24 +36,17 @@ interface Cmd {
 
 const ACTIONS: { label: string; to: string; icon: LucideIcon }[] = [
   { label: 'doctor.quickAdd.patient', to: '/doctor/patients', icon: Users },
-  { label: 'doctor.quickAdd.growth', to: '/doctor/growth', icon: TrendingUp },
-  { label: 'doctor.quickAdd.dose', to: '/doctor/dose', icon: Calculator },
-  { label: 'doctor.quickAdd.vaccines', to: '/doctor/vaccines', icon: Syringe },
   { label: 'doctor.quickAdd.invoice', to: '/doctor/billing', icon: CreditCard },
 ];
 
+// The clinical tools moved inside each patient (PatientDetail → Tools), so they
+// are no longer standalone destinations here.
 const PAGES: { label: string; to: string; icon: LucideIcon }[] = [
   { label: 'doctor.nav.home', to: '/doctor', icon: Stethoscope },
   { label: 'doctor.nav.patients', to: '/doctor/patients', icon: Users },
   { label: 'doctor.nav.schedule', to: '/doctor/schedule', icon: CalendarDays },
   { label: 'doctor.nav.messages', to: '/doctor/messages', icon: MessageSquare },
   { label: 'doctor.nav.consultations', to: '/doctor/appointments', icon: CalendarClock },
-  { label: 'doctor.nav.growth', to: '/doctor/growth', icon: TrendingUp },
-  { label: 'doctor.nav.vaccines', to: '/doctor/vaccines', icon: Syringe },
-  { label: 'doctor.nav.dose', to: '/doctor/dose', icon: Calculator },
-  { label: 'doctor.nav.development', to: '/doctor/development', icon: Activity },
-  { label: 'doctor.nav.labs', to: '/doctor/labs', icon: FlaskConical },
-  { label: 'doctor.nav.neonatology', to: '/doctor/neonatology', icon: Baby },
   { label: 'doctor.nav.analytics', to: '/doctor/analytics', icon: BarChart3 },
   { label: 'doctor.nav.billing', to: '/doctor/billing', icon: CreditCard },
   { label: 'doctor.nav.profile', to: '/doctor/profile', icon: UserCog },

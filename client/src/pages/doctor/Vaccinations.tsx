@@ -15,6 +15,7 @@ import { Kpi, EmptyState, SectionCard } from '../../components/panel/kit';
 import { cn } from '../../lib/cn';
 import { useEntrance } from '../../lib/gsap';
 import { formatAge, formatDateIST, todayInputValueIST, toDateInputValueIST } from '../../lib/age';
+import { toolSex, type ToolPatient } from '../../components/doctor/tools/types';
 
 type Sex = 'male' | 'female';
 type Filter = 'all' | 'overdue' | 'due' | 'upcoming' | 'given';
@@ -34,12 +35,15 @@ const STATUS_META: Record<DoseStatus, { label: string; tone: Tone }> = {
 const inputClass =
   'w-full rounded-xl border border-stone-200 bg-[var(--input-background)] px-3 py-2 text-sm text-stone-800 focus:border-emerald-400';
 
-export default function Vaccinations() {
+// `patient` present → embedded in the patient workspace: dob/sex come from the
+// patient, the standalone header + picker are hidden. No prop → standalone page.
+export default function Vaccinations({ patient }: { patient?: ToolPatient } = {}) {
+  const embedded = !!patient;
   const rootRef = useEntrance<HTMLDivElement>([]);
   const [params] = useSearchParams();
 
-  const [dob, setDob] = useState('');
-  const [sex, setSex] = useState<Sex>('male');
+  const [dob, setDob] = useState(() => (patient?.dob ? toDateInputValueIST(patient.dob) : ''));
+  const [sex, setSex] = useState<Sex>(() => (patient ? toolSex(patient.sex) : 'male'));
   const [result, setResult] = useState<VaxScheduleResult | null>(null);
   const [given, setGiven] = useState<Set<string>>(new Set());
   const [filter, setFilter] = useState<Filter>('all');
@@ -47,6 +51,7 @@ export default function Vaccinations() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (embedded) return; // dob/sex are seeded from the patient prop
     listPatients()
       .then((d) => {
         const list = d.patients.filter((p) => !p.archivedAt && p.dob);
@@ -141,7 +146,7 @@ export default function Vaccinations() {
 
   return (
     <div ref={rootRef} className="space-y-5">
-      {/* header */}
+      {!embedded && (
       <Card data-entrance="hero" className="hero-aurora relative overflow-hidden p-6 sm:p-7">
         <span aria-hidden="true" className="absolute inset-x-0 top-0 h-1 brand-gradient" />
         <div className="flex flex-wrap items-start justify-between gap-4">
@@ -180,12 +185,13 @@ export default function Vaccinations() {
           </div>
         </div>
       </Card>
+      )}
 
       {error && <Card className="border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{error}</Card>}
 
       {!dob || !result ? (
         <Card data-entrance="card" className="p-10">
-          <EmptyState icon={CalendarClock} text="Enter a date of birth (or pick a patient) to generate the immunization schedule." />
+          <EmptyState icon={CalendarClock} text={embedded ? 'Add a date of birth to this patient’s record to generate the immunization schedule.' : 'Enter a date of birth (or pick a patient) to generate the immunization schedule.'} />
         </Card>
       ) : (
         <>

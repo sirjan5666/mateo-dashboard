@@ -12,6 +12,7 @@ import { Kpi, SectionCard } from '../../components/panel/kit';
 import { cn } from '../../lib/cn';
 import { useEntrance } from '../../lib/gsap';
 import { ageInMonths } from '../../lib/age';
+import type { ToolPatient } from '../../components/doctor/tools/types';
 
 const inputClass =
   'w-full rounded-xl border border-stone-200 bg-[var(--input-background)] px-3 py-2 text-sm text-stone-800 placeholder:text-stone-400 focus:border-emerald-400';
@@ -23,11 +24,13 @@ const LEVEL_META: Record<LabLevel, { label: string; tone: 'amber' | 'rose' | 'em
   normal: { label: 'Normal', tone: 'emerald', icon: Check },
 };
 
-export default function Labs() {
+// `patient` present → embedded (age from the patient's DOB, header/picker hidden).
+export default function Labs({ patient }: { patient?: ToolPatient } = {}) {
+  const embedded = !!patient;
   const rootRef = useEntrance<HTMLDivElement>([]);
   const [params] = useSearchParams();
 
-  const [age, setAge] = useState('');
+  const [age, setAge] = useState(() => (patient?.dob ? String(ageInMonths(patient.dob)) : ''));
   const [analytes, setAnalytes] = useState<LabAnalyte[]>([]);
   const [values, setValues] = useState<Record<string, string>>({});
   const [result, setResult] = useState<LabInterpretResult | null>(null);
@@ -42,6 +45,7 @@ export default function Labs() {
     getLabCatalog()
       .then((d) => setAnalytes(d.analytes))
       .catch(() => setCatalogError(true));
+    if (embedded) return; // age seeded from the patient prop
     listPatients()
       .then((d) => {
         const list = d.patients.filter((p) => !p.archivedAt && p.dob);
@@ -97,6 +101,7 @@ export default function Labs() {
 
   return (
     <div ref={rootRef} className="space-y-5">
+      {!embedded && (
       <Card data-entrance="hero" className="hero-aurora relative overflow-hidden p-6 sm:p-7">
         <span aria-hidden="true" className="absolute inset-x-0 top-0 h-1 brand-gradient" />
         <div className="flex flex-wrap items-start justify-between gap-4">
@@ -130,6 +135,7 @@ export default function Labs() {
           </div>
         </div>
       </Card>
+      )}
 
       {catalogError && <Card className="border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">Lab reference is unavailable right now.</Card>}
       {error && <Card className="border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{error}</Card>}
@@ -137,7 +143,7 @@ export default function Labs() {
       {!hasAge && !catalogError && (
         <Card data-entrance="card" className="flex items-center gap-2 p-4 text-sm text-amber-700">
           <AlertTriangle className="h-4 w-4 shrink-0" />
-          Enter the child’s age (or pick a patient) — pediatric reference ranges are age-specific.
+          {embedded ? 'Add a date of birth to this patient’s record — pediatric reference ranges are age-specific.' : 'Enter the child’s age (or pick a patient) — pediatric reference ranges are age-specific.'}
         </Card>
       )}
 

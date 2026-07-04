@@ -1,6 +1,6 @@
 import { lazy, useEffect, useState } from 'react';
 import { Navigate, Route, Routes } from 'react-router';
-import { Activity, Baby, BarChart3, Calculator, CalendarClock, CreditCard, FlaskConical, HeartPulse, MessageSquare, Stethoscope, Syringe, TrendingUp, UserCog, Users } from 'lucide-react';
+import { BarChart3, CalendarClock, CreditCard, HeartPulse, MessageSquare, Stethoscope, UserCog, Users } from 'lucide-react';
 import { AuthProvider } from './auth/AuthProvider';
 import { useAuth } from './auth/context';
 import { AppShell } from './components/layout/AppShell';
@@ -36,13 +36,7 @@ import DoctorProfileForm from './pages/doctor/DoctorProfileForm';
 import DoctorAppointments from './pages/doctor/DoctorAppointments';
 import Patients from './pages/doctor/Patients';
 import PatientDetail from './pages/doctor/PatientDetail';
-import GrowthCharts from './pages/doctor/GrowthCharts';
-import Vaccinations from './pages/doctor/Vaccinations';
-import DoseCalculator from './pages/doctor/DoseCalculator';
-import Development from './pages/doctor/Development';
 import AnalyticsPage from './pages/doctor/Analytics';
-import Labs from './pages/doctor/Labs';
-import Neonatology from './pages/doctor/Neonatology';
 import Billing from './pages/doctor/Billing';
 import Schedule from './pages/doctor/Schedule';
 import DoctorMessages from './pages/doctor/Messages';
@@ -70,18 +64,13 @@ import { CommandPalette } from './components/doctor/CommandPalette';
 const Growth = lazy(() => import('./pages/Growth'));
 
 // Grouped doctor navigation (labels + section headings are i18n keys resolved in
-// PanelShell). Sections: Today · Patients · Clinical tools · Practice.
+// PanelShell). Sections: Today · Patients · Practice. The clinical decision-support
+// tools now live inside each patient (PatientDetail → Tools), not as sidebar pages.
 const DOCTOR_NAV: PanelNavItem[] = [
   { to: '/doctor', label: 'doctor.nav.home', icon: Stethoscope, end: true, section: 'doctor.section.today' },
   { to: '/doctor/patients', label: 'doctor.nav.patients', icon: Users, section: 'doctor.section.patients' },
   { to: '/doctor/messages', label: 'doctor.nav.messages', icon: MessageSquare, section: 'doctor.section.patients' },
   { to: '/doctor/appointments', label: 'doctor.nav.consultations', icon: CalendarClock, section: 'doctor.section.patients' },
-  { to: '/doctor/growth', label: 'doctor.nav.growth', icon: TrendingUp, section: 'doctor.section.clinical' },
-  { to: '/doctor/vaccines', label: 'doctor.nav.vaccines', icon: Syringe, section: 'doctor.section.clinical' },
-  { to: '/doctor/dose', label: 'doctor.nav.dose', icon: Calculator, section: 'doctor.section.clinical' },
-  { to: '/doctor/development', label: 'doctor.nav.development', icon: Activity, section: 'doctor.section.clinical' },
-  { to: '/doctor/labs', label: 'doctor.nav.labs', icon: FlaskConical, section: 'doctor.section.clinical' },
-  { to: '/doctor/neonatology', label: 'doctor.nav.neonatology', icon: Baby, section: 'doctor.section.clinical' },
   { to: '/doctor/analytics', label: 'doctor.nav.analytics', icon: BarChart3, section: 'doctor.section.practice' },
   { to: '/doctor/billing', label: 'doctor.nav.billing', icon: CreditCard, section: 'doctor.section.practice' },
   { to: '/doctor/profile', label: 'doctor.nav.profile', icon: UserCog, section: 'doctor.section.practice' },
@@ -138,13 +127,7 @@ function AppRoutes() {
           <Route path="/doctor" element={<DoctorHome />} />
           <Route path="/doctor/patients" element={<Patients />} />
           <Route path="/doctor/patients/:id" element={<PatientDetail />} />
-          <Route path="/doctor/growth" element={<GrowthCharts />} />
-          <Route path="/doctor/vaccines" element={<Vaccinations />} />
-          <Route path="/doctor/dose" element={<DoseCalculator />} />
-          <Route path="/doctor/development" element={<Development />} />
           <Route path="/doctor/analytics" element={<AnalyticsPage />} />
-          <Route path="/doctor/labs" element={<Labs />} />
-          <Route path="/doctor/neonatology" element={<Neonatology />} />
           <Route path="/doctor/billing" element={<Billing />} />
           <Route path="/doctor/schedule" element={<Schedule />} />
           <Route path="/doctor/messages" element={<DoctorMessages />} />

@@ -10,6 +10,7 @@ import { SectionCard } from '../../components/panel/kit';
 import { cn } from '../../lib/cn';
 import { useEntrance } from '../../lib/gsap';
 import { toDateInputValueIST, todayInputValueIST } from '../../lib/age';
+import type { ToolPatient } from '../../components/doctor/tools/types';
 
 const inputClass =
   'w-full rounded-xl border border-stone-200 bg-[var(--input-background)] px-3 py-2 text-sm text-stone-800 placeholder:text-stone-400 focus:border-emerald-400';
@@ -46,18 +47,22 @@ function Stat({ value, unit, tone = 'stone' }: { value: string; unit: string; to
   );
 }
 
-export default function Neonatology() {
+// `patient` present → embedded (DOB + day-of-life seeded from the patient;
+// gestational age + weight still typed). No prop → standalone page.
+export default function Neonatology({ patient }: { patient?: ToolPatient } = {}) {
+  const embedded = !!patient;
   const rootRef = useEntrance<HTMLDivElement>([]);
 
   const [params] = useSearchParams();
   const [ga, setGa] = useState('');
-  const [dob, setDob] = useState('');
+  const [dob, setDob] = useState(() => (patient?.dob ? toDateInputValueIST(patient.dob) : ''));
   const [weight, setWeight] = useState('');
-  const [dol, setDol] = useState('');
+  const [dol, setDol] = useState(() => (patient?.dob ? String(daysSince(toDateInputValueIST(patient.dob)) + 1) : ''));
   const [freq, setFreq] = useState('8');
   const [patients, setPatients] = useState<Patient[]>([]);
 
   useEffect(() => {
+    if (embedded) return; // DOB + day-of-life seeded from the patient prop
     listPatients()
       .then((d) => {
         const list = d.patients.filter((p) => !p.archivedAt && p.dob);
@@ -109,6 +114,7 @@ export default function Neonatology() {
 
   return (
     <div ref={rootRef} className="space-y-5">
+      {!embedded && (
       <Card data-entrance="hero" className="hero-aurora relative overflow-hidden p-6 sm:p-7">
         <span aria-hidden="true" className="absolute inset-x-0 top-0 h-1 brand-gradient" />
         <div className="flex flex-wrap items-start justify-between gap-4">
@@ -136,6 +142,7 @@ export default function Neonatology() {
           )}
         </div>
       </Card>
+      )}
 
       {/* Corrected age */}
       <SectionCard title="Corrected age" icon={Clock} eyebrow="Adjusts chronological age for prematurity">

@@ -14,6 +14,7 @@ import { SectionCard } from '../../components/panel/kit';
 import { cn } from '../../lib/cn';
 import { useEntrance } from '../../lib/gsap';
 import { ageInMonths } from '../../lib/age';
+import type { ToolPatient } from '../../components/doctor/tools/types';
 
 type Tab = 'drug' | 'fluid';
 
@@ -48,13 +49,16 @@ function maintenancePerHourMl(wt: number): number {
 }
 const r1 = (n: number) => Math.round(n * 10) / 10;
 
-export default function DoseCalculator() {
+// `patient` present → embedded (age from the patient's DOB; weight is still typed
+// — no stored weight — and the drug/fluid tabs stay). No prop → standalone page.
+export default function DoseCalculator({ patient }: { patient?: ToolPatient } = {}) {
+  const embedded = !!patient;
   const rootRef = useEntrance<HTMLDivElement>([]);
 
   const [params] = useSearchParams();
   const [tab, setTab] = useState<Tab>('drug');
   const [weight, setWeight] = useState('');
-  const [age, setAge] = useState('');
+  const [age, setAge] = useState(() => (patient?.dob ? String(ageInMonths(patient.dob)) : ''));
   const [patients, setPatients] = useState<Patient[]>([]);
 
   const weightKg = parseFloat(weight);
@@ -63,6 +67,7 @@ export default function DoseCalculator() {
   const hasAge = age !== '' && ageMonths >= 0 && !Number.isNaN(ageMonths);
 
   useEffect(() => {
+    if (embedded) return; // age seeded from the patient prop
     listPatients()
       .then((d) => {
         const list = d.patients.filter((p) => !p.archivedAt && p.dob);
@@ -82,9 +87,10 @@ export default function DoseCalculator() {
 
   return (
     <div ref={rootRef} className="space-y-5">
-      <Card data-entrance="hero" className="hero-aurora relative overflow-hidden p-6 sm:p-7">
-        <span aria-hidden="true" className="absolute inset-x-0 top-0 h-1 brand-gradient" />
+      <Card data-entrance="card" className={cn('relative overflow-hidden', embedded ? 'p-4 sm:p-5' : 'hero-aurora p-6 sm:p-7')}>
+        {!embedded && <span aria-hidden="true" className="absolute inset-x-0 top-0 h-1 brand-gradient" />}
         <div className="flex flex-wrap items-start justify-between gap-4">
+          {!embedded && (
           <div className="flex items-center gap-3">
             <span className="grid h-12 w-12 place-items-center rounded-2xl bg-sky-50 text-sky-600">
               <Gauge className="h-6 w-6" />
@@ -94,6 +100,7 @@ export default function DoseCalculator() {
               <h1 className="mt-0.5 font-display text-2xl font-extrabold leading-tight text-stone-900 sm:text-[1.75rem]">Dose calculator</h1>
             </div>
           </div>
+          )}
           <div className="flex flex-wrap items-end gap-3">
             <div>
               <label className={labelClass}>Weight (kg)</label>

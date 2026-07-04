@@ -166,6 +166,8 @@ const en: Dict = {
   'doctor.home.modDevD': 'Milestones & red flags',
   'doctor.home.modLabs': 'Lab interpreter',
   'doctor.home.modLabsD': 'Flag abnormal values',
+  'doctor.home.modTools': 'Clinical tools',
+  'doctor.home.modToolsD': 'Growth, vaccines, dose, labs & more — inside each patient',
   'doctor.home.modScribe': 'AI scribe',
   'doctor.home.modScribeD': 'Voice notes → EMR draft',
   'doctor.home.modTemplates': 'Templates',
