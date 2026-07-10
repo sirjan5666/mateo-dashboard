@@ -155,6 +155,16 @@ const en: Dict = {
   'doctor.home.colType': 'Mode',
   'doctor.home.colStatus': 'Status',
   'doctor.home.colDate': 'Date',
+  // Doctor home — welcome hero + up-next + watchlist
+  'doctor.home.heroSummary': 'You have {appts} appointments today · {watch} on your watchlist.',
+  'doctor.home.heroNewInvoice': 'New invoice',
+  'doctor.home.heroSchedule': 'Schedule',
+  'doctor.home.upNext': 'Up next',
+  'doctor.home.upNextEmpty': 'No appointments scheduled — the day is open.',
+  'doctor.home.openRecord': 'Open record',
+  'doctor.home.reasonFollowUp': 'Follow-up due',
+  'doctor.home.reasonMonitoring': 'Under monitoring',
+  'doctor.home.reasonMaintenance': 'Maintenance plan',
   // Doctor home — quick actions
   'doctor.home.qaAddPatient': 'Add patient',
   'doctor.home.qaPrescription': 'Prescription',

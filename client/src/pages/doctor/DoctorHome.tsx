@@ -2,18 +2,22 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import type { LucideIcon } from 'lucide-react';
 import {
+  Activity,
   AlertTriangle,
   ArrowRight,
   Ban,
+  Bell,
   CalendarClock,
   CalendarDays,
   ChevronRight,
   CircleCheck,
   Clock,
+  CreditCard,
   IndianRupee,
   MapPin,
   Phone,
   Plus,
+  RefreshCw,
   Share2,
   Stethoscope,
   TrendingUp,
@@ -50,14 +54,12 @@ import { greetingIST, todayLongIST, formatTimeIST } from '../../lib/age';
 type T = ReturnType<typeof useT>;
 
 // ── doctor-panel palette (exact spec hex) ────────────────────────────────────
-// Primary navy · medical green · teal accent — matched to the scoped
-// [data-theme="pro"][data-panel="doctor"] CSS block so charts (which need
-// concrete colours, not CSS vars) stay in sync with the surface theme.
 const NAVY = '#1e3a8a';
 const GREEN = '#059669';
 const TEAL = '#0d9488';
 const SLATE = '#94a3b8';
 const ROSE = '#ef4444';
+const AMBER = '#d97706';
 
 const MS_PER_DAY = 86_400_000;
 
@@ -72,13 +74,28 @@ const APPT_STATUS_META: Record<OverviewAppt['status'], { tone: Tone; icon: Lucid
   cancelled: { tone: 'stone', icon: Ban },
   no_show: { tone: 'rose', icon: UserX },
 };
-// Appointment-status → chart colour (donut). Kept honest and legible: teal for
-// booked, green for done, slate for cancelled, rose for missed.
 const APPT_STATUS_COLOR: Record<string, string> = {
   Scheduled: TEAL,
   Completed: GREEN,
   Cancelled: SLATE,
   'No-show': ROSE,
+};
+
+// Patient clinical status → pill tone + icon (load-bearing team semantics).
+const STATUS_META: Record<string, { tone: Tone; icon: LucideIcon }> = {
+  active: { tone: 'emerald', icon: CircleCheck },
+  follow_up: { tone: 'amber', icon: Bell },
+  monitoring: { tone: 'sky', icon: Activity },
+  clearing: { tone: 'violet', icon: TrendingUp },
+  maintenance: { tone: 'amber', icon: RefreshCw },
+  discharged: { tone: 'stone', icon: CircleCheck },
+};
+// The watchlist = patients whose status means "needs the doctor's eyes".
+const WATCH_STATUSES = ['follow_up', 'monitoring', 'maintenance'];
+const WATCH_REASON_KEY: Record<string, string> = {
+  follow_up: 'doctor.home.reasonFollowUp',
+  monitoring: 'doctor.home.reasonMonitoring',
+  maintenance: 'doctor.home.reasonMaintenance',
 };
 
 const titleCase = (s: string) => s.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
@@ -96,6 +113,90 @@ function shortDate(iso: string): string {
 // Module-scope time read (kept out of React's purity-checked render path).
 function isWithinDays(iso: string, days: number): boolean {
   return Date.now() - Date.parse(iso) <= days * MS_PER_DAY;
+}
+
+function statusMeta(status: string) {
+  return STATUS_META[status] ?? { tone: 'stone' as Tone, icon: CircleCheck };
+}
+
+// ── welcome hero + "up next" card ─────────────────────────────────────────────
+function Hero({ firstName, todayCount, watchCount, upNext, t }: { firstName: string; todayCount: number; watchCount: number; upNext: OverviewAppt | null; t: T }) {
+  const Mode = upNext ? APPT_MODE[upNext.mode].icon : CalendarDays;
+  return (
+    <Card data-entrance="hero" className="hero-aurora relative overflow-hidden p-0">
+      <span aria-hidden="true" className="absolute inset-x-0 top-0 h-1 brand-gradient" />
+      <div className="grid gap-0 lg:grid-cols-[1.5fr_1fr]">
+        {/* Left — greeting + quick actions */}
+        <div className="flex flex-col gap-4 p-6 sm:p-7">
+          <div className="min-w-0">
+            <p className="text-[0.68rem] font-bold uppercase tracking-[0.14em] text-[var(--navy-600,#1e3a8a)]">{todayLongIST()} · IST</p>
+            <h1 className="mt-1.5 font-display text-2xl font-extrabold leading-tight text-stone-900 sm:text-[1.75rem]">
+              {t('doctor.home.greeting', { greeting: greetingIST(), name: firstName })}
+            </h1>
+            <p className="mt-1.5 max-w-xl text-sm text-stone-500">{t('doctor.home.heroSummary', { appts: todayCount, watch: watchCount })}</p>
+          </div>
+          <div className="mt-auto flex flex-wrap gap-2.5">
+            <Link to="/doctor/patients" className={buttonClass('primary', 'sm', 'shadow-card')}>
+              <Plus className="h-4 w-4" />
+              {t('doctor.home.addPatient')}
+            </Link>
+            <Link to="/doctor/billing" className={buttonClass('secondary', 'sm')}>
+              <CreditCard className="h-4 w-4" />
+              {t('doctor.home.heroNewInvoice')}
+            </Link>
+            <Link to="/doctor/appointments" className={buttonClass('secondary', 'sm')}>
+              <CalendarDays className="h-4 w-4" />
+              {t('doctor.home.heroSchedule')}
+            </Link>
+          </div>
+        </div>
+
+        {/* Right — up next */}
+        <div className="m-3.5 flex flex-col gap-3 rounded-2xl p-4 text-white shadow-card sm:m-4" style={{ background: 'var(--brand-gradient)' }}>
+          <div className="flex items-center justify-between">
+            <span className="inline-flex items-center gap-1.5 text-[0.62rem] font-bold uppercase tracking-[0.1em] text-white/80">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-300 shadow-[0_0_0_3px_rgba(110,231,183,0.3)]" />
+              {t('doctor.home.upNext')}
+            </span>
+            {upNext && <span className="font-display text-sm font-bold tabular-nums">{formatTimeIST(upNext.start)}</span>}
+          </div>
+          {upNext ? (
+            <>
+              <div className="flex items-center gap-3">
+                <Avatar name={upNext.patientName} size="md" />
+                <div className="min-w-0">
+                  <p className="truncate text-base font-bold">{upNext.patientName}</p>
+                  <p className="mt-0.5 inline-flex items-center gap-1.5 text-xs text-white/80">
+                    <Mode className="h-3.5 w-3.5" />
+                    {t(APPT_MODE[upNext.mode].labelKey)} · <span className="tabular-nums">{upNext.durationMin}m</span>
+                  </p>
+                </div>
+              </div>
+              <div className="mt-auto flex gap-2">
+                <Link
+                  to={`/doctor/patients/${upNext.patientId}`}
+                  className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-white px-3 py-2 text-[0.8125rem] font-bold text-[var(--navy-700,#1b3378)] transition-opacity hover:opacity-90"
+                >
+                  <CircleCheck className="h-4 w-4" />
+                  {t('doctor.home.openRecord')}
+                </Link>
+                <Link to="/doctor/appointments" className="rounded-xl border border-white/40 px-3 py-2 text-[0.8125rem] font-semibold text-white transition-colors hover:bg-white/10">
+                  {t('doctor.home.heroSchedule')}
+                </Link>
+              </div>
+            </>
+          ) : (
+            <div className="flex flex-1 flex-col items-start justify-center gap-2 py-2">
+              <p className="text-sm text-white/85">{t('doctor.home.upNextEmpty')}</p>
+              <Link to="/doctor/appointments" className="rounded-xl bg-white px-3 py-2 text-[0.8125rem] font-bold text-[var(--navy-700,#1b3378)] transition-opacity hover:opacity-90">
+                {t('doctor.home.heroSchedule')}
+              </Link>
+            </div>
+          )}
+        </div>
+      </div>
+    </Card>
+  );
 }
 
 // ── appointment mode cell ─────────────────────────────────────────────────────
@@ -234,13 +335,41 @@ function RevenueTrend({ report, t }: { report: DoctorReport | null; t: T }) {
   );
 }
 
+// ── clinical watchlist ────────────────────────────────────────────────────────
+function Watchlist({ patients, t }: { patients: Patient[] | null; t: T }) {
+  if (patients === null) return <SkeletonRows n={3} />;
+  const watch = patients.filter((p) => !p.archivedAt && WATCH_STATUSES.includes(p.status)).slice(0, 6);
+  if (watch.length === 0) return <EmptyState icon={CircleCheck} text={t('doctor.home.allClear')} />;
+  return (
+    <div className="space-y-1">
+      {watch.map((p) => {
+        const meta = statusMeta(p.status);
+        return (
+          <Link
+            key={p.id}
+            to={`/doctor/patients/${p.id}`}
+            className="group flex items-center gap-3 rounded-xl px-2 py-2 transition-colors hover:bg-stone-100"
+          >
+            <Avatar name={p.displayName} size="sm" hashColor />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold text-stone-800 group-hover:text-[var(--primary)]">{p.displayName}</p>
+              <p className="truncate text-xs text-stone-400">{t(WATCH_REASON_KEY[p.status] ?? 'doctor.home.watchSub')}</p>
+            </div>
+            <StatusPill label={titleCase(p.status)} tone={meta.tone} icon={meta.icon} />
+          </Link>
+        );
+      })}
+    </div>
+  );
+}
+
 // ── dashboard ────────────────────────────────────────────────────────────────
 function Dashboard({
   overview,
   billing,
   report,
   recentConsults,
-  newLeads,
+  patients,
   firstName,
   profile,
 }: {
@@ -248,7 +377,7 @@ function Dashboard({
   billing: BillingSummary | null;
   report: DoctorReport | null;
   recentConsults: Appointment[] | null;
-  newLeads: number;
+  patients: Patient[] | null;
   firstName: string;
   profile: DoctorProfile | null;
 }) {
@@ -257,14 +386,13 @@ function Dashboard({
   const rootRef = useEntrance<HTMLDivElement>([]);
 
   const revenueSpark = billing?.byDay.map((d) => d.amount) ?? [];
+  const newLeads = useMemo(() => (patients ?? []).filter((p) => !p.archivedAt && isWithinDays(p.createdAt, 7)).length, [patients]);
+  const watchCount = useMemo(() => (patients ?? []).filter((p) => !p.archivedAt && WATCH_STATUSES.includes(p.status)).length, [patients]);
+  const upNext = overview.today.find((a) => a.status === 'scheduled') ?? overview.upcoming[0] ?? null;
 
   const donut = useMemo(() => {
     if (!report) return null;
-    const slices = report.appointments.byStatus.map((r) => ({
-      label: r.label,
-      value: r.count,
-      color: APPT_STATUS_COLOR[r.label] ?? SLATE,
-    }));
+    const slices = report.appointments.byStatus.map((r) => ({ label: r.label, value: r.count, color: APPT_STATUS_COLOR[r.label] ?? SLATE }));
     return { slices, total: report.appointments.total };
   }, [report]);
 
@@ -288,21 +416,10 @@ function Dashboard({
         </Link>
       )}
 
-      {/* Header */}
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div className="min-w-0">
-          <p className="text-[0.72rem] font-bold uppercase tracking-[0.14em] text-stone-400">{todayLongIST()}</p>
-          <h1 className="mt-1 font-display text-2xl font-extrabold leading-tight text-stone-900 sm:text-[1.75rem]">
-            {t('doctor.home.greeting', { greeting: greetingIST(), name: firstName })}
-          </h1>
-        </div>
-        <Link to="/doctor/patients" className={buttonClass('primary', 'md', 'shadow-card')}>
-          <Plus className="h-4 w-4" />
-          {t('doctor.home.addPatient')}
-        </Link>
-      </div>
+      {/* Welcome hero + up-next */}
+      <Hero firstName={firstName} todayCount={counts.todayAppointments} watchCount={watchCount} upNext={upNext} t={t} />
 
-      {/* 4 KPIs */}
+      {/* 4 tinted KPIs */}
       <div className="grid grid-cols-2 gap-3.5 lg:grid-cols-4">
         <Kpi
           icon={IndianRupee}
@@ -311,12 +428,13 @@ function Dashboard({
           prefix="₹"
           sub={t('doctor.home.kpiRevenueSub')}
           accent={{ bg: '#ecfdf5', fg: GREEN }}
+          variant="tinted"
           spark={revenueSpark.length > 1 ? revenueSpark : undefined}
           sparkColor={GREEN}
         />
-        <Kpi icon={Users} label={t('doctor.home.kpiTotalPatients')} value={counts.activePatients} sub={t('doctor.home.kpiTotalPatientsSub')} accent={{ bg: '#eef2ff', fg: NAVY }} />
-        <Kpi icon={CalendarDays} label={t('doctor.home.kpiApptsToday')} value={counts.todayAppointments} sub={t('doctor.home.kpiSubToday')} accent={{ bg: '#f0fdfa', fg: TEAL }} />
-        <Kpi icon={UserPlus} label={t('doctor.home.kpiNewLeads')} value={newLeads} sub={t('doctor.home.kpiNewLeadsSub')} accent={{ bg: '#fffbeb', fg: '#d97706' }} />
+        <Kpi icon={Users} label={t('doctor.home.kpiTotalPatients')} value={counts.activePatients} sub={t('doctor.home.kpiTotalPatientsSub')} accent={{ bg: '#eef2ff', fg: NAVY }} variant="tinted" />
+        <Kpi icon={CalendarDays} label={t('doctor.home.kpiApptsToday')} value={counts.todayAppointments} sub={t('doctor.home.kpiSubToday')} accent={{ bg: '#f0fdfa', fg: TEAL }} variant="tinted" />
+        <Kpi icon={UserPlus} label={t('doctor.home.kpiNewLeads')} value={newLeads} sub={t('doctor.home.kpiNewLeadsSub')} accent={{ bg: '#fffbeb', fg: AMBER }} variant="tinted" />
       </div>
 
       {/* Revenue trend (full width) */}
@@ -379,38 +497,44 @@ function Dashboard({
         </SectionCard>
       </div>
 
-      {/* Recent patients (kept — quick jump-in) */}
-      <SectionCard
-        title={t('doctor.home.recent')}
-        icon={Users}
-        action={
-          <Link to="/doctor/patients" className="text-sm font-semibold text-[var(--primary)] hover:opacity-80">
-            {t('doctor.home.viewAll')}
-          </Link>
-        }
-      >
-        {overview.recentPatients.length === 0 ? (
-          <EmptyState icon={Users} text={t('doctor.home.noPatients')} />
-        ) : (
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {overview.recentPatients.map((p) => (
-              <Link
-                key={p.id}
-                to={`/doctor/patients/${p.id}`}
-                className="pop-hover flex items-center gap-3 rounded-2xl border p-3"
-                style={{ borderColor: 'var(--hairline)' }}
-              >
-                <Avatar name={p.name} size="md" hashColor />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-semibold text-stone-800">{p.name}</p>
-                  <p className="truncate text-xs text-stone-400">{titleCase(p.status)}</p>
-                </div>
-                <ChevronRight className="h-4 w-4 shrink-0 text-stone-300" />
-              </Link>
-            ))}
-          </div>
-        )}
-      </SectionCard>
+      {/* Clinical watchlist + recent patients */}
+      <div className="grid gap-6 xl:grid-cols-2">
+        <SectionCard title={t('doctor.home.watchlist')} eyebrow={t('doctor.home.watchSub')} icon={AlertTriangle}>
+          <Watchlist patients={patients} t={t} />
+        </SectionCard>
+
+        <SectionCard
+          title={t('doctor.home.recent')}
+          icon={Users}
+          action={
+            <Link to="/doctor/patients" className="text-sm font-semibold text-[var(--primary)] hover:opacity-80">
+              {t('doctor.home.viewAll')}
+            </Link>
+          }
+        >
+          {overview.recentPatients.length === 0 ? (
+            <EmptyState icon={Users} text={t('doctor.home.noPatients')} />
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {overview.recentPatients.slice(0, 6).map((p) => (
+                <Link
+                  key={p.id}
+                  to={`/doctor/patients/${p.id}`}
+                  className="pop-hover flex items-center gap-3 rounded-2xl border p-3"
+                  style={{ borderColor: 'var(--hairline)' }}
+                >
+                  <Avatar name={p.name} size="md" hashColor />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-semibold text-stone-800">{p.name}</p>
+                    <p className="truncate text-xs text-stone-400">{titleCase(p.status)}</p>
+                  </div>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-stone-300" />
+                </Link>
+              ))}
+            </div>
+          )}
+        </SectionCard>
+      </div>
     </div>
   );
 }
@@ -421,7 +545,7 @@ export default function DoctorHome() {
   const [billing, setBilling] = useState<BillingSummary | null>(null);
   const [report, setReport] = useState<DoctorReport | null>(null);
   const [recentConsults, setRecentConsults] = useState<Appointment[] | null>(null);
-  const [newLeads, setNewLeads] = useState(0);
+  const [patients, setPatients] = useState<Patient[] | null>(null);
   const [profile, setProfile] = useState<DoctorProfile | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -440,14 +564,9 @@ export default function DoctorHome() {
     getMyDoctorProfile()
       .then((d) => !cancelled && setProfile(d.profile))
       .catch(() => undefined);
-
-    // New leads = patients registered in the last 7 days.
     listPatients()
-      .then((d: { patients: Patient[] }) => {
-        if (cancelled) return;
-        setNewLeads(d.patients.filter((p) => !p.archivedAt && isWithinDays(p.createdAt, 7)).length);
-      })
-      .catch(() => undefined);
+      .then((d: { patients: Patient[] }) => !cancelled && setPatients(d.patients))
+      .catch(() => !cancelled && setPatients([]));
 
     // Recent consultations = completed appointments over the last 30 days.
     const now = new Date();
@@ -475,13 +594,11 @@ export default function DoctorHome() {
   if (!overview) {
     return (
       <div className="space-y-6">
-        <div className="flex items-end justify-between gap-4">
-          <div className="space-y-2">
-            <div className="h-3 w-28 animate-pulse rounded bg-stone-200/70" />
-            <div className="h-8 w-56 animate-pulse rounded bg-stone-200/70" />
-          </div>
-          <div className="h-10 w-32 animate-pulse rounded-xl bg-stone-200/60" />
-        </div>
+        <Card className="p-6 sm:p-7">
+          <div className="h-3 w-40 animate-pulse rounded bg-stone-200/70" />
+          <div className="mt-3 h-8 w-64 animate-pulse rounded bg-stone-200/70" />
+          <div className="mt-2 h-4 w-80 max-w-full animate-pulse rounded bg-stone-200/70" />
+        </Card>
         <div className="grid grid-cols-2 gap-3.5 lg:grid-cols-4">
           {[0, 1, 2, 3].map((i) => (
             <SkeletonKpi key={i} />
@@ -505,14 +622,6 @@ export default function DoctorHome() {
   }
 
   return (
-    <Dashboard
-      overview={overview}
-      billing={billing}
-      report={report}
-      recentConsults={recentConsults}
-      newLeads={newLeads}
-      firstName={firstName}
-      profile={profile}
-    />
+    <Dashboard overview={overview} billing={billing} report={report} recentConsults={recentConsults} patients={patients} firstName={firstName} profile={profile} />
   );
 }
