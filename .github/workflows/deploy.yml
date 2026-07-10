@@ -1,17 +1,20 @@
-name: Deploy to production
+name: CI & Deploy
 
-# Push to main → build gate → deploy to the Lightsail box (app.mateocare.com).
-# A commit only reaches production if typecheck + lint + build ALL pass, so a
-# broken push can never take the live site down (the old version keeps serving).
+# Flow: open a PR → the build gate runs on it. Merge to main → gate re-runs to
+# confirm main is green (but does NOT deploy). Go live only when YOU manually run
+# this workflow ("Run workflow" button, or `gh workflow run "CI & Deploy"`), which
+# re-verifies then deploys. Production only ever ships what's on GitHub `main`.
 
 on:
+  pull_request:
+    branches: [main] # verify every PR
   push:
-    branches: [main]
-  workflow_dispatch: {} # allow a manual re-deploy from the Actions tab / gh CLI
+    branches: [main] # verify main after a merge (gate only — no deploy)
+  workflow_dispatch: {} # manual deploy — this is the only thing that ships to prod
 
 concurrency:
   group: production-deploy
-  cancel-in-progress: false # never interrupt an in-flight deploy
+  cancel-in-progress: false
 
 jobs:
   gate:
@@ -38,7 +41,8 @@ jobs:
 
   deploy:
     name: Deploy to Lightsail
-    needs: gate # only runs if the gate job succeeded
+    needs: gate # only after the gate passes
+    if: github.event_name == 'workflow_dispatch' # ⇐ ships ONLY on your manual trigger
     runs-on: ubuntu-latest
     steps:
       - name: SSH → pull + deploy on the box
