@@ -348,6 +348,22 @@ const en: Dict = {
   'doctor.billing.errLoad': 'Could not load invoices',
   'doctor.billing.errCreate': 'Could not create the invoice.',
   'doctor.billing.errUpdate': 'Could not update the invoice.',
+  // Invoices table + detail document (Fable Five)
+  'doctor.billing.view': 'View invoice',
+  'doctor.billing.colInvoice': 'Invoice',
+  'doctor.billing.colPatient': 'Patient',
+  'doctor.billing.colDate': 'Date',
+  'doctor.billing.colAmount': 'Amount',
+  'doctor.billing.colStatus': 'Status',
+  'doctor.billing.showing': 'Showing {n} of {total} invoices',
+  'doctor.billing.paidLower': 'paid',
+  'doctor.billing.invoiceWord': 'Invoice',
+  'doctor.billing.billedTo': 'Billed to',
+  'doctor.billing.description': 'Description',
+  'doctor.billing.paidLabel': 'Paid',
+  'doctor.billing.balanceDue': 'Balance due',
+  'doctor.billing.print': 'Print',
+  'doctor.billing.downloadPdf': 'Download PDF',
   'doctor.billing.disclaimer':
     'Invoices are scoped to your patients only; line items are encrypted at rest. “Mark paid” records full payment with today’s date for the daily-collection report. Amounts are indicative — integrate a payment gateway for real settlement.',
   // Doctor messages

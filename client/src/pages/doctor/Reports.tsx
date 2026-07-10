@@ -6,7 +6,7 @@ import type { DoctorReport, LabelCount } from '../../api/doctorAnalytics';
 import { Card } from '../../components/ui/Card';
 import { Tabs } from '../../components/ui/Tabs';
 import type { TabItem } from '../../components/ui/Tabs';
-import { BarTrend, EmptyState, Kpi, SectionCard, SkeletonKpi, SkeletonRows } from '../../components/panel/kit';
+import { BarTrend, Donut, EmptyState, Kpi, SectionCard, SkeletonKpi, SkeletonRows } from '../../components/panel/kit';
 import { buttonClass } from '../../components/ui/buttonStyles';
 import { inputCls } from '../../components/ui/field';
 import { cn } from '../../lib/cn';
@@ -16,6 +16,9 @@ import { formatDateIST, todayInputValueIST } from '../../lib/age';
 type ReportTab = 'revenue' | 'patients' | 'appointments' | 'consultations';
 
 const inr = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
+// Chart order per the design: navy · teal · green · amber · violet · rose · slate.
+const CHART = ['#1e3a8a', '#0d9488', '#059669', '#f59e0b', '#8b5cf6', '#ef4444', '#94a3b8'];
+const toDonut = (rows: LabelCount[]) => rows.map((r, i) => ({ label: r.label, value: r.count, color: CHART[i % CHART.length] }));
 const isoDaysAgo = (n: number) => {
   const d = new Date(Date.now() - n * 86_400_000);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -252,8 +255,12 @@ export default function Reports() {
               <SectionCard title="By gender" icon={Users} eyebrow="New patients in range">
                 <Breakdown rows={report.patients.byGender} empty="No new patients in this range." />
               </SectionCard>
-              <SectionCard title="By age" icon={Users} eyebrow="New patients in range">
-                <Breakdown rows={report.patients.byAge} empty="No new patients in this range." />
+              <SectionCard title="Age distribution" icon={Users} eyebrow="New patients in range">
+                {report.patients.byAge.length === 0 ? (
+                  <EmptyState icon={Users} text="No new patients in this range." />
+                ) : (
+                  <Donut data={toDonut(report.patients.byAge)} centerValue={report.patients.byAge.reduce((s, r) => s + r.count, 0)} centerLabel="patients" />
+                )}
               </SectionCard>
               <SectionCard title="Active roster by status" icon={Users}>
                 <Breakdown rows={report.patients.byStatus} empty="No patients yet." />
@@ -271,7 +278,11 @@ export default function Reports() {
                 <Kpi icon={CalendarRange} label="Avg duration" value={report.appointments.avgDurationMin} suffix=" min" tone="emerald" sub="per appointment" />
               </div>
               <SectionCard title="By status" icon={CalendarRange} eyebrow="Completed / cancelled / no-show">
-                <Breakdown rows={report.appointments.byStatus} empty="No appointments in this range." />
+                {report.appointments.byStatus.length === 0 ? (
+                  <EmptyState icon={CalendarRange} text="No appointments in this range." />
+                ) : (
+                  <Donut data={toDonut(report.appointments.byStatus)} centerValue={report.appointments.total} centerLabel="appts" />
+                )}
               </SectionCard>
               <SectionCard title="By mode" icon={CalendarRange} eyebrow="In-person / phone / video">
                 <Breakdown rows={report.appointments.byMode} empty="No appointments in this range." />

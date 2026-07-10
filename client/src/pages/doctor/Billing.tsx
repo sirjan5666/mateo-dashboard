@@ -1,16 +1,24 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, Ban, CircleCheck, Clock, Plus, ReceiptText, TrendingUp, Wallet, X } from 'lucide-react';
+import { ArrowDown, ArrowDownLeft, ArrowLeftRight, ArrowUp, ArrowUpRight, Ban, CircleCheck, Clock, Download, Eye, Plus, Printer, ReceiptText, TrendingUp, Wallet, X } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { ApiError } from '../../api/client';
-import { createInvoice, getBillingSummary, listInvoices, listTransactions, updateInvoice } from '../../api/doctorBilling';
-import type { BillingSummary, InvoiceListItem, InvoiceStatus, LedgerResponse } from '../../api/doctorBilling';
+import { createInvoice, getBillingSummary, getInvoice, listInvoices, listTransactions, updateInvoice } from '../../api/doctorBilling';
+import type { BillingSummary, InvoiceFull, InvoiceListItem, InvoiceStatus, LedgerResponse } from '../../api/doctorBilling';
 import { listPatients } from '../../api/doctorPatients';
 import type { Patient } from '../../api/doctorPatients';
+import { getMyDoctorProfile } from '../../api/doctors';
+import type { DoctorProfile } from '../../api/doctors';
 import { useT } from '../../i18n/context';
 import { Card } from '../../components/ui/Card';
 import { StatusPill } from '../../components/ui/StatusPill';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import type { SegmentOption } from '../../components/ui/SegmentedControl';
+import { Modal } from '../../components/ui/Modal';
+import { Table, TBody, TD, TH, THead, TR } from '../../components/ui/Table';
+import { DropdownMenu } from '../../components/ui/DropdownMenu';
+import type { DropdownEntry } from '../../components/ui/DropdownMenu';
+import { Pagination } from '../../components/ui/Pagination';
+import { Avatar } from '../../components/ui/Avatar';
 import type { Tone } from '../../components/ui/tones';
 import { buttonClass } from '../../components/ui/buttonStyles';
 import { BarTrend, EmptyState, Kpi, SectionCard, SkeletonChart, SkeletonKpi, SkeletonRows } from '../../components/panel/kit';
@@ -19,6 +27,8 @@ import { useEntrance } from '../../lib/gsap';
 import { formatDateIST } from '../../lib/age';
 
 type Filter = 'all' | 'unpaid' | 'paid' | 'cancelled';
+type InvSort = { key: 'date' | 'amount'; dir: 'asc' | 'desc' };
+const PAGE_SIZE = 10;
 
 const STATUS_META: Record<InvoiceStatus, { labelKey: string; tone: Tone; icon: LucideIcon }> = {
   unpaid: { labelKey: 'doctor.billing.stUnpaid', tone: 'amber', icon: Clock },
@@ -48,6 +58,10 @@ export default function Billing() {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [filter, setFilter] = useState<Filter>('all');
   const [error, setError] = useState<string | null>(null);
+  const [sort, setSort] = useState<InvSort>({ key: 'date', dir: 'desc' });
+  const [page, setPage] = useState(1);
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const [profile, setProfile] = useState<DoctorProfile | null>(null);
 
   // create form
   const [patientId, setPatientId] = useState('');
@@ -71,6 +85,9 @@ export default function Billing() {
     refresh();
     listPatients()
       .then((d) => setPatients(d.patients.filter((p) => !p.archivedAt)))
+      .catch(() => undefined);
+    getMyDoctorProfile()
+      .then((d) => setProfile(d.profile))
       .catch(() => undefined);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -113,11 +130,36 @@ export default function Billing() {
   }
 
   const filtered = useMemo(() => {
-    if (!invoices) return [];
-    if (filter === 'all') return invoices;
-    if (filter === 'unpaid') return invoices.filter((i) => i.status === 'unpaid' || i.status === 'partial');
-    return invoices.filter((i) => i.status === filter);
-  }, [invoices, filter]);
+    let list = invoices ?? [];
+    if (filter === 'unpaid') list = list.filter((i) => i.status === 'unpaid' || i.status === 'partial');
+    else if (filter !== 'all') list = list.filter((i) => i.status === filter);
+    const dir = sort.dir === 'asc' ? 1 : -1;
+    return [...list].sort((a, b) => {
+      const [av, bv] = sort.key === 'amount' ? [a.total, b.total] : [a.date, b.date];
+      return av < bv ? -dir : av > bv ? dir : 0;
+    });
+  }, [invoices, filter, sort]);
+
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount);
+  const pageRows = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+  function toggleSort(key: InvSort['key']) {
+    setSort((s) => (s.key === key ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'desc' }));
+    setPage(1);
+  }
+  function rowItems(inv: InvoiceListItem): DropdownEntry[] {
+    const items: DropdownEntry[] = [{ key: 'view', label: t('doctor.billing.view'), icon: Eye }];
+    if (inv.status !== 'paid' && inv.status !== 'cancelled') items.push({ key: 'paid', label: t('doctor.billing.markPaid'), icon: CircleCheck });
+    if (inv.status === 'paid') items.push({ key: 'unpaid', label: t('doctor.billing.undo'), icon: Clock });
+    if (inv.status !== 'cancelled' && inv.status !== 'paid') items.push('separator', { key: 'cancelled', label: t('doctor.billing.cancel'), icon: Ban, danger: true });
+    return items;
+  }
+  function onRowAction(inv: InvoiceListItem, key: string) {
+    if (key === 'view') setDetailId(inv.id);
+    else void setStatus(inv.id, key as 'paid' | 'unpaid' | 'cancelled');
+  }
+  const sortIcon = (key: InvSort['key']) => (sort.key !== key ? null : sort.dir === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />);
 
   const FILTERS: SegmentOption<Filter>[] = [
     { value: 'all', label: t('doctor.billing.filterAll'), count: invoices?.length ?? 0 },
@@ -241,47 +283,68 @@ export default function Billing() {
         ) : filtered.length === 0 ? (
           <EmptyState icon={ReceiptText} text={t('doctor.billing.empty')} />
         ) : (
-          <div className="space-y-2">
-            {filtered.map((inv) => {
-              const meta = STATUS_META[inv.status];
-              const outstanding = inv.total - inv.amountPaid;
-              return (
-                <div key={inv.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl border p-3" style={{ borderColor: 'var(--hairline)' }}>
-                  <div className="min-w-0 flex-1">
-                    <p className="flex items-center gap-2 font-semibold text-stone-800">
-                      <span className="truncate">{inv.patientName}</span>
-                      <span className="font-display text-xs font-bold tabular-nums text-stone-400">{inv.number}</span>
-                    </p>
-                    <p className="text-xs tabular-nums text-stone-400">{formatDateIST(inv.date)}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-display font-extrabold tabular-nums text-stone-900">{inr(inv.total)}</p>
-                    {inv.status !== 'paid' && inv.status !== 'cancelled' && outstanding > 0 && (
-                      <p className="text-[0.7rem] tabular-nums text-rose-600">{t('doctor.billing.due', { amount: inr(outstanding) })}</p>
-                    )}
-                  </div>
-                  <StatusPill label={t(meta.labelKey)} tone={meta.tone} icon={meta.icon} />
-                  <div className="flex gap-1.5">
-                    {inv.status !== 'paid' && inv.status !== 'cancelled' && (
-                      <button type="button" onClick={() => void setStatus(inv.id, 'paid')} className="rounded-lg bg-green-50 px-2.5 py-1.5 text-xs font-bold text-green-700 hover:bg-green-100">
-                        {t('doctor.billing.markPaid')}
+          <>
+            <div className="-mx-1 overflow-x-auto">
+              <Table>
+                <THead>
+                  <TR>
+                    <TH>{t('doctor.billing.colInvoice')}</TH>
+                    <TH>{t('doctor.billing.colPatient')}</TH>
+                    <TH>
+                      <button type="button" onClick={() => toggleSort('date')} className="inline-flex items-center gap-1 font-bold text-stone-500 hover:text-stone-800">
+                        {t('doctor.billing.colDate')}
+                        {sortIcon('date')}
                       </button>
-                    )}
-                    {inv.status === 'paid' && (
-                      <button type="button" onClick={() => void setStatus(inv.id, 'unpaid')} className="rounded-lg bg-stone-100 px-2.5 py-1.5 text-xs font-semibold text-stone-600 hover:bg-stone-200">
-                        {t('doctor.billing.undo')}
+                    </TH>
+                    <TH className="text-right">
+                      <button type="button" onClick={() => toggleSort('amount')} className="inline-flex items-center gap-1 font-bold text-stone-500 hover:text-stone-800">
+                        {t('doctor.billing.colAmount')}
+                        {sortIcon('amount')}
                       </button>
-                    )}
-                    {inv.status !== 'cancelled' && inv.status !== 'paid' && (
-                      <button type="button" onClick={() => void setStatus(inv.id, 'cancelled')} className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-stone-400 hover:bg-stone-100 hover:text-stone-600">
-                        {t('doctor.billing.cancel')}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                    </TH>
+                    <TH>{t('doctor.billing.colStatus')}</TH>
+                    <TH className="w-10 text-right" />
+                  </TR>
+                </THead>
+                <TBody>
+                  {pageRows.map((inv) => {
+                    const meta = STATUS_META[inv.status];
+                    const pct = inv.total > 0 ? Math.round((inv.amountPaid / inv.total) * 100) : 0;
+                    return (
+                      <TR key={inv.id} onClick={() => setDetailId(inv.id)} className="cursor-pointer">
+                        <TD className="whitespace-nowrap font-mono-ds text-xs font-bold text-stone-500">{inv.number}</TD>
+                        <TD>
+                          <span className="flex items-center gap-2.5">
+                            <Avatar name={inv.patientName} size="sm" hashColor />
+                            <span className="truncate font-semibold text-stone-800">{inv.patientName}</span>
+                          </span>
+                        </TD>
+                        <TD className="whitespace-nowrap tabular-nums text-stone-500">{formatDateIST(inv.date)}</TD>
+                        <TD className="whitespace-nowrap text-right">
+                          <span className="font-display font-extrabold tabular-nums text-stone-900">{inr(inv.total)}</span>
+                          {inv.status === 'partial' && <span className="block text-[0.7rem] tabular-nums text-stone-400">{inr(inv.amountPaid)} {t('doctor.billing.paidLower')}</span>}
+                        </TD>
+                        <TD>
+                          <StatusPill label={t(meta.labelKey)} tone={meta.tone} icon={meta.icon} />
+                          {inv.status === 'partial' && (
+                            <div className="mt-1 h-1.5 w-16 overflow-hidden rounded-full bg-stone-200">
+                              <div className="h-full rounded-full bg-amber-500" style={{ width: `${pct}%` }} />
+                            </div>
+                          )}
+                        </TD>
+                        <TD className="text-right" onClick={(e) => e.stopPropagation()}>
+                          <DropdownMenu items={rowItems(inv)} onSelect={(k) => onRowAction(inv, k)} label={`Invoice ${inv.number}`} />
+                        </TD>
+                      </TR>
+                    );
+                  })}
+                </TBody>
+              </Table>
+            </div>
+            <div className="pt-1">
+              <Pagination page={currentPage} pageCount={pageCount} onChange={setPage} totalLabel={t('doctor.billing.showing', { n: pageRows.length, total: filtered.length })} />
+            </div>
+          </>
         )}
       </SectionCard>
 
@@ -323,7 +386,148 @@ export default function Billing() {
         )}
       </SectionCard>
 
+      {detailId && <InvoiceDetailModal id={detailId} profile={profile} onClose={() => setDetailId(null)} onStatus={(id, s) => void setStatus(id, s)} />}
+
       <p className="px-1 text-xs leading-relaxed text-stone-400">{t('doctor.billing.disclaimer')}</p>
     </div>
+  );
+}
+
+// ── printable invoice document (opens a print window, letterhead + line items) ─
+function printInvoiceDoc(inv: InvoiceFull, profile: DoctorProfile | null) {
+  const win = window.open('', '_blank', 'width=820,height=1000');
+  if (!win) return;
+  const rows = inv.items.map((it) => `<tr><td>${it.description}</td><td class="n">${inr(it.amount)}</td></tr>`).join('');
+  const balance = inv.total - inv.amountPaid;
+  win.document.write(`<!doctype html><html><head><title>${inv.number}</title><style>
+    body{font-family:Inter,system-ui,sans-serif;color:#1f2937;padding:40px;max-width:720px;margin:0 auto}
+    .head{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1e3a8a;padding-bottom:16px}
+    .clinic{font-size:20px;font-weight:800;color:#1e3a8a} .muted{color:#6b7280;font-size:13px}
+    .inv{text-align:right} .inv b{font-size:22px;letter-spacing:1px;color:#111827}
+    h2{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:#6b7280;margin:24px 0 6px}
+    table{width:100%;border-collapse:collapse;font-size:14px;margin-top:4px}
+    td{padding:8px 0;border-bottom:1px solid #eee} .n{text-align:right;font-variant-numeric:tabular-nums}
+    .tot{display:flex;justify-content:flex-end;gap:40px;margin-top:12px;font-size:14px}
+    .tot .lbl{color:#6b7280;text-align:right} .tot .val{text-align:right;font-variant-numeric:tabular-nums;font-weight:700}
+    .bal{color:${balance > 0 ? '#b91c1c' : '#047857'}}
+    .foot{margin-top:36px;color:#9ca3af;font-size:12px;text-align:center}
+  </style></head><body>
+    <div class="head">
+      <div><div class="clinic">${profile?.clinicName || 'Mateo Care'}</div>
+      <div class="muted">${profile?.name ? 'Dr. ' + profile.name : ''}${profile?.registrationNo ? ' · Reg. ' + profile.registrationNo : ''}</div>
+      <div class="muted">${profile?.clinicAddress || ''}</div></div>
+      <div class="inv"><div class="muted">INVOICE</div><b>${inv.number}</b><div class="muted">${formatDateIST(inv.date)}</div></div>
+    </div>
+    <h2>Billed to</h2><div style="font-weight:600">${inv.patientName}</div>
+    <h2>Items</h2><table>${rows}</table>
+    <div class="tot"><div class="lbl">Total<br/>Paid<br/><b>Balance due</b></div>
+      <div class="val">${inr(inv.total)}<br/>${inr(inv.amountPaid)}<br/><span class="bal">${inr(balance)}</span></div></div>
+    ${inv.notes ? `<h2>Notes</h2><div class="muted">${inv.notes}</div>` : ''}
+    <div class="foot">This is a computer-generated invoice · ${inv.number}</div>
+  </body></html>`);
+  win.document.close();
+  win.focus();
+  setTimeout(() => win.print(), 300);
+}
+
+function InvoiceDetailModal({ id, profile, onClose, onStatus }: { id: string; profile: DoctorProfile | null; onClose: () => void; onStatus: (id: string, s: 'paid' | 'unpaid' | 'cancelled') => void }) {
+  const t = useT();
+  const [inv, setInv] = useState<InvoiceFull | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    getInvoice(id)
+      .then((d) => !cancelled && setInv(d.invoice))
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+  const meta = inv ? STATUS_META[inv.status] : null;
+  const balance = inv ? inv.total - inv.amountPaid : 0;
+  return (
+    <Modal open title={inv ? inv.number : t('doctor.billing.view')} onClose={onClose} size="lg">
+      {!inv ? (
+        <SkeletonRows n={5} />
+      ) : (
+        <div className="space-y-5">
+          {/* letterhead */}
+          <div className="flex items-start justify-between gap-4 rounded-2xl p-4 text-white" style={{ background: 'var(--brand-gradient)' }}>
+            <div>
+              <p className="font-display text-lg font-extrabold">{profile?.clinicName || 'Mateo Care'}</p>
+              <p className="text-xs text-white/80">
+                {profile?.name ? `Dr. ${profile.name}` : ''}
+                {profile?.registrationNo ? ` · Reg. ${profile.registrationNo}` : ''}
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-[0.62rem] font-bold uppercase tracking-wide text-white/70">{t('doctor.billing.invoiceWord')}</p>
+              <p className="font-mono-ds text-base font-bold">{inv.number}</p>
+              <p className="text-xs text-white/80">{formatDateIST(inv.date)}</p>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-[0.62rem] font-bold uppercase tracking-wide text-stone-400">{t('doctor.billing.billedTo')}</p>
+              <p className="font-semibold text-stone-800">{inv.patientName}</p>
+            </div>
+            {meta && <StatusPill label={t(meta.labelKey)} tone={meta.tone} icon={meta.icon} />}
+          </div>
+
+          <div className="overflow-hidden rounded-xl border border-[var(--hairline)]">
+            <table className="w-full text-sm">
+              <thead className="bg-[var(--surface-sunken)] text-[0.64rem] font-bold uppercase tracking-wide text-stone-400">
+                <tr>
+                  <th className="px-3 py-2 text-left">{t('doctor.billing.description')}</th>
+                  <th className="px-3 py-2 text-right">{t('doctor.billing.amount')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {inv.items.map((it, i) => (
+                  <tr key={i} className="border-t border-[var(--hairline)]">
+                    <td className="px-3 py-2 text-stone-700">{it.description}</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-stone-800">{inr(it.amount)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="ml-auto w-full max-w-xs space-y-1.5 text-sm">
+            <div className="flex justify-between text-stone-500">
+              <span>{t('doctor.billing.total')}</span>
+              <span className="font-semibold tabular-nums text-stone-800">{inr(inv.total)}</span>
+            </div>
+            <div className="flex justify-between text-stone-500">
+              <span>{t('doctor.billing.paidLabel')}</span>
+              <span className="tabular-nums text-stone-800">{inr(inv.amountPaid)}</span>
+            </div>
+            <div className="flex justify-between border-t border-[var(--hairline)] pt-1.5 font-bold">
+              <span className="text-stone-700">{t('doctor.billing.balanceDue')}</span>
+              <span className={cn('font-display tabular-nums', balance > 0 ? 'text-rose-600' : 'text-green-700')}>{inr(balance)}</span>
+            </div>
+          </div>
+
+          {inv.notes && <p className="rounded-xl bg-[var(--surface-sunken)] p-3 text-xs text-stone-500">{inv.notes}</p>}
+
+          <div className="flex flex-wrap justify-end gap-2 border-t border-[var(--hairline)] pt-4">
+            {inv.status !== 'paid' && inv.status !== 'cancelled' && (
+              <button type="button" onClick={() => { onStatus(inv.id, 'paid'); onClose(); }} className={buttonClass('primary', 'md')}>
+                <CircleCheck className="h-4 w-4" />
+                {t('doctor.billing.markPaid')}
+              </button>
+            )}
+            <button type="button" onClick={() => printInvoiceDoc(inv, profile)} className={buttonClass('secondary', 'md')}>
+              <Printer className="h-4 w-4" />
+              {t('doctor.billing.print')}
+            </button>
+            <button type="button" onClick={() => printInvoiceDoc(inv, profile)} className={buttonClass('secondary', 'md')}>
+              <Download className="h-4 w-4" />
+              {t('doctor.billing.downloadPdf')}
+            </button>
+          </div>
+        </div>
+      )}
+    </Modal>
   );
 }
