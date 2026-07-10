@@ -4,7 +4,7 @@
 #
 # Domain is baked in; change it here (and APP_BASE_URL in server/.env) to move hosts.
 
-mateocareapp.com {
+app.mateocare.com {
     encode zstd gzip
     root * /opt/mateo/client/dist
 
