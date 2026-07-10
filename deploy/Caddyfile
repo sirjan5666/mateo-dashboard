@@ -1,0 +1,28 @@
+# Mateo — Caddy config. Serves the built React client and reverse-proxies the
+# API to the Node server. Caddy obtains + auto-renews the HTTPS certificate for
+# this domain (Let's Encrypt) with zero extra steps.
+#
+# Replace YOUR_DOMAIN below with your real domain before use.
+
+YOUR_DOMAIN {
+    encode zstd gzip
+    root * /opt/mateo/client/dist
+
+    # Everything under /api (incl. auth cookies + uploaded image routes) → Node.
+    handle /api/* {
+        reverse_proxy 127.0.0.1:4000
+    }
+
+    # Static assets, with SPA fallback so client-side routes (React Router) work.
+    handle {
+        try_files {path} /index.html
+        file_server
+    }
+
+    # Basic security headers (HSTS is added automatically by Caddy over HTTPS).
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+        Referrer-Policy strict-origin-when-cross-origin
+    }
+}

@@ -1,0 +1,20 @@
+[Unit]
+Description=Mateo API server (Node/Express)
+After=network.target mongod.service
+Requires=mongod.service
+
+[Service]
+Type=simple
+User=mateo
+Group=mateo
+WorkingDirectory=/opt/mateo/server
+EnvironmentFile=/opt/mateo/server/.env
+ExecStart=/usr/bin/node dist/index.js
+Restart=on-failure
+RestartSec=5
+# Light hardening (kept minimal so uploads under /opt keep working)
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
