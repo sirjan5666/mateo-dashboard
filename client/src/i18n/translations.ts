@@ -155,6 +155,16 @@ const en: Dict = {
   'doctor.home.colType': 'Mode',
   'doctor.home.colStatus': 'Status',
   'doctor.home.colDate': 'Date',
+  // Doctor home — welcome hero + up-next + watchlist
+  'doctor.home.heroSummary': 'You have {appts} appointments today · {watch} on your watchlist.',
+  'doctor.home.heroNewInvoice': 'New invoice',
+  'doctor.home.heroSchedule': 'Schedule',
+  'doctor.home.upNext': 'Up next',
+  'doctor.home.upNextEmpty': 'No appointments scheduled — the day is open.',
+  'doctor.home.openRecord': 'Open record',
+  'doctor.home.reasonFollowUp': 'Follow-up due',
+  'doctor.home.reasonMonitoring': 'Under monitoring',
+  'doctor.home.reasonMaintenance': 'Maintenance plan',
   // Doctor home — quick actions
   'doctor.home.qaAddPatient': 'Add patient',
   'doctor.home.qaPrescription': 'Prescription',
@@ -250,6 +260,16 @@ const en: Dict = {
   'doctor.patients.nameRequired': 'Name and a record template are required.',
   'doctor.patients.createError': 'Could not create the patient.',
   'doctor.patients.loadError': 'Something went wrong, please try again',
+  // Doctor patients — table (sort · pagination · row menu · edit)
+  'doctor.patients.joined': 'Joined',
+  'doctor.patients.rowOpen': 'Open record',
+  'doctor.patients.rowEdit': 'Edit',
+  'doctor.patients.editTitle': 'Edit patient',
+  'doctor.patients.save': 'Save changes',
+  'doctor.patients.saving': 'Saving…',
+  'doctor.patients.showing': 'Showing {n} of {total} patients',
+  'doctor.patients.archiveOneTitle': 'Archive patient?',
+  'doctor.patients.archiveOneBody': 'Archive {name}? They move to “Show archived”; the record stays intact.',
   // Doctor patient detail (hub)
   'doctor.pd.allPatients': 'All patients',
   'doctor.pd.loading': 'Loading…',

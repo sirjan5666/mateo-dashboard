@@ -134,6 +134,7 @@ export function Kpi({
   sub,
   tone = 'emerald',
   accent,
+  variant = 'plain',
   delta,
   spark,
   sparkColor,
@@ -148,13 +149,20 @@ export function Kpi({
   tone?: Tone;
   /** Explicit chip colours (overrides `tone`) — for panels that theme with exact hex. */
   accent?: { bg: string; fg: string };
+  /** `tinted` = light `accent.bg` card + thick coloured left border + coloured value (Fable Five KPI). */
+  variant?: 'plain' | 'tinted';
   delta?: { dir: 'up' | 'down' | 'flat'; text: string };
   spark?: number[];
   sparkColor?: string;
 }) {
   const theme = useChartTheme();
+  const tinted = variant === 'tinted' && !!accent;
   return (
-    <Card data-entrance="card" className="relative overflow-hidden p-4 sm:p-5">
+    <Card
+      data-entrance="card"
+      className={cn('relative overflow-hidden p-4 sm:p-5', tinted && 'border-l-4')}
+      style={tinted ? { backgroundColor: accent.bg, borderLeftColor: accent.fg } : undefined}
+    >
       <div className="flex items-start justify-between gap-2.5">
         <CountUp
           value={value}
@@ -162,11 +170,11 @@ export function Kpi({
           prefix={prefix}
           suffix={suffix}
           className="block min-w-0 truncate font-display text-[1.7rem] font-extrabold leading-none text-stone-900 sm:text-[2rem]"
-          style={{ fontVariantNumeric: 'tabular-nums' }}
+          style={{ fontVariantNumeric: 'tabular-nums', ...(tinted ? { color: accent.fg } : {}) }}
         />
         <span
           className={cn('grid h-9 w-9 shrink-0 place-items-center rounded-xl', !accent && toneBadge[tone])}
-          style={accent ? { backgroundColor: accent.bg, color: accent.fg } : undefined}
+          style={accent ? { backgroundColor: tinted ? '#ffffff' : accent.bg, color: accent.fg } : undefined}
         >
           <Icon className="h-[18px] w-[18px]" />
         </span>
