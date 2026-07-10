@@ -1,0 +1,55 @@
+name: Deploy to production
+
+# Push to main → build gate → deploy to the Lightsail box (app.mateocare.com).
+# A commit only reaches production if typecheck + lint + build ALL pass, so a
+# broken push can never take the live site down (the old version keeps serving).
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {} # allow a manual re-deploy from the Actions tab / gh CLI
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false # never interrupt an in-flight deploy
+
+jobs:
+  gate:
+    name: Build gate (typecheck · lint · build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Server — install · typecheck · lint · build
+        working-directory: server
+        run: |
+          npm ci
+          npm run typecheck
+          npm run lint
+          npm run build
+      - name: Client — install · lint · build (build also runs tsc)
+        working-directory: client
+        run: |
+          npm ci
+          npm run lint
+          npm run build
+
+  deploy:
+    name: Deploy to Lightsail
+    needs: gate # only runs if the gate job succeeded
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH → pull + deploy on the box
+        env:
+          SSH_KEY: ${{ secrets.MATEO_SSH_KEY }}
+          HOST: ${{ secrets.MATEO_HOST }}
+          DEPLOY_USER: ${{ secrets.MATEO_USER }}
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+          ssh -i ~/.ssh/id_deploy -o StrictHostKeyChecking=accept-new "$DEPLOY_USER@$HOST" \
+            'set -e; sudo git -C /opt/mateo pull --ff-only && sudo bash /opt/mateo/deploy/deploy.sh'
