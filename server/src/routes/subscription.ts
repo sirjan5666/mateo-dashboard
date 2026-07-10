@@ -77,9 +77,10 @@ router.post('/subscription/checkout', requireAuth, requireRole('parent'), async 
     return;
   }
 
-  // Mock path (dev only) — activating a paid plan without payment must never
-  // happen in production just because env keys are missing.
-  if (env.NODE_ENV === 'production') {
+  // Mock path — activating a paid plan without payment must never happen in
+  // production just because env keys are missing, UNLESS ALLOW_MOCK_PAYMENTS is
+  // explicitly set (pre-launch testing before Razorpay LIVE keys exist).
+  if (env.NODE_ENV === 'production' && !env.ALLOW_MOCK_PAYMENTS) {
     res.status(503).json({ error: 'Payments are not configured. Please try again later.' });
     return;
   }

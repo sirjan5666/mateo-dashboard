@@ -74,6 +74,9 @@ DATA_ENCRYPTION_KEY=${DATA_ENCRYPTION_KEY}
 APP_BASE_URL=https://${DOMAIN}
 RAZORPAY_KEY_ID=
 RAZORPAY_KEY_SECRET=
+# Pre-launch: allow the labelled MOCK subscribe/checkout so it's testable before
+# Razorpay LIVE keys exist. Grants the plan for FREE — remove once real keys land.
+ALLOW_MOCK_PAYMENTS=true
 SMTP_HOST=
 SMTP_PORT=587
 SMTP_USER=

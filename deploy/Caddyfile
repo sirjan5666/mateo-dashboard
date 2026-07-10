@@ -2,9 +2,9 @@
 # API to the Node server. Caddy obtains + auto-renews the HTTPS certificate for
 # this domain (Let's Encrypt) with zero extra steps.
 #
-# Replace YOUR_DOMAIN below with your real domain before use.
+# Domain is baked in; change it here (and APP_BASE_URL in server/.env) to move hosts.
 
-YOUR_DOMAIN {
+mateocareapp.com {
     encode zstd gzip
     root * /opt/mateo/client/dist
 

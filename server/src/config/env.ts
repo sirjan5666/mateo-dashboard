@@ -29,6 +29,11 @@ const envSchema = z.object({
   RAZORPAY_KEY_ID: z.string().optional(),
   RAZORPAY_KEY_SECRET: z.string().optional(),
   RAZORPAY_API_BASE: z.string().default('https://api.razorpay.com/v1'),
+  // Escape hatch: allow the clearly-labelled MOCK payment path in PRODUCTION (no
+  // real gateway) so a pre-launch can test checkout/subscribe before Razorpay
+  // LIVE keys exist. Mock "purchases" grant access for FREE, so enable this ONLY
+  // before real users arrive and remove it once real keys are in. Accepts "true"/"1".
+  ALLOW_MOCK_PAYMENTS: z.string().optional().transform((v) => v === 'true' || v === '1'),
   // Admin order-notification email (SMTP via Nodemailer) — all optional. Without
   // these, new-order notifications still land in-app (the Admin → Orders panel);
   // email is only attempted when SMTP is configured.
