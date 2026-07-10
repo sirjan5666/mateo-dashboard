@@ -25,11 +25,18 @@ export interface PanelNavItem {
 
 const COLLAPSE_KEY = 'mateo:panel-collapsed';
 
-const navClass = (isActive: boolean, collapsed: boolean) =>
+// The doctor panel carries the Fable Five signature: a dark navy rail. The
+// patient portal (and any other panel on this shell) stays on the light rail.
+// `dark` re-colours the nav chrome only; the content canvas stays light for both.
+const navClass = (isActive: boolean, collapsed: boolean, dark: boolean) =>
   cn(
     'group relative flex items-center rounded-xl text-sm transition-colors',
     collapsed ? 'justify-center px-0 py-2.5' : 'gap-3 px-3 py-2',
-    isActive ? 'bg-[var(--primary)] font-semibold text-white shadow-sm' : 'font-medium text-stone-600 hover:bg-stone-100 hover:text-stone-900',
+    isActive
+      ? 'bg-[var(--primary)] font-semibold text-white shadow-sm'
+      : dark
+        ? 'font-medium text-slate-300 hover:bg-white/5 hover:text-white'
+        : 'font-medium text-stone-600 hover:bg-stone-100 hover:text-stone-900',
   );
 
 interface NavGroup {
@@ -51,12 +58,14 @@ function groupNav(items: PanelNavItem[]): NavGroup[] {
 function SidebarNav({
   panelLabel,
   navItems,
+  dark = false,
   collapsed = false,
   onNavigate,
   onToggleCollapse,
 }: {
   panelLabel: string;
   navItems: PanelNavItem[];
+  dark?: boolean;
   collapsed?: boolean;
   onNavigate?: () => void;
   onToggleCollapse?: () => void;
@@ -65,6 +74,15 @@ function SidebarNav({
   const t = useT();
   const initial = user?.name?.trim().charAt(0).toUpperCase() || 'M';
   const groups = groupNav(navItems);
+
+  const toggleBtnClass = dark
+    ? 'text-slate-400 hover:bg-white/5 hover:text-white'
+    : 'text-stone-400 hover:bg-stone-100 hover:text-stone-700';
+  const dividerClass = dark ? 'border-white/10' : 'border-[var(--hairline)]';
+  const footerBorder = dark ? 'border-white/10' : 'border-[var(--hairline)]';
+  const signOutClass = dark
+    ? 'text-slate-300 hover:bg-white/5 hover:text-white'
+    : 'text-stone-600 hover:bg-stone-100 hover:text-stone-900';
 
   return (
     <div className="flex h-full flex-col">
@@ -77,7 +95,7 @@ function SidebarNav({
               onClick={onToggleCollapse}
               aria-label="Expand sidebar"
               title="Expand"
-              className="grid h-8 w-8 place-items-center rounded-lg text-stone-400 transition-colors hover:bg-stone-100 hover:text-stone-700"
+              className={cn('grid h-8 w-8 place-items-center rounded-lg transition-colors', toggleBtnClass)}
             >
               <PanelLeftOpen className="h-[18px] w-[18px]" />
             </button>
@@ -85,15 +103,25 @@ function SidebarNav({
         </div>
       ) : (
         <div className="flex items-center gap-2 px-5 py-6">
-          <Brand className="h-9" />
-          <span className="rounded-full bg-stone-100 px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-stone-500">{panelLabel}</span>
+          {dark ? (
+            <>
+              <BrandTile className="h-8 w-8 rounded-lg text-sm font-extrabold">M</BrandTile>
+              <span className="font-display text-lg font-extrabold tracking-tight text-white">Mateo</span>
+              <span className="rounded-full bg-white/10 px-2 py-0.5 text-[0.65rem] font-bold uppercase tracking-wide text-slate-300">{panelLabel}</span>
+            </>
+          ) : (
+            <>
+              <Brand className="h-9" />
+              <span className="rounded-full bg-stone-100 px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-stone-500">{panelLabel}</span>
+            </>
+          )}
           {onToggleCollapse && (
             <button
               type="button"
               onClick={onToggleCollapse}
               aria-label="Collapse sidebar"
               title="Collapse"
-              className="ml-auto grid h-8 w-8 place-items-center rounded-lg text-stone-400 transition-colors hover:bg-stone-100 hover:text-stone-700"
+              className={cn('ml-auto grid h-8 w-8 place-items-center rounded-lg transition-colors', toggleBtnClass)}
             >
               <PanelLeftClose className="h-[18px] w-[18px]" />
             </button>
@@ -106,9 +134,11 @@ function SidebarNav({
           <div key={g.section ?? `g${gi}`}>
             {g.section &&
               (collapsed ? (
-                gi > 0 && <div className="mx-2 my-2 border-t border-[var(--hairline)]" />
+                gi > 0 && <div className={cn('mx-2 my-2 border-t', dividerClass)} />
               ) : (
-                <p className={cn('px-3 pb-1 text-[0.65rem] font-bold uppercase tracking-wider text-stone-400', gi === 0 ? 'pt-1' : 'pt-4')}>{t(g.section)}</p>
+                <p className={cn('px-3 pb-1 text-[0.65rem] font-bold uppercase tracking-wider', dark ? 'text-slate-500' : 'text-stone-400', gi === 0 ? 'pt-1' : 'pt-4')}>
+                  {t(g.section)}
+                </p>
               ))}
             {g.items.map((it) => (
               <NavLink
@@ -117,14 +147,19 @@ function SidebarNav({
                 end={it.end}
                 onClick={onNavigate}
                 title={collapsed ? t(it.label) : undefined}
-                className={({ isActive }) => navClass(isActive, collapsed)}
+                className={({ isActive }) => navClass(isActive, collapsed, dark)}
               >
                 {({ isActive }) => (
                   <>
                     <span className="relative">
-                      <it.icon className={cn('h-[18px] w-[18px]', isActive ? 'text-white' : 'text-stone-400 group-hover:text-stone-600')} />
+                      <it.icon
+                        className={cn(
+                          'h-[18px] w-[18px]',
+                          isActive ? 'text-white' : dark ? 'text-slate-400 group-hover:text-slate-200' : 'text-stone-400 group-hover:text-stone-600',
+                        )}
+                      />
                       {collapsed && it.badge ? (
-                        <span className="absolute -right-1.5 -top-1.5 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-[var(--surface-card)]" />
+                        <span className={cn('absolute -right-1.5 -top-1.5 h-2 w-2 rounded-full bg-rose-500 ring-2', dark ? 'ring-[var(--panel-sidebar)]' : 'ring-[var(--surface-card)]')} />
                       ) : null}
                     </span>
                     {!collapsed && t(it.label)}
@@ -139,7 +174,7 @@ function SidebarNav({
         ))}
       </nav>
 
-      <div className="border-t border-[var(--hairline)] p-3">
+      <div className={cn('border-t p-3', footerBorder)}>
         {collapsed ? (
           <div className="flex flex-col items-center gap-1">
             <BrandTile className="h-9 w-9 rounded-full text-sm font-bold">{initial}</BrandTile>
@@ -150,7 +185,7 @@ function SidebarNav({
               }}
               aria-label="Sign out"
               title="Sign out"
-              className="grid h-9 w-9 place-items-center rounded-xl text-stone-600 transition-colors hover:bg-stone-100 hover:text-stone-900"
+              className={cn('grid h-9 w-9 place-items-center rounded-xl transition-colors', signOutClass)}
             >
               <LogOut className="h-4 w-4" />
             </button>
@@ -160,8 +195,8 @@ function SidebarNav({
             <div className="flex items-center gap-3 rounded-xl px-2 py-2">
               <BrandTile className="h-9 w-9 shrink-0 rounded-full text-sm font-bold">{initial}</BrandTile>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold text-stone-900">{user?.name}</p>
-                <p className="truncate text-xs text-stone-500">{user?.email}</p>
+                <p className={cn('truncate text-sm font-semibold', dark ? 'text-white' : 'text-stone-900')}>{user?.name}</p>
+                <p className={cn('truncate text-xs', dark ? 'text-slate-400' : 'text-stone-500')}>{user?.email}</p>
               </div>
             </div>
             <button
@@ -169,7 +204,7 @@ function SidebarNav({
                 onNavigate?.();
                 void logout();
               }}
-              className="mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-stone-600 transition-colors hover:bg-stone-100 hover:text-stone-900"
+              className={cn('mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors', signOutClass)}
             >
               <LogOut className="h-4 w-4" />
               Sign out
@@ -206,6 +241,10 @@ export function PanelShell({
       return false;
     }
   });
+
+  // The doctor panel gets the dark navy rail; other panels keep the light rail.
+  const dark = panelLabel.toLowerCase() === 'doctor';
+  const asideClass = dark ? 'border-[var(--panel-sidebar-border)] bg-[var(--panel-sidebar)]' : 'border-[var(--hairline)] bg-[var(--surface-card)]';
 
   const toggleCollapse = () => {
     setCollapsed((c) => {
@@ -265,11 +304,12 @@ export function PanelShell({
       {/* Desktop sidebar (collapsible) */}
       <aside
         className={cn(
-          'fixed bottom-0 left-0 top-[var(--imp-bar-h)] z-40 hidden border-r border-[var(--hairline)] bg-[var(--surface-card)] transition-[width] duration-200 lg:block',
+          'fixed bottom-0 left-0 top-[var(--imp-bar-h)] z-40 hidden border-r transition-[width] duration-200 lg:block',
+          asideClass,
           collapsed ? 'w-20' : 'w-64',
         )}
       >
-        <SidebarNav panelLabel={panelLabel} navItems={navItems} collapsed={collapsed} onToggleCollapse={toggleCollapse} />
+        <SidebarNav panelLabel={panelLabel} navItems={navItems} dark={dark} collapsed={collapsed} onToggleCollapse={toggleCollapse} />
       </aside>
 
       {/* Mobile top bar with hamburger */}
@@ -295,9 +335,9 @@ export function PanelShell({
             role="dialog"
             aria-modal="true"
             aria-label={`${panelLabel} menu`}
-            className="absolute bottom-0 left-0 top-[var(--imp-bar-h)] w-72 max-w-[85vw] border-r border-[var(--hairline)] bg-[var(--surface-card)] shadow-lift"
+            className={cn('absolute bottom-0 left-0 top-[var(--imp-bar-h)] w-72 max-w-[85vw] border-r shadow-lift', asideClass)}
           >
-            <SidebarNav panelLabel={panelLabel} navItems={navItems} onNavigate={() => setNavOpen(false)} />
+            <SidebarNav panelLabel={panelLabel} navItems={navItems} dark={dark} onNavigate={() => setNavOpen(false)} />
           </aside>
         </div>
       )}
