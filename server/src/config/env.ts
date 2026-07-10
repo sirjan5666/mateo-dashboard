@@ -67,4 +67,10 @@ const envSchema = z.object({
   }
 });
 
-export const env = envSchema.parse(process.env);
+// A .env commonly lists optional keys with no value (e.g. `ADMIN_NOTIFICATION_EMAIL=`,
+// `RAZORPAY_KEY_ID=`). dotenv loads those as "" — and a format-validated optional
+// (.email()/.coerce.number()) then REJECTS the empty string instead of treating it
+// as unset, which crash-loops the server at boot. Normalise '' → absent before Zod so
+// blank keys behave as "not set" (defaults + .optional() apply as intended).
+const rawEnv = Object.fromEntries(Object.entries(process.env).filter(([, v]) => v !== ''));
+export const env = envSchema.parse(rawEnv);
