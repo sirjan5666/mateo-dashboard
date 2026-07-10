@@ -33,7 +33,7 @@ import Community from './pages/Community';
 import Report from './pages/Report';
 import DoctorHome from './pages/doctor/DoctorHome';
 import DoctorProfileForm from './pages/doctor/DoctorProfileForm';
-import DoctorAppointments from './pages/doctor/DoctorAppointments';
+import Appointments from './pages/doctor/Appointments';
 import Patients from './pages/doctor/Patients';
 import PatientDetail from './pages/doctor/PatientDetail';
 import AnalyticsPage from './pages/doctor/Analytics';
@@ -134,7 +134,7 @@ function AppRoutes() {
           <Route path="/doctor/billing" element={<Billing />} />
           <Route path="/doctor/schedule" element={<Schedule />} />
           <Route path="/doctor/messages" element={<DoctorMessages />} />
-          <Route path="/doctor/appointments" element={<DoctorAppointments />} />
+          <Route path="/doctor/appointments" element={<Appointments />} />
           <Route path="/doctor/consultations/:id" element={<ConsultationDetail />} />
           <Route path="/doctor/profile" element={<DoctorProfileForm />} />
         </Route>
