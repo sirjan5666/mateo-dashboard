@@ -28,13 +28,9 @@ type Accent = { bar: string; text: string; soft: string };
 const ACCENTS: Record<string, Accent> = {
   profile: { bar: '#7c5cfc', text: '#5b3fd6', soft: '#f1edff' },
   vaccines: { bar: '#1a73e8', text: '#1559b8', soft: '#e8f0fe' },
-  allergies: { bar: '#dc4d4d', text: '#a32d2d', soft: '#fdecec' },
   growth: { bar: '#0f9d6e', text: '#0b7d57', soft: '#e6f7f0' },
   food: { bar: '#e08a00', text: '#a86100', soft: '#fff4e2' },
-  feeds: { bar: '#2f7fd6', text: '#1559b8', soft: '#e8f1fc' },
   sleep: { bar: '#5b6ad0', text: '#3f4cb0', soft: '#eceefb' },
-  diapers: { bar: '#cc8a2b', text: '#9a6512', soft: '#fbf1de' },
-  symptoms: { bar: '#dc4d4d', text: '#a32d2d', soft: '#fceaea' },
   milestones: { bar: '#b14ad8', text: '#8b35d8', soft: '#f8ebff' },
   skin: { bar: '#e85aa0', text: '#c43d82', soft: '#fdeaf4' },
   records: { bar: '#0aa2b8', text: '#077e90', soft: '#e4f7fa' },
@@ -92,7 +88,6 @@ export function buildReportHtml(report: BabyReport): string {
     d.administeredOn ? fmtDate(d.administeredOn) : '—',
     badge(d.status),
   ]);
-  const allergyRows = report.allergies.map((a) => [`<strong>${esc(a.name)}</strong>`, esc(a.severity), esc(a.reaction || '—')]);
   const growthRows = report.growth.map((g) => [fmtDate(g.loggedAt), kg(g.weightG), cm(g.lengthCm), cm(g.headCircCm)]);
   const foodRows = report.food.map((f) => [
     fmtDate(f.loggedAt),
@@ -101,18 +96,6 @@ export function buildReportHtml(report: BabyReport): string {
     esc(f.reaction || '—'),
   ]);
   const sleepRows = report.sleep.map((s) => [fmtDate(s.loggedAt), esc(s.kind), `${Math.floor(s.durationMin / 60)}h ${s.durationMin % 60}m`, esc(s.quality || '—')]);
-  const feedRows = report.feeds.map((f) => [
-    fmtDate(f.loggedAt),
-    esc(f.kind),
-    esc([f.side, f.durationMin ? `${f.durationMin} min` : '', f.amountMl ? `${f.amountMl} ml` : ''].filter(Boolean).join(' · ') || '—'),
-  ]);
-  const diaperRows = report.diapers.map((d) => [fmtDate(d.loggedAt), esc(d.kind), esc([d.consistency, d.color].filter(Boolean).join(' · ') || '—')]);
-  const symptomRows = report.symptoms.map((s) => [
-    fmtDate(s.loggedAt),
-    typeof s.temperatureC === 'number' ? `${s.temperatureC}°C` : '—',
-    s.symptoms.length ? s.symptoms.map((x) => esc(x)).join(', ') : '—',
-    esc(s.notes || '—'),
-  ]);
   const milestoneRows = report.milestones.map((m) => [`<strong>${esc(m.label)}</strong>`, fmtDate(m.achievedOn)]);
   const skinRows = report.skin.map((s) => [fmtDate(s.loggedAt), esc(s.area), esc(s.severity), esc(s.description || '—')]);
   const recordRows = report.records.map((r) => [fmtDate(r.recordDate), esc(r.recordType), esc(r.title), esc(r.provider || '—')]);
@@ -294,13 +277,9 @@ export function buildReportHtml(report: BabyReport): string {
       </div>
     </section>
 
-    ${report.allergies.length ? section('allergies', 'Allergies', ['Allergen', 'Severity', 'Reaction'], allergyRows) : ''}
     ${section('growth', 'Growth', ['Date', 'Weight', 'Length', 'Head'], growthRows)}
     ${section('food', 'Feeding', ['Date', 'Meal', 'Food', 'Reaction'], foodRows)}
-    ${section('feeds', 'Milk feeds', ['Date', 'Type', 'Details'], feedRows)}
     ${section('sleep', 'Sleep', ['Date', 'Type', 'Duration', 'Quality'], sleepRows)}
-    ${section('diapers', 'Diapers', ['Date', 'Type', 'Details'], diaperRows)}
-    ${section('symptoms', 'Fever &amp; symptoms', ['Date', 'Temp', 'Symptoms', 'Notes'], symptomRows)}
     ${section('milestones', 'Milestones', ['Milestone', 'Achieved on'], milestoneRows)}
     ${section('skin', 'Skin', ['Date', 'Area', 'Severity', 'Notes'], skinRows)}
     ${section('records', 'Health records', ['Date', 'Type', 'Title', 'Provider'], recordRows)}

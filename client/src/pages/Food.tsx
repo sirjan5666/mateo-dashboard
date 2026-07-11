@@ -4,8 +4,6 @@ import { Link, useParams } from 'react-router';
 import { Apple, ArrowLeft, Baby, CheckCircle2, Leaf, ShieldAlert, ShieldCheck, Sparkles, Trash2 } from 'lucide-react';
 import { addFood, deleteFood, listFood } from '../api/food';
 import type { FoodAmount, FoodReaction, FoodResponse, FoodTexture, MealType } from '../api/food';
-import { listAllergies } from '../api/allergies';
-import type { Allergy } from '../api/allergies';
 import { ApiError } from '../api/client';
 import { formatDateIST, toDateInputValueIST, todayInputValueIST } from '../lib/age';
 import { Card } from '../components/ui/Card';
@@ -84,7 +82,6 @@ function Segmented<T extends string>({
 export default function Food() {
   const { id } = useParams();
   const [data, setData] = useState<FoodResponse | null>(null);
-  const [allergies, setAllergies] = useState<Allergy[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const [loggedAt, setLoggedAt] = useState(todayInputValueIST());
@@ -114,24 +111,10 @@ export default function Food() {
       .catch((err: unknown) => {
         if (!cancelled) setError(err instanceof ApiError ? err.message : 'Something went wrong, please try again');
       });
-    listAllergies(id)
-      .then((d) => {
-        if (!cancelled) setAllergies(d.allergies);
-      })
-      .catch(() => {
-        /* allergy warnings are best-effort */
-      });
     return () => {
       cancelled = true;
     };
   }, [id]);
-
-  // Warn if the typed food name contains a known allergen.
-  const matchedAllergen = useMemo(() => {
-    const f = foodName.trim().toLowerCase();
-    if (!f) return null;
-    return allergies.find((a) => a.name && f.includes(a.name.toLowerCase()))?.name ?? null;
-  }, [foodName, allergies]);
 
   // IMS Act 1992 (CLAUDE.md rule 4): never normalize infant formula / milk
   // substitutes; feeding stays breastfeeding-first. Mirror of the server-side
@@ -281,12 +264,6 @@ export default function Food() {
                   What did baby eat?
                 </label>
                 <input id="foodName" type="text" required maxLength={120} placeholder="e.g. mashed banana, soft khichdi" value={foodName} onChange={(e) => setFoodName(e.target.value)} className={inputCls} />
-                {matchedAllergen && (
-                  <p className="mt-1.5 flex items-start gap-1.5 rounded-lg bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700">
-                    <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                    <span>Heads up — your baby is allergic to <b>{matchedAllergen}</b>. Please avoid foods containing it.</span>
-                  </p>
-                )}
                 {mentionsFormula && (
                   <p className="mt-1.5 flex items-start gap-1.5 rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
                     <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />

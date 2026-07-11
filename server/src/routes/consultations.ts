@@ -18,10 +18,6 @@ import type { IBaby } from '../models/Baby.js';
 import { User } from '../models/User.js';
 import { VaccineDose } from '../models/VaccineDose.js';
 import { GrowthLog } from '../models/GrowthLog.js';
-import { SymptomLog } from '../models/SymptomLog.js';
-import { FeedLog } from '../models/FeedLog.js';
-import { DiaperLog } from '../models/DiaperLog.js';
-import { Allergy } from '../models/Allergy.js';
 import { MilestoneAchievement } from '../models/MilestoneAchievement.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { uploadImage, uploadsDir } from '../middleware/upload.js';
@@ -29,8 +25,6 @@ import { slotIsValid, slotEndFor } from '../doctors/slots.js';
 import { doseStatus, istToday } from '../vaccines/schedule.js';
 import { computePercentile } from '../growth/percentile.js';
 import type { Sex } from '../growth/percentile.js';
-import { assessSymptoms } from '../health/symptoms.js';
-import { istDateString } from '../lib/ist.js';
 import { milestoneById } from '../milestones/milestones.js';
 import { checkRedFlags } from '../ai/red-flags.js';
 import type { RedFlagContext } from '../ai/red-flags.js';
@@ -503,15 +497,10 @@ router.get('/consultations/:id/baby-snapshot', requireAuth, async (req, res) => 
     return;
   }
   const today = istToday();
-  const todayStr = istDateString(new Date());
-  const [doses, growth, symptoms, feeds, diapers, milestones, allergies] = await Promise.all([
+  const [doses, growth, milestones] = await Promise.all([
     VaccineDose.find({ babyId: baby._id }).sort({ dueDate: 1 }),
     GrowthLog.find({ babyId: baby._id }).sort({ loggedAt: 1 }),
-    SymptomLog.find({ babyId: baby._id }).sort({ loggedAt: -1 }).limit(5),
-    FeedLog.find({ babyId: baby._id }),
-    DiaperLog.find({ babyId: baby._id }),
     MilestoneAchievement.find({ babyId: baby._id }).sort({ achievedOn: -1 }).limit(5),
-    Allergy.find({ babyId: baby._id }).sort({ createdAt: -1 }),
   ]);
 
   let done = 0;
@@ -535,7 +524,6 @@ router.get('/consultations/:id/baby-snapshot', requireAuth, async (req, res) => 
     weightPercentile = Math.round(computePercentile('weight', baby.sex as Sex, am, lw.weightG! / 1000).percentile);
   }
 
-  const onDay = (d: Date) => istDateString(d) === todayStr;
   res.json({
     baby: { name: baby.name, dob: baby.dob, sex: baby.sex },
     vaccines: {
@@ -550,21 +538,7 @@ router.get('/consultations/:id/baby-snapshot', requireAuth, async (req, res) => 
       weightPercentile,
       points: weights.slice(-8).map((g) => ({ loggedAt: g.loggedAt, weightG: g.weightG! })),
     },
-    symptoms: symptoms.map((s) => ({
-      loggedAt: s.loggedAt,
-      temperatureC: s.temperatureC ?? null,
-      level: assessSymptoms({ temperatureC: s.temperatureC ?? null, symptoms: s.symptoms, ageDays: Math.floor((s.loggedAt.getTime() - baby.dob.getTime()) / 86_400_000) }).level,
-    })),
-    feeds: {
-      feedsToday: feeds.filter((f) => onDay(f.loggedAt)).length,
-      breastMinToday: feeds.filter((f) => onDay(f.loggedAt) && f.kind === 'breast').reduce((s, f) => s + (f.durationMin ?? 0), 0),
-    },
-    diapers: {
-      wetToday: diapers.filter((d) => onDay(d.loggedAt) && (d.kind === 'wet' || d.kind === 'mixed')).length,
-      dirtyToday: diapers.filter((d) => onDay(d.loggedAt) && (d.kind === 'dirty' || d.kind === 'mixed')).length,
-    },
     milestones: milestones.map((m) => milestoneById.get(m.milestoneId)?.label ?? m.milestoneId),
-    allergies: allergies.map((a) => ({ name: a.name, severity: a.severity, reaction: a.reaction ?? null })),
   });
 });
 

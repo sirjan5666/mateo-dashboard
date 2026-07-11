@@ -9,10 +9,6 @@ import { GrowthLog } from '../models/GrowthLog.js';
 import { SkinLog } from '../models/SkinLog.js';
 import { FoodLog } from '../models/FoodLog.js';
 import { SleepLog } from '../models/SleepLog.js';
-import { FeedLog } from '../models/FeedLog.js';
-import { DiaperLog } from '../models/DiaperLog.js';
-import { Allergy } from '../models/Allergy.js';
-import { SymptomLog } from '../models/SymptomLog.js';
 import { MedicineCourse } from '../models/MedicineCourse.js';
 import { MedicineDoseLog } from '../models/MedicineDoseLog.js';
 import { MilestoneAchievement } from '../models/MilestoneAchievement.js';
@@ -42,17 +38,13 @@ router.get('/export', async (req, res) => {
   }
   const babies = await Baby.find({ userId });
   const babyIds = babies.map((b) => b._id);
-  const [doses, growth, skin, food, sleep, feeds, diapers, allergies, symptoms, medicineCourses, medicineDoses, milestones, records, appointments, chatSessions, chat, contacts] =
+  const [doses, growth, skin, food, sleep, medicineCourses, medicineDoses, milestones, records, appointments, chatSessions, chat, contacts] =
     await Promise.all([
       VaccineDose.find({ babyId: { $in: babyIds } }),
       GrowthLog.find({ babyId: { $in: babyIds } }),
       SkinLog.find({ babyId: { $in: babyIds } }),
       FoodLog.find({ babyId: { $in: babyIds } }),
       SleepLog.find({ babyId: { $in: babyIds } }),
-      FeedLog.find({ babyId: { $in: babyIds } }),
-      DiaperLog.find({ babyId: { $in: babyIds } }),
-      Allergy.find({ babyId: { $in: babyIds } }),
-      SymptomLog.find({ babyId: { $in: babyIds } }),
       MedicineCourse.find({ babyId: { $in: babyIds } }),
       MedicineDoseLog.find({ babyId: { $in: babyIds } }),
       MilestoneAchievement.find({ babyId: { $in: babyIds } }),
@@ -81,10 +73,6 @@ router.get('/export', async (req, res) => {
     skinLogs: skin,
     foodLogs: food,
     sleepLogs: sleep,
-    feedLogs: feeds,
-    diaperLogs: diapers,
-    allergies,
-    symptomLogs: symptoms,
     medicineCourses,
     medicineDoseLogs: medicineDoses,
     milestoneAchievements: milestones,

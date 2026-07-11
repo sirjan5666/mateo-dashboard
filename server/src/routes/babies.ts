@@ -9,11 +9,7 @@ import { GrowthLog } from '../models/GrowthLog.js';
 import { SkinLog } from '../models/SkinLog.js';
 import { FoodLog } from '../models/FoodLog.js';
 import { SleepLog } from '../models/SleepLog.js';
-import { FeedLog } from '../models/FeedLog.js';
-import { DiaperLog } from '../models/DiaperLog.js';
-import { Allergy } from '../models/Allergy.js';
 import { Prescription } from '../models/Prescription.js';
-import { SymptomLog } from '../models/SymptomLog.js';
 import { MedicineDoseLog } from '../models/MedicineDoseLog.js';
 import { MedicineCourse } from '../models/MedicineCourse.js';
 import { MilestoneAchievement } from '../models/MilestoneAchievement.js';
@@ -112,12 +108,8 @@ router.delete('/:id', loadOwnedBaby, async (req, res) => {
   await SkinLog.deleteMany({ babyId: baby._id });
   await FoodLog.deleteMany({ babyId: baby._id });
   await SleepLog.deleteMany({ babyId: baby._id });
-  await FeedLog.deleteMany({ babyId: baby._id });
-  await DiaperLog.deleteMany({ babyId: baby._id });
-  await Allergy.deleteMany({ babyId: baby._id });
   // Parent-added (self) medicines are tied to the baby; doctor prescriptions outlive it.
   await Prescription.deleteMany({ babyId: baby._id, source: 'self' });
-  await SymptomLog.deleteMany({ babyId: baby._id });
   await MedicineDoseLog.deleteMany({ babyId: baby._id });
   await MedicineCourse.deleteMany({ babyId: baby._id });
   await MilestoneAchievement.deleteMany({ babyId: baby._id });

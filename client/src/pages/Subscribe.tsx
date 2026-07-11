@@ -27,7 +27,7 @@ import { cn } from '../lib/cn';
 // What the plan unlocks — mirrors the free-tier decision: trackers + Tara AI +
 // the report are paid; doctor access, shop and community stay free for everyone.
 const PERKS = [
-  { icon: Syringe, text: 'All 12 trackers — vaccines, growth, food, feeds, sleep, diapers, symptoms, medicines, allergies, skin, milestones & records' },
+  { icon: Syringe, text: 'All 8 trackers — vaccines, growth, food, sleep, medicines, skin, milestones & records' },
   { icon: Sparkles, text: 'Tara, your AI parenting companion — age-aware answers, day or night' },
   { icon: Activity, text: 'WHO growth curves with percentile tracking' },
   { icon: FileText, text: 'Printable health report for doctor visits' },

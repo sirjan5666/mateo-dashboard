@@ -2,16 +2,10 @@
 // returns a short, warm read on whether what's logged looks typical for the
 // baby's age, plus one gentle suggestion.
 //
-// Two hard rules from CLAUDE.md shape this:
-//  1. The assistant NEVER diagnoses or prescribes — we reuse the very same
-//     SYSTEM_PROMPT the chat uses, so that wording is inherited, not rewritten.
-//  2. Emergency/red-flag escalation is DETERMINISTIC, not the model's call. So a
-//     symptom entry that assesses as "urgent", or a concerning stool colour,
-//     short-circuits to a "see a doctor" insight BEFORE any LLM call.
+// Hard rule from CLAUDE.md: the assistant NEVER diagnoses or prescribes — we
+// reuse the very same SYSTEM_PROMPT the chat uses, so that wording is inherited,
+// not rewritten.
 import type { Types } from 'mongoose';
-import { SymptomLog } from '../models/SymptomLog.js';
-import { DiaperLog, CONCERNING_COLORS } from '../models/DiaperLog.js';
-import { assessSymptoms } from '../health/symptoms.js';
 import { buildBabyContext } from './context.js';
 import { SYSTEM_PROMPT } from './system-prompt.js';
 import { generateAssistantReply } from './provider.js';
@@ -20,14 +14,10 @@ import { scrubFormula } from './compliance.js';
 export const INSIGHT_TRACKERS = [
   'growth',
   'food',
-  'feeds',
   'sleep',
-  'diapers',
-  'symptoms',
   'milestones',
   'skin',
   'vaccines',
-  'allergies',
 ] as const;
 export type InsightTracker = (typeof INSIGHT_TRACKERS)[number];
 
@@ -35,14 +25,10 @@ export type InsightTracker = (typeof INSIGHT_TRACKERS)[number];
 const TRACKER_LABEL: Record<InsightTracker, string> = {
   growth: 'growth (weight / length / head circumference)',
   food: 'complementary feeding / solid foods',
-  feeds: 'milk feeds (breast / expressed)',
   sleep: 'sleep (naps and night sleep)',
-  diapers: 'nappies (wet / dirty, stool)',
-  symptoms: 'fever / symptoms',
   milestones: 'developmental milestones',
   skin: 'skin',
   vaccines: 'vaccinations',
-  allergies: 'known allergies',
 };
 
 export type InsightStatus = 'ok' | 'watch' | 'doctor';
@@ -59,45 +45,6 @@ interface BabyLike {
   name: string;
   dob: Date;
   sex: string;
-}
-
-// ── Deterministic safety gate ───────────────────────────────────────────────
-// Returns a rule-based insight when a tracker's data carries a signal we never
-// leave to the model (hard rule 2). null → fall through to the LLM.
-async function deterministicInsight(baby: BabyLike, tracker: InsightTracker): Promise<Insight | null> {
-  if (tracker === 'symptoms') {
-    const latest = await SymptomLog.findOne({ babyId: baby._id }).sort({ loggedAt: -1, createdAt: -1 });
-    if (!latest) return null;
-    const ageDaysAtLog = Math.floor((latest.loggedAt.getTime() - baby.dob.getTime()) / 86_400_000);
-    const { level, reasons } = assessSymptoms({
-      temperatureC: latest.temperatureC,
-      symptoms: latest.symptoms,
-      ageDays: ageDaysAtLog,
-    });
-    if (level === 'urgent') {
-      return {
-        status: 'doctor',
-        observation: reasons[0] ?? 'A symptom in your latest entry can be serious in a baby.',
-        suggestion: "Please see your pediatrician right away — don't wait. For trouble breathing or unresponsiveness, seek emergency care now.",
-        source: 'rule',
-      };
-    }
-  }
-
-  if (tracker === 'diapers') {
-    const recent = await DiaperLog.find({ babyId: baby._id }).sort({ loggedAt: -1, createdAt: -1 }).limit(8);
-    const flagged = recent.find((d) => d.color && CONCERNING_COLORS.includes(d.color));
-    if (flagged) {
-      return {
-        status: 'doctor',
-        observation: `A recent nappy was logged as ${flagged.color} — that's a stool colour doctors like to check.`,
-        suggestion: 'Please mention this to your pediatrician. It is often harmless, but worth a quick look.',
-        source: 'rule',
-      };
-    }
-  }
-
-  return null;
 }
 
 // Insight-specific directive appended to the shared SYSTEM_PROMPT. Asks for a
@@ -152,9 +99,6 @@ export async function buildTrackerInsight(
   tracker: InsightTracker,
   language?: 'en' | 'hi',
 ): Promise<Insight> {
-  const ruled = await deterministicInsight(baby, tracker);
-  if (ruled) return ruled;
-
   const context = await buildBabyContext(baby);
   const system = `${SYSTEM_PROMPT}\n\nThis baby's current tracker data:\n${context}${insightDirective(TRACKER_LABEL[tracker])}${languageDirective(language)}`;
   const text = await generateAssistantReply(system, [
@@ -168,17 +112,6 @@ export async function buildTrackerInsight(
   // the JSON was extracted.
   insight.observation = scrubFormula(insight.observation);
   insight.suggestion = scrubFormula(insight.suggestion);
-
-  // Belt-and-braces: if the deterministic layer saw a "watch"-level symptom
-  // reading, never let the model downgrade it below "watch".
-  if (tracker === 'symptoms' && insight.status === 'ok') {
-    const latest = await SymptomLog.findOne({ babyId: baby._id }).sort({ loggedAt: -1, createdAt: -1 });
-    if (latest) {
-      const ageDaysAtLog = Math.floor((latest.loggedAt.getTime() - baby.dob.getTime()) / 86_400_000);
-      const { level } = assessSymptoms({ temperatureC: latest.temperatureC, symptoms: latest.symptoms, ageDays: ageDaysAtLog });
-      if (level === 'watch') insight.status = 'watch';
-    }
-  }
 
   return insight;
 }
