@@ -9,11 +9,13 @@ const SRC = '/dai-maa.png';
 export function AssistantMark({
   size = 28,
   variant = 'plain',
+  circle = false,
   className,
   style,
 }: {
   size?: number;
   variant?: 'plain' | 'tile';
+  circle?: boolean;
   className?: string;
   style?: CSSProperties;
 }) {
@@ -27,7 +29,8 @@ export function AssistantMark({
         overflow: 'hidden',
         width: size,
         height: size,
-        borderRadius: Math.max(3, size * 0.18), // minor corner radius — square, not a circle
+        // Square with a minor corner radius by default; `circle` for the launcher.
+        borderRadius: circle ? '50%' : Math.max(3, size * 0.18),
         backgroundColor: '#ece3fb',
         boxShadow: variant === 'tile' ? '0 6px 16px -5px rgba(124,92,252,0.55), inset 0 1px 0 rgba(255,255,255,0.45)' : undefined,
         flexShrink: 0,
