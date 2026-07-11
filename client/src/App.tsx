@@ -15,12 +15,8 @@ import BabyForm from './pages/BabyForm';
 import Vaccines from './pages/Vaccines';
 import Skin from './pages/Skin';
 import Food from './pages/Food';
-import Feeds from './pages/Feeds';
 import Sleep from './pages/Sleep';
-import Diapers from './pages/Diapers';
-import Symptoms from './pages/Symptoms';
 import Medicines from './pages/Medicines';
-import Allergies from './pages/Allergies';
 import Milestones from './pages/Milestones';
 import Health from './pages/Health';
 import Settings from './pages/Settings';
@@ -172,12 +168,8 @@ function AppRoutes() {
           <Route path="/babies/:id/growth" element={<Growth />} />
           <Route path="/babies/:id/skin" element={<Skin />} />
           <Route path="/babies/:id/food" element={<Food />} />
-          <Route path="/babies/:id/feeds" element={<Feeds />} />
           <Route path="/babies/:id/sleep" element={<Sleep />} />
-          <Route path="/babies/:id/diapers" element={<Diapers />} />
-          <Route path="/babies/:id/symptoms" element={<Symptoms />} />
           <Route path="/babies/:id/medicines" element={<Medicines />} />
-          <Route path="/babies/:id/allergies" element={<Allergies />} />
           <Route path="/babies/:id/milestones" element={<Milestones />} />
           <Route path="/babies/:id/records" element={<Health />} />
           <Route path="/babies/:id/chat" element={<Chat />} />
