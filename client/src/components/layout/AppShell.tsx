@@ -181,7 +181,7 @@ export function AppShell() {
         </main>
       </div>
 
-      {/* Tara — the floating AI assistant. Part of the plan: hidden for
+      {/* Dai Maa — the floating AI assistant. Part of the plan: hidden for
           unsubscribed parents (the chat/insight APIs 402 for them anyway). */}
       {subscribed && <AssistantLauncher />}
     </div>

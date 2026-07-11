@@ -46,7 +46,7 @@ function groupSessions(sessions: ChatSession[]): { label: GroupLabel; items: Cha
 export default function Chat() {
   const { id } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
-  // A question handed off from the dashboard ask-bar / floating Tara launcher.
+  // A question handed off from the dashboard ask-bar / floating Dai Maa launcher.
   // Read once on mount; the initial-load effect opens it as a fresh thread.
   const initialQ = useRef<string | null>(searchParams.get('q'));
   const [baby, setBaby] = useState<Baby | null>(null);
@@ -89,7 +89,7 @@ export default function Chat() {
     }
   }
 
-  // Read one assistant message aloud on demand (Tara only speaks when asked).
+  // Read one assistant message aloud on demand (Dai Maa only speaks when asked).
   function toggleSpeak(m: ChatMessage) {
     if (speakingId === m.id) {
       stopSpeaking();
@@ -480,7 +480,7 @@ export default function Chat() {
   );
 }
 
-// A small "Listen" toggle under each assistant reply — Tara reads it aloud only
+// A small "Listen" toggle under each assistant reply — Dai Maa reads it aloud only
 // when asked (no auto-speak), and shows "Stop" while speaking.
 function ListenButton({ speaking, onClick }: { speaking: boolean; onClick: () => void }) {
   if (!speechSynthesisSupported) return null;

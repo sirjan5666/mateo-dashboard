@@ -24,11 +24,11 @@ import { Button } from '../components/ui/Button';
 import { Skeleton } from '../components/ui/Skeleton';
 import { cn } from '../lib/cn';
 
-// What the plan unlocks — mirrors the free-tier decision: trackers + Tara AI +
+// What the plan unlocks — mirrors the free-tier decision: trackers + Dai Maa AI +
 // the report are paid; doctor access, shop and community stay free for everyone.
 const PERKS = [
   { icon: Syringe, text: 'All 12 trackers — vaccines, growth, food, feeds, sleep, diapers, symptoms, medicines, allergies, skin, milestones & records' },
-  { icon: Sparkles, text: 'Tara, your AI parenting companion — age-aware answers, day or night' },
+  { icon: Sparkles, text: 'Dai Maa, your AI parenting companion — age-aware answers, day or night' },
   { icon: Activity, text: 'WHO growth curves with percentile tracking' },
   { icon: FileText, text: 'Printable health report for doctor visits' },
   { icon: Moon, text: 'Gentle insights on every tracker from what you log' },
@@ -120,7 +120,7 @@ export default function Subscribe() {
           </span>
           <h1 className="mt-4 text-2xl font-extrabold text-stone-900">You&apos;re all set!</h1>
           <p className="mt-2 max-w-sm text-sm text-stone-500">
-            Every tracker, Tara and your printable health report are unlocked. Here&apos;s to calm, confident parenting.
+            Every tracker, Dai Maa and your printable health report are unlocked. Here&apos;s to calm, confident parenting.
           </p>
           <Button className="mt-6" onClick={() => void navigate(done && from !== '/subscribe' ? from : '/')}>
             {done ? 'Continue where you left off' : 'Go to my dashboard'}
@@ -148,7 +148,7 @@ export default function Subscribe() {
         </h1>
         <p className="mt-2 max-w-xl text-[0.95rem] text-white/90">
           Your doctor set up this dashboard for {user?.name ? 'your family' : 'you'}. Unlock the full toolkit — every tracker, WHO growth
-          curves and Tara, your always-there parenting companion.
+          curves and Dai Maa, your always-there parenting companion.
         </p>
       </div>
 

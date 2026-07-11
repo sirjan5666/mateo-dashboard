@@ -165,7 +165,7 @@ function AppRoutes() {
         <Route path="/" element={isAdmin ? <AdminHome /> : <Dashboard />} />
         <Route path="/babies/new" element={<BabyForm />} />
         <Route path="/babies/:id/edit" element={<BabyForm />} />
-        {/* Paid features — trackers, Tara chat and the report sit behind the plan.
+        {/* Paid features — trackers, Dai Maa chat and the report sit behind the plan.
             Unsubscribed parents land on /subscribe; the server 402s the APIs too. */}
         <Route element={<RequireSubscribed />}>
           <Route path="/babies/:id/vaccines" element={<Vaccines />} />

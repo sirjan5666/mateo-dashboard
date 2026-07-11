@@ -3,7 +3,7 @@ import { createRecognition, speechRecognitionSupported, stopSpeaking } from './s
 import type { SpeechRecognitionLike } from './speech';
 import { useLang } from '../i18n/context';
 
-// Tap-to-talk for the Tara entry points (launcher + dashboard ask-bar). Reuses the
+// Tap-to-talk for the Dai Maa entry points (launcher + dashboard ask-bar). Reuses the
 // browser-native Web Speech recognition the full chat page already uses; degrades
 // gracefully (supported=false) when the browser can't do it.
 export function useVoiceInput(onTranscript: (text: string) => void): { supported: boolean; listening: boolean; toggle: () => void } {

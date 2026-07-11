@@ -332,16 +332,16 @@ body.is-impersonating {
   color: var(--brand-purple-deep);
 }
 
-/* Ask Tara hero search — borderless: no focus border/ring, just a gentle shadow
+/* Ask Dai Maa hero search — borderless: no focus border/ring, just a gentle shadow
    lift on focus, and suppress the inner input's focus-visible ring. */
-.ask-tara-box {
+.ask-assistant-box {
   box-shadow: var(--shadow-card);
 }
-.ask-tara-box:focus-within {
+.ask-assistant-box:focus-within {
   box-shadow: var(--shadow-lift);
 }
-.ask-tara-box input:focus,
-.ask-tara-box input:focus-visible {
+.ask-assistant-box input:focus,
+.ask-assistant-box input:focus-visible {
   outline: none;
   box-shadow: none;
 }

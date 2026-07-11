@@ -57,7 +57,7 @@ if (speechSynthesisSupported) {
   }
 }
 
-// Tara has an attractive female voice. Prefer (in order) a natural/neural voice,
+// Dai Maa has an attractive female voice. Prefer (in order) a natural/neural voice,
 // then a known-pleasant named female voice, then Google, then any female — and
 // only fall back to a non-female voice if the language has none.
 const PREMIUM_FEMALE = /\b(aria|jenny|emma|ava|libby|sonia|michelle|samantha|karen|victoria|tessa|serena|moira|fiona|swara)\b/i;
@@ -115,7 +115,7 @@ export function cleanTextForSpeech(text: string): string {
 // Speak `text` aloud in an attractive female voice. The text is first run through
 // cleanTextForSpeech (strips emoji + markdown) — only the SPOKEN copy is cleaned,
 // never the on-screen message. Voice is chosen by SCRIPT (Devanagari -> a Hindi
-// voice) so it reads fluently whatever language Tara replied in. `onend` fires
+// voice) so it reads fluently whatever language Dai Maa replied in. `onend` fires
 // when it stops.
 export function speak(text: string, lang: string, opts?: { onend?: () => void }): void {
   if (!speechSynthesisSupported) {

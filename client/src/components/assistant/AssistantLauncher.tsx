@@ -3,13 +3,13 @@ import { useLocation, useNavigate } from 'react-router';
 import { Mic, Send, Sparkles, X } from 'lucide-react';
 import { listBabies } from '../../api/babies';
 import type { Baby } from '../../api/babies';
-import { ASSISTANT_BY, ASSISTANT_NAME, QUICK_CHIPS, SUGGESTED_QUESTIONS, askTaraLink } from '../../lib/assistant';
+import { ASSISTANT_BY, ASSISTANT_NAME, QUICK_CHIPS, SUGGESTED_QUESTIONS, askAssistantLink } from '../../lib/assistant';
 import { useTypewriter } from '../../lib/useTypewriter';
 import { useVoiceInput } from '../../lib/useVoiceInput';
 import { AssistantMark } from './AssistantMark';
 import { cn } from '../../lib/cn';
 
-// Tara, on every page: a floating launcher (bottom-right) that opens a small ask
+// Dai Maa, on every page: a floating launcher (bottom-right) that opens a small ask
 // panel and routes the question into a fresh chat thread for the active baby.
 export function AssistantLauncher() {
   const location = useLocation();
@@ -80,7 +80,7 @@ export function AssistantLauncher() {
     const saved = localStorage.getItem('mateo:activeBaby');
     const target = babies?.find((b) => b.id === saved) ?? activeBaby;
     if (!q || !target) return;
-    navigate(askTaraLink(target.id, q));
+    navigate(askAssistantLink(target.id, q));
     setOpen(false);
     setInput('');
   }
