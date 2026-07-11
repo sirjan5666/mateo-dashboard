@@ -1116,7 +1116,7 @@ function AskAssistantBar({ babyId }: { babyId: string }) {
   return (
     <div data-entrance="card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0.75rem 0 0.25rem' }}>
       <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, marginBottom: '0.95rem' }}>
-        <AssistantMark size={26} />
+        <AssistantMark size={34} />
         <h2 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--foreground)', lineHeight: 1.1 }}>
           Ask{' '}
           <span style={{ background: 'linear-gradient(90deg, #7c5cfc, #9b46ee)', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }}>{ASSISTANT_NAME}</span>
@@ -1128,7 +1128,7 @@ function AskAssistantBar({ babyId }: { babyId: string }) {
           className="ask-assistant-box"
           style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#ffffff', borderRadius: 18, padding: '9px 9px 9px 18px' }}
         >
-          <AssistantMark size={22} />
+          <AssistantMark size={30} />
           <div style={{ position: 'relative', flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', height: 28 }}>
             {!input && (
               <span aria-hidden="true" style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', overflow: 'hidden', whiteSpace: 'nowrap', pointerEvents: 'none', fontSize: '1rem', color: voice.listening ? 'var(--status-overdue-text)' : 'var(--text-muted-color)', fontWeight: voice.listening ? 600 : 400 }}>
