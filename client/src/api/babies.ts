@@ -5,6 +5,7 @@ export interface Baby {
   name: string;
   dob: string;
   sex: 'male' | 'female';
+  avatar?: string;
   birthWeightG?: number;
   birthLengthCm?: number;
   birthHeadCircCm?: number;
@@ -16,6 +17,7 @@ export interface BabyInput {
   name: string;
   dob: string;
   sex: 'male' | 'female';
+  avatar?: string;
   birthWeightG?: number;
   birthLengthCm?: number;
   birthHeadCircCm?: number;

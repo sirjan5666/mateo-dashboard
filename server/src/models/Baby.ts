@@ -6,6 +6,8 @@ export interface IBaby {
   name: string;
   dob: Date;
   sex: 'male' | 'female';
+  // Chosen cartoon avatar key, e.g. "boy-01" / "girl-07"; optional (falls back to initials)
+  avatar?: string;
   birthWeightG?: number;
   birthLengthCm?: number;
   birthHeadCircCm?: number;
@@ -23,6 +25,7 @@ const babySchema = new Schema<IBaby>(
     // Stored as a UTC Date; age is always computed from dob at read time, never stored
     dob: { type: Date, required: true },
     sex: { type: String, enum: ['male', 'female'], required: true },
+    avatar: { type: String },
     birthWeightG: { type: Number },
     birthLengthCm: { type: Number },
     birthHeadCircCm: { type: Number },

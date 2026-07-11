@@ -5,6 +5,7 @@ import { deleteBaby } from '../../api/babies';
 import type { OverviewBaby } from '../../api/overview';
 import { ApiError } from '../../api/client';
 import { formatAge, formatDateIST } from '../../lib/age';
+import { avatarUrl } from '../../lib/avatars';
 import { upToDatePct } from '../../lib/vaccineStats';
 import { Card } from '../ui/Card';
 import { Pill } from '../ui/Pill';
@@ -23,6 +24,7 @@ export default function BabyCard({ baby, onDeleted }: BabyCardProps) {
   const { done, due, overdue } = baby.vaccines;
   const onTrackPct = upToDatePct(baby.vaccines);
   const initial = baby.name.trim().charAt(0).toUpperCase() || '🍼';
+  const avatarSrc = avatarUrl(baby.avatar);
 
   async function handleDelete() {
     if (!window.confirm(`Delete ${baby.name}'s profile? This removes all of their records and cannot be undone.`)) {
@@ -42,9 +44,13 @@ export default function BabyCard({ baby, onDeleted }: BabyCardProps) {
   return (
     <Card className="pop-hover flex flex-col p-5">
       <div className="flex items-start gap-3">
-        <span className="brand-gradient grid h-12 w-12 shrink-0 place-items-center rounded-2xl text-lg font-bold text-white">
-          {initial}
-        </span>
+        {avatarSrc ? (
+          <img src={avatarSrc} alt="" className="h-12 w-12 shrink-0 rounded-2xl object-cover shadow-soft" />
+        ) : (
+          <span className="brand-gradient grid h-12 w-12 shrink-0 place-items-center rounded-2xl text-lg font-bold text-white">
+            {initial}
+          </span>
+        )}
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
             <h3 className="truncate font-semibold text-stone-800">{baby.name}</h3>

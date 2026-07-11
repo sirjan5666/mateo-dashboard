@@ -23,6 +23,7 @@ import { addSleep } from '../api/sleep';
 import { updateNotificationPreferences, type NotificationLanguage } from '../api/notificationPrefs';
 import { ApiError } from '../api/client';
 import { ageInMonths, toDateInputValueIST, todayInputValueIST } from '../lib/age';
+import { avatarsForSex, avatarUrl } from '../lib/avatars';
 import { Card } from '../components/ui/Card';
 import { DatePicker } from '../components/ui/DatePicker';
 import { BrandTile } from '../components/ui/BrandTile';
@@ -115,6 +116,7 @@ export default function BabyOnboarding() {
   const [name, setName] = useState('');
   const [dob, setDob] = useState('');
   const [sex, setSex] = useState<'male' | 'female' | ''>('');
+  const [avatar, setAvatar] = useState('');
   const [birthWeightKg, setBirthWeightKg] = useState('');
   const [birthLengthCm, setBirthLengthCm] = useState('');
   const [birthHeadCircCm, setBirthHeadCircCm] = useState('');
@@ -186,6 +188,7 @@ export default function BabyOnboarding() {
           name: name.trim(),
           dob,
           sex,
+          avatar: avatar || undefined,
           birthWeightG: kgToGrams(birthWeightKg),
           birthLengthCm: parseOptionalNumber(birthLengthCm),
           birthHeadCircCm: parseOptionalNumber(birthHeadCircCm),
@@ -343,7 +346,7 @@ export default function BabyOnboarding() {
                     <button
                       key={val}
                       type="button"
-                      onClick={() => setSex(val)}
+                      onClick={() => { setSex(val); if (avatar && !avatarsForSex(val).includes(avatar)) setAvatar(''); }}
                       className="flex flex-1 items-center gap-3 rounded-xl border-2 border-stone-200 bg-white px-4 py-3.5 text-left transition-all hover:shadow-soft"
                       style={{ borderColor: active ? `var(--cat-${tone}-text)` : undefined, background: active ? `var(--cat-${tone}-bg)` : undefined }}
                     >
@@ -356,6 +359,35 @@ export default function BabyOnboarding() {
                 })}
               </div>
             </div>
+            {sex !== '' && (
+              <div>
+                <p className="mb-2 text-sm font-bold text-stone-800">Pick an avatar <span className="font-normal text-stone-400">· optional</span></p>
+                <div role="radiogroup" aria-label="Baby avatar" className="grid grid-cols-4 gap-2.5 sm:grid-cols-6">
+                  {avatarsForSex(sex).map((key) => {
+                    const active = avatar === key;
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        role="radio"
+                        aria-checked={active}
+                        aria-label={`Avatar ${key}`}
+                        onClick={() => setAvatar(active ? '' : key)}
+                        className="relative aspect-square overflow-hidden rounded-2xl border-2 bg-white transition-all hover:shadow-soft focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-violet-500/20"
+                        style={{ borderColor: active ? 'var(--primary)' : 'rgb(231 229 228)', transform: active ? 'translateY(-1px)' : undefined }}
+                      >
+                        <img src={avatarUrl(key) ?? undefined} alt="" className="h-full w-full object-cover" />
+                        {active && (
+                          <span aria-hidden="true" className="absolute right-1 top-1 grid h-5 w-5 place-items-center rounded-full text-white shadow-soft" style={{ background: 'var(--primary)' }}>
+                            <Check className="h-3 w-3" strokeWidth={3} />
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
             <div>
               <p className="mb-2 text-sm font-bold text-stone-800">Birth measurements <span className="font-normal text-stone-400">· optional, from your discharge summary</span></p>
               <div className="grid grid-cols-3 gap-3">

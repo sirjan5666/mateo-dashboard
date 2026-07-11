@@ -21,6 +21,7 @@ export interface OverviewBaby {
   name: string;
   dob: string;
   sex: 'male' | 'female';
+  avatar?: string;
   birthWeightG?: number;
   birthLengthCm?: number;
   birthHeadCircCm?: number;

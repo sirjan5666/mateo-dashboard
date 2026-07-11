@@ -51,6 +51,7 @@ import type { Appointment } from '../api/health';
 import { ApiError } from '../api/client';
 import { ageInMonths, formatAge, formatDateIST, greetingIST, toDateInputValueIST, todayInputValueIST } from '../lib/age';
 import { upToDatePct } from '../lib/vaccineStats';
+import { avatarUrl } from '../lib/avatars';
 import { useEntrance, useHeroParallax, prefersReducedMotion, celebrate } from '../lib/gsap';
 import { Skeleton } from '../components/ui/Skeleton';
 import { CountUp } from '../components/ui/CountUp';
@@ -433,22 +434,26 @@ function BabySwitcher({ babies, activeId, onSelect }: { babies: OverviewBaby[]; 
             }}
           >
             <span style={{ position: 'relative', flexShrink: 0 }}>
-              <span
-                aria-hidden="true"
-                style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: '50%',
-                  background: active ? 'var(--brand-gradient)' : 'var(--secondary)',
-                  color: active ? '#fff' : 'var(--muted-foreground)',
-                  display: 'grid',
-                  placeItems: 'center',
-                  fontWeight: 800,
-                  fontSize: '0.95rem',
-                }}
-              >
-                {b.name.charAt(0).toUpperCase()}
-              </span>
+              {avatarUrl(b.avatar) ? (
+                <img src={avatarUrl(b.avatar) ?? undefined} alt="" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover' }} />
+              ) : (
+                <span
+                  aria-hidden="true"
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: '50%',
+                    background: active ? 'var(--brand-gradient)' : 'var(--secondary)',
+                    color: active ? '#fff' : 'var(--muted-foreground)',
+                    display: 'grid',
+                    placeItems: 'center',
+                    fontWeight: 800,
+                    fontSize: '0.95rem',
+                  }}
+                >
+                  {b.name.charAt(0).toUpperCase()}
+                </span>
+              )}
               {b.vaccines.overdue > 0 && (
                 <span aria-hidden="true" style={{ position: 'absolute', top: -1, right: -1, width: 11, height: 11, borderRadius: '50%', backgroundColor: 'var(--status-overdue-text)', border: '2px solid var(--card)' }} />
               )}
@@ -991,7 +996,7 @@ function BabyProfileCard({ baby, growth }: { baby: OverviewBaby; growth: Growth 
               width: 54,
               height: 54,
               borderRadius: '50%',
-              background: 'var(--brand-gradient)',
+              background: avatarUrl(baby.avatar) ? 'var(--secondary)' : 'var(--brand-gradient)',
               border: '2.5px solid #ffffff',
               boxShadow: full ? '0 0 0 2.5px var(--cat-growth), 0 2px 8px rgba(124,92,252,0.35)' : '0 2px 8px rgba(124,92,252,0.35)',
               display: 'flex',
@@ -1001,9 +1006,14 @@ function BabyProfileCard({ baby, growth }: { baby: OverviewBaby; growth: Growth 
               fontWeight: 800,
               color: '#ffffff',
               flexShrink: 0,
+              overflow: 'hidden',
             }}
           >
-            {baby.name.charAt(0).toUpperCase()}
+            {avatarUrl(baby.avatar) ? (
+              <img src={avatarUrl(baby.avatar) ?? undefined} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            ) : (
+              baby.name.charAt(0).toUpperCase()
+            )}
           </div>
           <div style={{ minWidth: 0 }}>
             <h3 style={{ color: 'var(--foreground)', marginBottom: 2, fontSize: '1.125rem', fontWeight: 600 }}>{baby.name}</h3>
