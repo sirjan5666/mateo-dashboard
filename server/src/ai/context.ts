@@ -6,12 +6,7 @@ import { VaccineDose } from '../models/VaccineDose.js';
 import { SkinLog } from '../models/SkinLog.js';
 import { FoodLog } from '../models/FoodLog.js';
 import { SleepLog } from '../models/SleepLog.js';
-import { FeedLog } from '../models/FeedLog.js';
-import { DiaperLog } from '../models/DiaperLog.js';
-import { Allergy } from '../models/Allergy.js';
-import { SymptomLog } from '../models/SymptomLog.js';
 import { MilestoneAchievement } from '../models/MilestoneAchievement.js';
-import { SYMPTOMS } from '../health/symptoms.js';
 import { DoctorProfile } from '../models/DoctorProfile.js';
 import { User } from '../models/User.js';
 import { milestones } from '../milestones/milestones.js';
@@ -130,48 +125,6 @@ export async function buildBabyContext(baby: BabyLike): Promise<string> {
     const naps = sleep.filter((s) => s.kind === 'nap').length;
     if (naps) parts.push(`${naps} recent nap${naps === 1 ? '' : 's'} logged`);
     if (parts.length) lines.push(`Sleep: ${parts.join(', ')}.`);
-  }
-
-  // Known allergies — the assistant must NEVER suggest a food/ingredient the baby
-  // is allergic to, and should flag accidental exposure as worth a doctor's care.
-  const allergies = await Allergy.find({ babyId: baby._id }).sort({ createdAt: -1 });
-  if (allergies.length > 0) {
-    lines.push(
-      `KNOWN ALLERGIES (never suggest these or dishes containing them): ${allergies.map((a) => `${a.name} (${a.severity})`).join('; ')}.`,
-    );
-  }
-
-  // Recent milk feeds (0-6m) — descriptive, brand-neutral (IMS Act). Never used
-  // to recommend formula or any brand.
-  const feeds = await FeedLog.find({ babyId: baby._id }).sort({ loggedAt: -1, createdAt: -1 }).limit(10);
-  if (feeds.length > 0) {
-    const breast = feeds.filter((f) => f.kind === 'breast').length;
-    lines.push(`Recent milk feeds: ${feeds.length} logged (${breast} breastfeeds). Support breastfeeding; never suggest formula, bottles or brands.`);
-  }
-
-  // Recent diapers — wet count is a simple hydration signal (no diagnosis).
-  const diapers = await DiaperLog.find({ babyId: baby._id }).sort({ loggedAt: -1, createdAt: -1 }).limit(12);
-  if (diapers.length > 0) {
-    const wet = diapers.filter((d) => d.kind === 'wet' || d.kind === 'mixed').length;
-    lines.push(`Recent diapers: ${wet} of the last ${diapers.length} were wet — a rough hydration signal.`);
-  }
-
-  // Recent fever / symptom entries — descriptive context only. The deterministic
-  // red-flag gate still runs on every chat message before the model (hard rule 2).
-  const symptomLabel = new Map(SYMPTOMS.map((s) => [s.key, s.label]));
-  const symptomLogs = await SymptomLog.find({ babyId: baby._id }).sort({ loggedAt: -1, createdAt: -1 }).limit(3);
-  if (symptomLogs.length > 0) {
-    const items = symptomLogs
-      .map((s) => {
-        const bits = [
-          typeof s.temperatureC === 'number' ? `${s.temperatureC}°C` : '',
-          s.symptoms.map((k) => symptomLabel.get(k) ?? k).join(', '),
-        ].filter(Boolean);
-        return bits.join(' — ');
-      })
-      .filter(Boolean)
-      .join('; ');
-    if (items) lines.push(`Recent fever/symptom entries (newest first): ${items}. If the parent describes anything worrying, gently guide them to a pediatrician.`);
   }
 
   // Developmental milestones whose typical window has fully passed without being

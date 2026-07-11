@@ -19,11 +19,7 @@ import consultationsRouter from './routes/consultations.js';
 import referralsRouter from './routes/referrals.js';
 import communityRouter from './routes/community.js';
 import reportRouter from './routes/report.js';
-import symptomsRouter from './routes/symptoms.js';
 import medicinesRouter from './routes/medicines.js';
-import feedsRouter from './routes/feeds.js';
-import diapersRouter from './routes/diapers.js';
-import allergiesRouter from './routes/allergies.js';
 import insightsRouter from './routes/insights.js';
 import shopRouter from './routes/shop.js';
 import subscriptionRouter from './routes/subscription.js';
@@ -91,15 +87,8 @@ export function createApp() {
   app.use('/api', communityRouter);
   // Printable per-baby health report (owner-scoped)
   app.use('/api', reportRouter);
-  // Fever / symptom tracker (owner-scoped) with red-flag assessment
-  app.use('/api', symptomsRouter);
   // Medicine reminders — courses from prescriptions + dose adherence
   app.use('/api', medicinesRouter);
-  // Feeds (milk) + diaper trackers (owner-scoped)
-  app.use('/api', feedsRouter);
-  app.use('/api', diapersRouter);
-  // Allergy profile (owner-scoped)
-  app.use('/api', allergiesRouter);
   app.use('/api', insightsRouter);
   // GET/POST /api/babies/:id/chat — red-flag gate runs before any model call
   app.use('/api', chatRouter);

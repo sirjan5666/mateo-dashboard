@@ -3,14 +3,10 @@ import { api } from './client';
 export type InsightTracker =
   | 'growth'
   | 'food'
-  | 'feeds'
   | 'sleep'
-  | 'diapers'
-  | 'symptoms'
   | 'milestones'
   | 'skin'
-  | 'vaccines'
-  | 'allergies';
+  | 'vaccines';
 
 export type InsightStatus = 'ok' | 'watch' | 'doctor';
 

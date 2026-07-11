@@ -6,10 +6,6 @@ import { GrowthLog } from '../models/GrowthLog.js';
 import { SkinLog } from '../models/SkinLog.js';
 import { FoodLog } from '../models/FoodLog.js';
 import { SleepLog } from '../models/SleepLog.js';
-import { FeedLog } from '../models/FeedLog.js';
-import { DiaperLog } from '../models/DiaperLog.js';
-import { Allergy } from '../models/Allergy.js';
-import { SymptomLog } from '../models/SymptomLog.js';
 import { MedicineDoseLog } from '../models/MedicineDoseLog.js';
 import { MedicineCourse } from '../models/MedicineCourse.js';
 import { MilestoneAchievement } from '../models/MilestoneAchievement.js';
@@ -57,10 +53,6 @@ export async function eraseUserData(userId: string): Promise<void> {
     SkinLog.deleteMany({ babyId: { $in: babyIds } }),
     FoodLog.deleteMany({ babyId: { $in: babyIds } }),
     SleepLog.deleteMany({ babyId: { $in: babyIds } }),
-    FeedLog.deleteMany({ babyId: { $in: babyIds } }),
-    DiaperLog.deleteMany({ babyId: { $in: babyIds } }),
-    Allergy.deleteMany({ babyId: { $in: babyIds } }),
-    SymptomLog.deleteMany({ babyId: { $in: babyIds } }),
     MedicineDoseLog.deleteMany({ babyId: { $in: babyIds } }),
     MedicineCourse.deleteMany({ babyId: { $in: babyIds } }),
     MilestoneAchievement.deleteMany({ babyId: { $in: babyIds } }),

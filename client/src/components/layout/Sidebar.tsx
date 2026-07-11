@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { NavLink, useLocation } from 'react-router';
 import { useReveal } from '../../lib/gsap';
-import { Activity, Apple, Baby, BookText, CalendarClock, Droplets, FileText, Gift, LayoutDashboard, LogOut, MessageCircleHeart, MessagesSquare, Milk, Moon, Package, PanelLeft, PanelLeftClose, Pill, Settings, ShieldAlert, ShoppingBag, Star, Stethoscope, Syringe, Thermometer, Users } from 'lucide-react';
+import { Activity, Apple, BookText, CalendarClock, Droplets, FileText, Gift, LayoutDashboard, LogOut, MessageCircleHeart, MessagesSquare, Moon, Package, PanelLeft, PanelLeftClose, Pill, Settings, ShoppingBag, Star, Stethoscope, Syringe, Users } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useAuth } from '../../auth/context';
 import { useT } from '../../i18n/context';
@@ -17,12 +17,8 @@ const TRACKERS: { icon: LucideIcon; label: string; seg: string; color: string }[
   { icon: Syringe, label: 'tracker.vaccines', seg: 'vaccines', color: 'var(--cat-vaccine)' },
   { icon: Activity, label: 'tracker.growth', seg: 'growth', color: 'var(--cat-growth)' },
   { icon: Apple, label: 'tracker.food', seg: 'food', color: 'var(--cat-food)' },
-  { icon: Milk, label: 'tracker.feeds', seg: 'feeds', color: '#2f7fd6' },
   { icon: Moon, label: 'tracker.sleep', seg: 'sleep', color: 'var(--cat-sleep)' },
-  { icon: Baby, label: 'tracker.diapers', seg: 'diapers', color: '#cc8a2b' },
-  { icon: Thermometer, label: 'tracker.symptoms', seg: 'symptoms', color: '#e0556b' },
   { icon: Pill, label: 'tracker.medicines', seg: 'medicines', color: '#0891b2' },
-  { icon: ShieldAlert, label: 'tracker.allergies', seg: 'allergies', color: '#dc4d4d' },
   { icon: Droplets, label: 'tracker.skin', seg: 'skin', color: 'var(--cat-skin)' },
   { icon: Star, label: 'tracker.milestones', seg: 'milestones', color: 'var(--cat-milestone)' },
   { icon: FileText, label: 'tracker.records', seg: 'records', color: 'var(--cat-record)' },

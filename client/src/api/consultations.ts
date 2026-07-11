@@ -89,11 +89,7 @@ export interface BabySnapshot {
     weightPercentile: number | null;
     points: { loggedAt: string; weightG: number }[];
   };
-  symptoms: { loggedAt: string; temperatureC: number | null; level: 'ok' | 'watch' | 'urgent' }[];
-  feeds: { feedsToday: number; breastMinToday: number };
-  diapers: { wetToday: number; dirtyToday: number };
   milestones: string[];
-  allergies: { name: string; severity: string; reaction: string | null }[];
 }
 export function getBabySnapshot(id: string) {
   return api<BabySnapshot>(`/consultations/${id}/baby-snapshot`);

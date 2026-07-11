@@ -34,10 +34,6 @@ export interface BabyReport {
   skin: { id: string; loggedAt: string; area: string; description: string; severity: string }[];
   food: { id: string; loggedAt: string; mealType: string; foodName: string; reaction: string; isNewFood: boolean }[];
   sleep: { id: string; loggedAt: string; kind: string; durationMin: number; quality?: string }[];
-  feeds: { id: string; loggedAt: string; kind: string; side: string | null; durationMin: number | null; amountMl: number | null }[];
-  diapers: { id: string; loggedAt: string; kind: string; consistency: string | null; color: string | null }[];
-  allergies: { id: string; name: string; severity: string; reaction: string | null }[];
-  symptoms: { id: string; loggedAt: string; temperatureC: number | null; symptoms: string[]; notes: string | null }[];
   milestones: { id: string; milestoneId: string; label: string; achievedOn: string }[];
   records: { id: string; recordType: string; title: string; recordDate: string; provider: string | null; notes: string | null }[];
   appointments: { id: string; scheduledAt: string; reason: string; completed: boolean }[];
