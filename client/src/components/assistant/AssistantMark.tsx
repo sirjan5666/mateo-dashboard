@@ -1,10 +1,9 @@
 import type { CSSProperties } from 'react';
 
-// Dai Maa's mark — her portrait avatar (a warm, waving grandmother). Served from
-// /public. `variant="tile"` sits her on a rounded-square chip with a soft brand
-// shadow (floating launcher / chat header); `variant="plain"` is a simple round
-// avatar for inline use. The image is framed to her face via object-position so
-// she still reads well at small sizes.
+// Dai Maa's mark — her portrait avatar (a warm, waving grandmother), served from
+// /public. Shown as a square with a gently rounded corner (never a circle), the
+// full illustration, no crop/zoom. `variant="tile"` adds a soft brand shadow (for
+// the floating launcher / chat header); `variant="plain"` is the bare square.
 const SRC = '/dai-maa.png';
 
 export function AssistantMark({
@@ -20,15 +19,16 @@ export function AssistantMark({
 }) {
   return (
     <span
-      aria-hidden="true"
+      role="img"
+      aria-label="Dai Maa"
       className={className}
       style={{
         display: 'inline-block',
         overflow: 'hidden',
         width: size,
         height: size,
-        borderRadius: variant === 'tile' ? size * 0.32 : '50%',
-        background: 'var(--brand-gradient)',
+        borderRadius: Math.max(3, size * 0.18), // minor corner radius — square, not a circle
+        backgroundColor: '#ece3fb',
         boxShadow: variant === 'tile' ? '0 6px 16px -5px rgba(124,92,252,0.55), inset 0 1px 0 rgba(255,255,255,0.45)' : undefined,
         flexShrink: 0,
         ...style,
@@ -41,7 +41,7 @@ export function AssistantMark({
         height={size}
         loading="lazy"
         decoding="async"
-        style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 8%' }}
+        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
       />
     </span>
   );
