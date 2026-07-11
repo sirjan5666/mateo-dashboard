@@ -401,7 +401,7 @@ export default function Chat() {
               </>
             ) : messages.length === 0 ? (
               <Card className="p-6 text-center">
-                <img src="/owl-assistant.png" alt={`${ASSISTANT_NAME} the owl`} className="animate-float mx-auto h-36 w-auto" />
+                <AssistantMark variant="tile" size={96} className="animate-float mx-auto" />
                 <h2 className="mt-2 font-display text-xl font-semibold text-stone-800">Ask anything about {baby?.name ?? 'your baby'}’s care</h2>
                 <p className="mx-auto mt-1 max-w-sm text-sm text-stone-500">
                   I use your baby’s age and tracker data to answer. I’m not a doctor — I’ll always point you to one

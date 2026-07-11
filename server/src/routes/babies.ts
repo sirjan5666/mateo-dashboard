@@ -32,6 +32,11 @@ const createBabySchema = z.object({
     .refine((d) => d.getTime() >= MIN_DOB.getTime(), 'Date of birth must be on or after 2000-01-01')
     .refine((d) => d.getTime() <= Date.now(), 'Date of birth cannot be in the future'),
   sex: z.enum(['male', 'female']),
+  // Avatar key like "boy-01" / "girl-12"; the client picks from a fixed catalog
+  avatar: z
+    .string()
+    .regex(/^(boy|girl)-\d{2}$/, 'Invalid avatar')
+    .optional(),
   birthWeightG: z
     .number()
     .int()
@@ -53,6 +58,7 @@ function publicBaby(baby: IBaby & { id: string }) {
     name: baby.name,
     dob: baby.dob,
     sex: baby.sex,
+    avatar: baby.avatar,
     birthWeightG: baby.birthWeightG,
     birthLengthCm: baby.birthLengthCm,
     birthHeadCircCm: baby.birthHeadCircCm,

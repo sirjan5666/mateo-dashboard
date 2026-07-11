@@ -6,6 +6,7 @@ import { createBaby, deleteBaby, getBaby, updateBaby } from '../api/babies';
 import type { BabyInput } from '../api/babies';
 import { ApiError } from '../api/client';
 import { toDateInputValueIST, todayInputValueIST } from '../lib/age';
+import { avatarsForSex, avatarUrl } from '../lib/avatars';
 import { Card } from '../components/ui/Card';
 import { DatePicker } from '../components/ui/DatePicker';
 import { BrandTile } from '../components/ui/BrandTile';
@@ -77,6 +78,7 @@ export default function BabyForm() {
   const [name, setName] = useState('');
   const [dob, setDob] = useState('');
   const [sex, setSex] = useState<'male' | 'female' | ''>('');
+  const [avatar, setAvatar] = useState('');
   const [birthWeightKg, setBirthWeightKg] = useState('');
   const [birthLengthCm, setBirthLengthCm] = useState('');
   const [birthHeadCircCm, setBirthHeadCircCm] = useState('');
@@ -101,6 +103,7 @@ export default function BabyForm() {
         setName(baby.name);
         setDob(toDateInputValueIST(baby.dob));
         setSex(baby.sex);
+        setAvatar(baby.avatar ?? '');
         const w = baby.birthWeightG !== undefined ? String(baby.birthWeightG / 1000) : '';
         const l = baby.birthLengthCm !== undefined ? String(baby.birthLengthCm) : '';
         const h = baby.birthHeadCircCm !== undefined ? String(baby.birthHeadCircCm) : '';
@@ -122,6 +125,15 @@ export default function BabyForm() {
 
   const canSubmit = name.trim() !== '' && dob !== '' && sex !== '';
 
+  // Switching sex swaps the avatar catalog, so drop a selection that no longer
+  // belongs to the chosen sex (boy avatars aren't offered for a girl, etc.).
+  function chooseSex(next: 'male' | 'female') {
+    setSex(next);
+    if (avatar && !avatarsForSex(next).includes(avatar)) setAvatar('');
+  }
+
+  const avatarChoices = avatarsForSex(sex);
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (sex === '') {
@@ -134,6 +146,7 @@ export default function BabyForm() {
       name: name.trim(),
       dob,
       sex,
+      avatar: avatar || undefined,
       birthWeightG: kgToGrams(birthWeightKg),
       birthLengthCm: parseOptionalNumber(birthLengthCm),
       birthHeadCircCm: parseOptionalNumber(birthHeadCircCm),
@@ -206,9 +219,50 @@ export default function BabyForm() {
               <div>
                 <p className="mb-2 text-sm font-bold text-stone-800">Sex</p>
                 <div role="radiogroup" aria-label="Sex" className="flex gap-3">
-                  <SexCard active={sex === 'female'} tone="skin" label="Girl" sublabel="She / her" onClick={() => setSex('female')} />
-                  <SexCard active={sex === 'male'} tone="sleep" label="Boy" sublabel="He / him" onClick={() => setSex('male')} />
+                  <SexCard active={sex === 'female'} tone="skin" label="Girl" sublabel="She / her" onClick={() => chooseSex('female')} />
+                  <SexCard active={sex === 'male'} tone="sleep" label="Boy" sublabel="He / him" onClick={() => chooseSex('male')} />
                 </div>
+              </div>
+
+              {/* Avatar picker — the catalog follows the chosen sex (girls / boys) */}
+              <div>
+                <div className="mb-2 flex items-baseline justify-between gap-2">
+                  <p className="text-sm font-bold text-stone-800">Choose an avatar</p>
+                  <span className="text-[0.72rem] text-stone-500">Optional</span>
+                </div>
+                {sex === '' ? (
+                  <p className="rounded-xl border border-dashed border-stone-300 bg-stone-50/70 px-4 py-3 text-[0.8rem] text-stone-500">
+                    Pick Girl or Boy above to see avatar options.
+                  </p>
+                ) : (
+                  <div role="radiogroup" aria-label="Baby avatar" className="grid grid-cols-4 gap-2.5 sm:grid-cols-6">
+                    {avatarChoices.map((key) => {
+                      const active = avatar === key;
+                      return (
+                        <button
+                          key={key}
+                          type="button"
+                          role="radio"
+                          aria-checked={active}
+                          aria-label={`Avatar ${key}`}
+                          onClick={() => setAvatar(active ? '' : key)}
+                          className="relative aspect-square overflow-hidden rounded-2xl border-2 bg-white transition-all hover:shadow-soft focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-violet-500/20"
+                          style={{
+                            borderColor: active ? 'var(--primary)' : 'rgb(231 229 228)',
+                            transform: active ? 'translateY(-1px)' : undefined,
+                          }}
+                        >
+                          <img src={avatarUrl(key) ?? undefined} alt="" className="h-full w-full object-cover" />
+                          {active && (
+                            <span aria-hidden="true" className="absolute right-1 top-1 grid h-5 w-5 place-items-center rounded-full text-white shadow-soft" style={{ background: 'var(--primary)' }}>
+                              <Check className="h-3 w-3" strokeWidth={3} />
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               {/* Optional measurements, tucked behind a calm toggle */}
