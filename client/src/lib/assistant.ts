@@ -1,8 +1,8 @@
-// Tara — Mateo's baby-care AI assistant. One place for her name + the rotating
+// Dai Maa — Mateo's baby-care AI assistant. One place for her name + the rotating
 // prompts so the dashboard ask-bar, the floating launcher and the chat page all
 // stay in sync. Questions are brand-neutral and breastfeeding-first (never
 // formula), and age-agnostic so they fit any baby.
-export const ASSISTANT_NAME = 'Tara';
+export const ASSISTANT_NAME = 'Dai Maa';
 export const ASSISTANT_BY = 'by Mateo';
 export const ASSISTANT_TAGLINE = 'a gentle guide, never a diagnosis';
 
@@ -31,7 +31,7 @@ export const QUICK_CHIPS = [
 // Build the chat deep-link that hands a question straight into a fresh thread.
 // `speak` (set when the question was asked by voice) makes the chat read the
 // reply aloud.
-export function askTaraLink(babyId: string, question: string, opts?: { speak?: boolean }): string {
+export function askAssistantLink(babyId: string, question: string, opts?: { speak?: boolean }): string {
   const base = `/babies/${babyId}/chat?q=${encodeURIComponent(question.trim())}`;
   return opts?.speak ? `${base}&speak=1` : base;
 }

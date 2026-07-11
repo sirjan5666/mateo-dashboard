@@ -3,13 +3,13 @@ import { useLocation, useNavigate } from 'react-router';
 import { Mic, Send, Sparkles, X } from 'lucide-react';
 import { listBabies } from '../../api/babies';
 import type { Baby } from '../../api/babies';
-import { ASSISTANT_BY, ASSISTANT_NAME, QUICK_CHIPS, SUGGESTED_QUESTIONS, askTaraLink } from '../../lib/assistant';
+import { ASSISTANT_BY, ASSISTANT_NAME, QUICK_CHIPS, SUGGESTED_QUESTIONS, askAssistantLink } from '../../lib/assistant';
 import { useTypewriter } from '../../lib/useTypewriter';
 import { useVoiceInput } from '../../lib/useVoiceInput';
 import { AssistantMark } from './AssistantMark';
 import { cn } from '../../lib/cn';
 
-// Tara, on every page: a floating launcher (bottom-right) that opens a small ask
+// Dai Maa, on every page: a floating launcher (bottom-right) that opens a small ask
 // panel and routes the question into a fresh chat thread for the active baby.
 export function AssistantLauncher() {
   const location = useLocation();
@@ -80,7 +80,7 @@ export function AssistantLauncher() {
     const saved = localStorage.getItem('mateo:activeBaby');
     const target = babies?.find((b) => b.id === saved) ?? activeBaby;
     if (!q || !target) return;
-    navigate(askTaraLink(target.id, q));
+    navigate(askAssistantLink(target.id, q));
     setOpen(false);
     setInput('');
   }
@@ -96,7 +96,7 @@ export function AssistantLauncher() {
         >
           {/* Header on the brand gradient */}
           <div className="relative flex items-center gap-3 px-4 py-3.5" style={{ background: 'linear-gradient(135deg, #6d4ff0 0%, #6b48ef 55%, #8b35d8 100%)' }}>
-            <AssistantMark variant="tile" size={40} />
+            <AssistantMark variant="tile" circle size={40} />
             <div className="min-w-0 flex-1">
               <p className="font-display text-base font-semibold leading-tight text-white">{ASSISTANT_NAME}</p>
               <p className="text-[0.7rem] font-medium text-white/80">{ASSISTANT_BY} · {activeBaby.name}</p>
@@ -192,18 +192,19 @@ export function AssistantLauncher() {
         aria-expanded={open}
         aria-label={open ? `Close ${ASSISTANT_NAME}` : `Ask ${ASSISTANT_NAME}`}
         className={cn(
-          'pop-hover fixed bottom-5 right-4 z-40 inline-flex items-center gap-2 rounded-full p-2 shadow-lift transition-colors sm:right-6',
-          open ? 'bg-stone-900/90 text-white' : 'bg-white text-stone-800',
+          'pop-hover fixed bottom-5 right-4 z-40 flex items-center rounded-full shadow-lift transition-colors sm:right-6',
+          open ? 'h-12 w-12 justify-center bg-stone-900/90 text-white' : 'gap-2.5 border border-stone-200/80 bg-white py-1.5 pl-1.5 pr-4 text-left',
         )}
       >
         {open ? (
-          <span className="grid h-9 w-9 place-items-center">
-            <X className="h-5 w-5" />
-          </span>
+          <X className="h-5 w-5" />
         ) : (
           <>
-            <AssistantMark variant="tile" size={38} />
-            <span className="hidden pr-1.5 text-sm font-bold sm:inline">Ask {ASSISTANT_NAME}</span>
+            <AssistantMark circle size={38} />
+            <span className="leading-tight">
+              <span className="block text-[0.72rem] font-bold text-stone-800">Need help?</span>
+              <span className="block text-sm font-semibold" style={{ color: 'var(--brand-purple-deep)' }}>Ask {ASSISTANT_NAME} →</span>
+            </span>
           </>
         )}
       </button>

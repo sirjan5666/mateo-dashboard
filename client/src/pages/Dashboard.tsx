@@ -57,7 +57,7 @@ import { CountUp } from '../components/ui/CountUp';
 import { AssistantMark } from '../components/assistant/AssistantMark';
 import { useTypewriter } from '../lib/useTypewriter';
 import { useVoiceInput } from '../lib/useVoiceInput';
-import { ASSISTANT_NAME, QUICK_CHIPS, SUGGESTED_QUESTIONS, askTaraLink } from '../lib/assistant';
+import { ASSISTANT_NAME, QUICK_CHIPS, SUGGESTED_QUESTIONS, askAssistantLink } from '../lib/assistant';
 
 type StatusType = 'on-track' | 'due-soon' | 'overdue' | 'info';
 
@@ -324,7 +324,7 @@ export default function Dashboard() {
           first-2000-days arc. Pure props — works for locked accounts too. */}
       <BabyJourneyCard baby={baby} />
       {!subscribed && <SubscribeBanner />}
-      {subscribed && <AskTaraBar babyId={baby.id} />}
+      {subscribed && <AskAssistantBar babyId={baby.id} />}
 
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[1fr_312px]">
         <div className="flex flex-col gap-4">
@@ -394,7 +394,7 @@ function SubscribeBanner() {
             <Sparkles className="h-3 w-3" />
             The Mateo plan
           </p>
-          <p className="mt-1 text-[1.05rem] font-extrabold leading-snug">Unlock every tracker, Tara AI and the health report</p>
+          <p className="mt-1 text-[1.05rem] font-extrabold leading-snug">Unlock every tracker, Dai Maa AI and the health report</p>
           <p className="mt-0.5 text-sm text-white/85">Your doctor stays free — the full toolkit is one small step away.</p>
         </div>
         <span className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-white px-4 py-2.5 text-sm font-bold text-violet-700">
@@ -1101,22 +1101,22 @@ function MilestonesCard({ babyId, milestones }: { babyId: string; milestones: Mi
   );
 }
 
-// Ask Tara — the dashboard's AI front door, a big centred search bar (sits right
+// Ask Dai Maa — the dashboard's AI front door, a big centred search bar (sits right
 // under the hero). A real input whose placeholder types itself through rotating
 // baby-care questions; submitting (or a chip) opens a fresh chat thread.
-function AskTaraBar({ babyId }: { babyId: string }) {
+function AskAssistantBar({ babyId }: { babyId: string }) {
   const navigate = useNavigate();
   const [input, setInput] = useState('');
   const typed = useTypewriter(SUGGESTED_QUESTIONS);
   const voice = useVoiceInput((text) => setInput((p) => (p ? `${p} ${text}` : text)));
   function ask(question: string) {
     const q = question.trim();
-    if (q) navigate(askTaraLink(babyId, q));
+    if (q) navigate(askAssistantLink(babyId, q));
   }
   return (
     <div data-entrance="card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0.75rem 0 0.25rem' }}>
       <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, marginBottom: '0.95rem' }}>
-        <AssistantMark size={26} />
+        <AssistantMark size={34} />
         <h2 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--foreground)', lineHeight: 1.1 }}>
           Ask{' '}
           <span style={{ background: 'linear-gradient(90deg, #7c5cfc, #9b46ee)', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }}>{ASSISTANT_NAME}</span>
@@ -1125,10 +1125,10 @@ function AskTaraBar({ babyId }: { babyId: string }) {
 
       <form onSubmit={(e) => { e.preventDefault(); ask(input); }} style={{ width: '100%', maxWidth: 680 }}>
         <div
-          className="ask-tara-box"
+          className="ask-assistant-box"
           style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#ffffff', borderRadius: 18, padding: '9px 9px 9px 18px' }}
         >
-          <AssistantMark size={22} />
+          <AssistantMark size={30} />
           <div style={{ position: 'relative', flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', height: 28 }}>
             {!input && (
               <span aria-hidden="true" style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', overflow: 'hidden', whiteSpace: 'nowrap', pointerEvents: 'none', fontSize: '1rem', color: voice.listening ? 'var(--status-overdue-text)' : 'var(--text-muted-color)', fontWeight: voice.listening ? 600 : 400 }}>
@@ -1158,7 +1158,7 @@ function AskTaraBar({ babyId }: { babyId: string }) {
           <button
             type="submit"
             disabled={!input.trim()}
-            aria-label="Ask Tara"
+            aria-label={`Ask ${ASSISTANT_NAME}`}
             className="pop-hover"
             style={{ display: 'grid', placeItems: 'center', width: 44, height: 44, borderRadius: 14, background: 'var(--brand-gradient)', color: '#fff', flexShrink: 0, opacity: input.trim() ? 1 : 0.55 }}
           >
