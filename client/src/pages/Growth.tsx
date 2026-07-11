@@ -5,6 +5,8 @@ import { Activity, ArrowLeft, Info, Trash2, TrendingUp } from 'lucide-react';
 import { gsap, prefersReducedMotion } from '../lib/gsap';
 import { addGrowthLog, deleteGrowthLog, getGrowth } from '../api/growth';
 import type { Growth, Indicator } from '../api/growth';
+import { getJourney, type Journey } from '../api/journey';
+import { JourneyNowCard } from '../components/journey/JourneyNowCard';
 import { ApiError } from '../api/client';
 import { formatAge, formatDateIST, toDateInputValueIST, todayInputValueIST } from '../lib/age';
 import { Card } from '../components/ui/Card';
@@ -39,6 +41,7 @@ function metricText(log: { metrics: Growth['logs'][number]['metrics'] }, indicat
 export default function Growth() {
   const { id } = useParams();
   const [data, setData] = useState<Growth | null>(null);
+  const [journey, setJourney] = useState<Journey | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [indicator, setIndicator] = useState<Indicator>('weight');
 
@@ -69,6 +72,22 @@ export default function Growth() {
       })
       .catch((err: unknown) => {
         if (!cancelled) setError(err instanceof ApiError ? err.message : 'Something went wrong, please try again');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+
+  // Age-driven journey band — best-effort; the chart stands on its own if it fails.
+  useEffect(() => {
+    if (id === undefined) return;
+    let cancelled = false;
+    getJourney(id)
+      .then((j) => {
+        if (!cancelled) setJourney(j);
+      })
+      .catch(() => {
+        /* non-fatal — just hide the band */
       });
     return () => {
       cancelled = true;
@@ -169,6 +188,10 @@ export default function Growth() {
       />
 
       {error && <Card className="mt-5 border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{error}</Card>}
+
+      {/* Age-driven journey band — the expected growth snapshot for this baby's age,
+          so the page shows what to look for, not just a blank form. */}
+      {journey && <JourneyNowCard journey={journey} focus="growth" accent="growth" babyName={baby?.name} className="mt-5" />}
 
       {data === null ? (
         <GrowthSkeleton />

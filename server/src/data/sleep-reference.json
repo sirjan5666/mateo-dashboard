@@ -1,0 +1,16 @@
+{
+  "meta": {
+    "name": "Mateo Sleep Reference (total sleep by age)",
+    "version": "0.1-draft",
+    "status": "REQUIRES PEDIATRICIAN SIGN-OFF BEFORE LAUNCH",
+    "source": "AAP-endorsed AASM consensus recommendations on sleep duration (0-5y), as summarised in the First 2,000 Days journey document. Total sleep per 24 hours, including naps.",
+    "units": "months_after_birth; hours per 24h",
+    "notes": "Typical ranges for orientation, NOT targets or a diagnosis. Every baby is different — a settled, thriving baby a little outside the range is usually fine. Share persistent concerns with your pediatrician."
+  },
+  "bands": [
+    { "label": "Newborn", "ageStartMonth": 0, "ageEndMonth": 4, "minHours": 14, "maxHours": 17, "note": "In short stretches across day and night — a fragmented pattern is completely normal." },
+    { "label": "Infant", "ageStartMonth": 4, "ageEndMonth": 12, "minHours": 12, "maxHours": 16, "note": "Including naps; longer night stretches gradually emerge." },
+    { "label": "Toddler", "ageStartMonth": 12, "ageEndMonth": 36, "minHours": 11, "maxHours": 14, "note": "Usually across a night plus one or two daytime naps." },
+    { "label": "Preschool", "ageStartMonth": 36, "ageEndMonth": 72, "minHours": 10, "maxHours": 13, "note": "Often a single nap that drops away over time." }
+  ]
+}

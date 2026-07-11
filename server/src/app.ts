@@ -21,6 +21,8 @@ import communityRouter from './routes/community.js';
 import reportRouter from './routes/report.js';
 import medicinesRouter from './routes/medicines.js';
 import insightsRouter from './routes/insights.js';
+import notificationPrefsRouter from './routes/notificationPrefs.js';
+import journeyRouter from './routes/journey.js';
 import shopRouter from './routes/shop.js';
 import subscriptionRouter from './routes/subscription.js';
 import dosingRouter from './routes/dosing.js';
@@ -90,6 +92,10 @@ export function createApp() {
   // Medicine reminders — courses from prescriptions + dose adherence
   app.use('/api', medicinesRouter);
   app.use('/api', insightsRouter);
+  // Per-parent notification delivery preferences (channels, time, language, mutes)
+  app.use('/api', notificationPrefsRouter);
+  // First 2,000 Days journey: age-driven timeline slice per baby (owner-scoped)
+  app.use('/api', journeyRouter);
   // GET/POST /api/babies/:id/chat — red-flag gate runs before any model call
   app.use('/api', chatRouter);
   // Shop: Mateo + Neucomed catalog, cart checkout (Razorpay), orders + admin

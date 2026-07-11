@@ -3,6 +3,8 @@ import { Link, useParams } from 'react-router';
 import { ArrowLeft, Check, ShieldCheck, Star } from 'lucide-react';
 import { listMilestones, markMilestone, unmarkMilestone } from '../api/milestones';
 import type { MilestoneItem, MilestoneStatus, MilestonesResponse } from '../api/milestones';
+import { getJourney, type Journey } from '../api/journey';
+import { JourneyNowCard } from '../components/journey/JourneyNowCard';
 import { ApiError } from '../api/client';
 import { formatDateIST, todayInputValueIST } from '../lib/age';
 import { Card } from '../components/ui/Card';
@@ -30,6 +32,7 @@ function windowText(start: number, end: number): string {
 export default function Milestones() {
   const { id } = useParams();
   const [data, setData] = useState<MilestonesResponse | null>(null);
+  const [journey, setJourney] = useState<Journey | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
 
@@ -47,6 +50,22 @@ export default function Milestones() {
       })
       .catch((err: unknown) => {
         if (!cancelled) setError(err instanceof ApiError ? err.message : 'Something went wrong, please try again');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+
+  // The age-driven journey band — best-effort; the checklist stands on its own if it fails.
+  useEffect(() => {
+    if (id === undefined) return;
+    let cancelled = false;
+    getJourney(id)
+      .then((j) => {
+        if (!cancelled) setJourney(j);
+      })
+      .catch(() => {
+        /* non-fatal — just hide the band */
       });
     return () => {
       cancelled = true;
@@ -104,6 +123,10 @@ export default function Milestones() {
       />
 
       {error && <Card className="mt-5 border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{error}</Card>}
+
+      {/* Age-driven journey band — this month's developmental checkpoint, from the
+          First 2,000 Days timeline. Makes the page current even between visits. */}
+      {journey && <JourneyNowCard journey={journey} focus="milestone" accent="milestone" className="mt-5" />}
 
       {/* Progress */}
       <div className="mt-5">

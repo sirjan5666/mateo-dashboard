@@ -61,6 +61,37 @@ function Segmented<T extends string>({
   );
 }
 
+// The typical-sleep-for-age band + a gentle read on how logging compares. Never a
+// target: outside the range is framed calmly, with a nudge to a pediatrician only
+// if it feels off (CLAUDE.md — patterns, not pressure).
+function ExpectedSleepCard({ reference, avgMinutes }: { reference: NonNullable<SleepResponse['reference']>; avgMinutes: number }) {
+  const minMin = reference.minHours * 60;
+  const maxMin = reference.maxHours * 60;
+  const hasAvg = avgMinutes > 0;
+  const status: 'in' | 'under' | 'over' | 'none' = !hasAvg ? 'none' : avgMinutes < minMin ? 'under' : avgMinutes > maxMin ? 'over' : 'in';
+
+  const line: Record<typeof status, string> = {
+    none: 'Log a nap or a night to see how your baby compares to what’s typical.',
+    in: `Based on what you’ve logged (${formatDuration(avgMinutes)}/day), ${reference.label.toLowerCase()} sleep is right in the typical range. 🌙`,
+    under: `You’ve logged about ${formatDuration(avgMinutes)}/day, a little under the typical range. Every baby is different — if it feels off, mention it to your pediatrician.`,
+    over: `You’ve logged about ${formatDuration(avgMinutes)}/day, a touch over the typical range — often just a growth spurt or busy days.`,
+  };
+
+  return (
+    <Card className="mt-4 p-5" style={{ backgroundColor: 'var(--cat-sleep-bg)' }}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Moon className="h-5 w-5" style={{ color: 'var(--cat-sleep-text)' }} />
+          <h2 className="font-bold text-stone-900">Typical sleep now · {reference.label}</h2>
+        </div>
+        <Pill tone="violet">{reference.minHours}–{reference.maxHours} h a day</Pill>
+      </div>
+      <p className="mt-2 text-sm text-stone-700">{reference.note}</p>
+      <p className="mt-2 rounded-lg bg-white/70 px-3 py-2 text-sm text-stone-700">{line[status]}</p>
+    </Card>
+  );
+}
+
 function StatTile({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex-1 rounded-2xl px-4 py-3" style={{ backgroundColor: 'var(--cat-sleep-bg)' }}>
@@ -194,6 +225,10 @@ export default function Sleep() {
           </Card>
         )}
       </div>
+
+      {/* Age-driven expectation: typical total sleep for this age, so the tracker
+          shows what's normal — gently — even before much is logged. */}
+      {data?.reference && <ExpectedSleepCard reference={data.reference} avgMinutes={summary?.avgPerDayMinutes ?? 0} />}
 
       {id && logs !== null && <TrackerInsight babyId={id} tracker="sleep" hasData={logs.length > 0} signature={logs.length} className="mt-5" />}
 

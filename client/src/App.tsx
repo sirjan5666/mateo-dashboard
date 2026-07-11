@@ -12,6 +12,7 @@ import Dashboard from './pages/Dashboard';
 import Subscribe from './pages/Subscribe';
 import { RequireSubscribed } from './components/subscription/RequireSubscribed';
 import BabyForm from './pages/BabyForm';
+import BabyOnboarding from './pages/BabyOnboarding';
 import Vaccines from './pages/Vaccines';
 import Skin from './pages/Skin';
 import Food from './pages/Food';
@@ -159,7 +160,7 @@ function AppRoutes() {
     <Routes>
       <Route element={<AppShell />}>
         <Route path="/" element={isAdmin ? <AdminHome /> : <Dashboard />} />
-        <Route path="/babies/new" element={<BabyForm />} />
+        <Route path="/babies/new" element={<BabyOnboarding />} />
         <Route path="/babies/:id/edit" element={<BabyForm />} />
         {/* Paid features — trackers, Tara chat and the report sit behind the plan.
             Unsubscribed parents land on /subscribe; the server 402s the APIs too. */}

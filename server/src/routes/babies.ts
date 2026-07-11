@@ -40,6 +40,8 @@ const createBabySchema = z.object({
     .optional(),
   birthLengthCm: z.number().min(20, 'Birth length should be between 20 cm and 70 cm').max(70, 'Birth length should be between 20 cm and 70 cm').optional(),
   birthHeadCircCm: z.number().min(20, 'Head circumference should be between 20 cm and 60 cm').max(60, 'Head circumference should be between 20 cm and 60 cm').optional(),
+  // Onboarding feeding baseline (see IBaby.solidsStartedOn). Optional; must not be in the future.
+  solidsStartedOn: z.coerce.date().refine((d) => d.getTime() <= Date.now(), 'That date is in the future').optional(),
 });
 
 // userId is deliberately not part of the schema, so a baby can never be reassigned to another user
@@ -54,6 +56,7 @@ function publicBaby(baby: IBaby & { id: string }) {
     birthWeightG: baby.birthWeightG,
     birthLengthCm: baby.birthLengthCm,
     birthHeadCircCm: baby.birthHeadCircCm,
+    solidsStartedOn: baby.solidsStartedOn,
     createdAt: baby.createdAt,
   };
 }

@@ -4,6 +4,7 @@ import { Link, useParams } from 'react-router';
 import { Apple, ArrowLeft, Baby, CheckCircle2, Leaf, ShieldAlert, ShieldCheck, Sparkles, Trash2 } from 'lucide-react';
 import { addFood, deleteFood, listFood } from '../api/food';
 import type { FoodAmount, FoodReaction, FoodResponse, FoodTexture, MealType } from '../api/food';
+import { getBaby, updateBaby } from '../api/babies';
 import { ApiError } from '../api/client';
 import { formatDateIST, toDateInputValueIST, todayInputValueIST } from '../lib/age';
 import { Card } from '../components/ui/Card';
@@ -83,6 +84,10 @@ export default function Food() {
   const { id } = useParams();
   const [data, setData] = useState<FoodResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Baby's name + feeding baseline (solidsStartedOn), for the solids-start milestone.
+  const [babyName, setBabyName] = useState<string>('');
+  const [solidsStartedOn, setSolidsStartedOn] = useState<string | null>(null);
+  const [confirmingSolids, setConfirmingSolids] = useState(false);
 
   const [loggedAt, setLoggedAt] = useState(todayInputValueIST());
   const [mealType, setMealType] = useState<MealType>('breakfast');
@@ -111,10 +116,36 @@ export default function Food() {
       .catch((err: unknown) => {
         if (!cancelled) setError(err instanceof ApiError ? err.message : 'Something went wrong, please try again');
       });
+    getBaby(id)
+      .then(({ baby }) => {
+        if (cancelled) return;
+        setBabyName(baby.name);
+        setSolidsStartedOn(baby.solidsStartedOn ?? null);
+      })
+      .catch(() => {
+        /* the solids milestone is a bonus — the log works without it */
+      });
     return () => {
       cancelled = true;
     };
   }, [id]);
+
+  // Record that solids have begun (the feeding-journey milestone). Breastfeeding
+  // continues alongside — guidance stays homemade-first / IMS-compliant.
+  async function confirmSolidsStarted() {
+    if (id === undefined) return;
+    setConfirmingSolids(true);
+    setError(null);
+    try {
+      const today = todayInputValueIST();
+      await updateBaby(id, { solidsStartedOn: today });
+      setSolidsStartedOn(today);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Something went wrong, please try again');
+    } finally {
+      setConfirmingSolids(false);
+    }
+  }
 
   // IMS Act 1992 (CLAUDE.md rule 4): never normalize infant formula / milk
   // substitutes; feeding stays breastfeeding-first. Mirror of the server-side
@@ -240,6 +271,18 @@ export default function Food() {
           <StageBanner guidance={guidance} onUseIdea={useIdea} />
         )}
       </div>
+
+      {/* Feeding-journey milestone: at 6 months+, confirm solids have begun. Uses the
+          onboarding baseline (solidsStartedOn); breastfeeding continues alongside. */}
+      {guidance && !guidance.underSix && (
+        <SolidsMilestoneCard
+          babyName={babyName}
+          ageMonths={guidance.ageMonths}
+          solidsStartedOn={solidsStartedOn}
+          onConfirm={() => void confirmSolidsStarted()}
+          confirming={confirmingSolids}
+        />
+      )}
 
       {id && logs !== null && <TrackerInsight babyId={id} tracker="food" hasData={logs.length > 0} signature={logs.length} className="mt-5" />}
 
@@ -401,6 +444,53 @@ export default function Food() {
         </div>
       </div>
     </div>
+  );
+}
+
+// The solids-start milestone card, shown from 6 months. Before it's recorded it's a
+// gentle "ready to begin?" nudge; once confirmed it becomes a quiet acknowledgement.
+function SolidsMilestoneCard({
+  babyName,
+  ageMonths,
+  solidsStartedOn,
+  onConfirm,
+  confirming,
+}: {
+  babyName: string;
+  ageMonths: number;
+  solidsStartedOn: string | null;
+  onConfirm: () => void;
+  confirming: boolean;
+}) {
+  const who = babyName || 'your baby';
+  if (solidsStartedOn) {
+    return (
+      <Card className="mt-4 flex items-center gap-3 p-4" style={{ backgroundColor: 'var(--cat-food-bg)' }}>
+        <CheckCircle2 className="h-5 w-5 shrink-0" style={{ color: 'var(--cat-food-text)' }} />
+        <p className="text-sm text-stone-700">
+          <span className="font-semibold text-stone-900">Solids journey began {formatDateIST(solidsStartedOn)}.</span>{' '}
+          Keep breastfeeding on demand alongside — food is in addition to milk, not a replacement yet.
+        </p>
+      </Card>
+    );
+  }
+  return (
+    <Card className="mt-4 p-5" style={{ borderColor: 'var(--cat-food)' }}>
+      <div className="flex items-center gap-2">
+        <Sparkles className="h-5 w-5" style={{ color: 'var(--cat-food)' }} />
+        <h2 className="font-bold text-stone-900">Has {who} started solid foods?</h2>
+      </div>
+      <p className="mt-2 text-sm text-stone-700">
+        {who} is {ageMonths} months old — this is the ideal window to begin first foods, thick and well-mashed,
+        while continuing to breastfeed on demand. Start with 2–3 spoonfuls once a day and build up slowly.
+      </p>
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        <Button onClick={onConfirm} disabled={confirming}>
+          {confirming ? 'Saving…' : "Yes, we've started 🎉"}
+        </Button>
+        <span className="text-xs text-stone-500">Not yet? That’s okay — begin when you see the readiness signs.</span>
+      </div>
+    </Card>
   );
 }
 
