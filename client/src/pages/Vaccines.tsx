@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router';
-import { ArrowLeft, Check, ShieldCheck, Syringe, Undo2 } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, CalendarClock, Check, PartyPopper, ShieldCheck, Syringe, Undo2 } from 'lucide-react';
 import { gsap, useScrollReveal, celebrate, prefersReducedMotion } from '../lib/gsap';
 import { getBaby } from '../api/babies';
 import type { Baby } from '../api/babies';
 import { listVaccines, setVaccineAdministered } from '../api/vaccines';
 import type { VaccineDose, VaccineSummary } from '../api/vaccines';
 import { ApiError } from '../api/client';
-import { formatAge, formatDateIST, toDateInputValueIST, todayInputValueIST } from '../lib/age';
+import { dayDiffIST, formatAge, formatDateIST, toDateInputValueIST, todayInputValueIST } from '../lib/age';
 import { upToDatePct } from '../lib/vaccineStats';
 import { Card } from '../components/ui/Card';
 import { DatePicker } from '../components/ui/DatePicker';
@@ -132,6 +132,10 @@ export default function Vaccines() {
             </Card>
           )}
 
+          {/* Forward-looking "next up" band — turns the schedule into a journey:
+              what needs attention now, or what's coming, at a glance. */}
+          <NextUpCard doses={doses} babyName={baby?.name} />
+
           {id && <TrackerInsight babyId={id} tracker="vaccines" hasData={doses.length > 0} signature={summary?.done} className="mt-5" />}
 
           <div className="mt-7 space-y-8">
@@ -167,6 +171,66 @@ export default function Vaccines() {
         </>
       )}
     </div>
+  );
+}
+
+// Distinct vaccine names from a set of doses (e.g. "BCG, Hepatitis B, OPV").
+function vaccineNames(doses: VaccineDose[], max = 3): string {
+  const names = [...new Set(doses.map((d) => d.vaccineName))];
+  if (names.length <= max) return names.join(', ');
+  return `${names.slice(0, max).join(', ')} and ${names.length - max} more`;
+}
+
+function byDueDate(a: VaccineDose, b: VaccineDose): number {
+  return a.dueDate.localeCompare(b.dueDate);
+}
+
+// The forward-looking headline: overdue (act now) → due now → next upcoming → all done.
+// Purely derived from dose status/dates; safety-relevant states get the most weight.
+function NextUpCard({ doses, babyName }: { doses: VaccineDose[]; babyName?: string }) {
+  const who = babyName || 'your baby';
+  const overdue = doses.filter((d) => d.status === 'overdue').sort(byDueDate);
+  const due = doses.filter((d) => d.status === 'due').sort(byDueDate);
+  const upcoming = doses.filter((d) => d.status === 'upcoming').sort(byDueDate);
+
+  let tone: { bg: string; text: string; icon: typeof CalendarClock };
+  let title: string;
+  let body: string;
+
+  if (overdue.length > 0) {
+    const days = Math.abs(dayDiffIST(overdue[0].dueDate));
+    tone = { bg: 'var(--cat-vaccine-bg)', text: '#b91c1c', icon: AlertTriangle };
+    title = `Catch up: ${vaccineNames(overdue)}`;
+    body = `Overdue since ${formatDateIST(overdue[0].dueDate)} (about ${days === 0 ? 'today' : `${days} day${days === 1 ? '' : 's'} ago`}). It’s not too late — check with your pediatrician to catch up safely.`;
+  } else if (due.length > 0) {
+    tone = { bg: 'var(--cat-vaccine-bg)', text: 'var(--cat-vaccine-text)', icon: CalendarClock };
+    title = `Due now: ${vaccineNames(due)}`;
+    body = `${who}’s next ${due.length === 1 ? 'shot is' : 'shots are'} ready to be given. Book a visit, then mark it below.`;
+  } else if (upcoming.length > 0) {
+    const next = upcoming[0];
+    const d = dayDiffIST(next.dueDate);
+    const when = d <= 0 ? 'soon' : d < 14 ? `in ${d} day${d === 1 ? '' : 's'}` : `in about ${Math.round(d / 7)} weeks`;
+    const sameDay = upcoming.filter((u) => u.ageLabel === next.ageLabel);
+    tone = { bg: 'var(--cat-vaccine-bg)', text: 'var(--cat-vaccine-text)', icon: CalendarClock };
+    title = `Next up: ${vaccineNames(sameDay)}`;
+    body = `Around ${next.ageLabel} · due ${formatDateIST(next.dueDate)} (${when}). We’ll remind you when it’s time.`;
+  } else {
+    tone = { bg: 'var(--cat-vaccine-bg)', text: 'var(--cat-vaccine-text)', icon: PartyPopper };
+    title = 'All caught up!';
+    body = `Every scheduled vaccine for ${who} is done. 🎉 We’ll let you know when the next one comes around.`;
+  }
+
+  const Icon = tone.icon;
+  return (
+    <Card className="mt-5 flex items-start gap-3 p-5" data-reveal="" style={{ backgroundColor: tone.bg }}>
+      <span aria-hidden="true" className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white/70">
+        <Icon className="h-5 w-5" style={{ color: tone.text }} />
+      </span>
+      <div className="min-w-0">
+        <h2 className="font-bold" style={{ color: tone.text }}>{title}</h2>
+        <p className="mt-0.5 text-sm text-stone-700">{body}</p>
+      </div>
+    </Card>
   );
 }
 

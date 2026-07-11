@@ -19,6 +19,15 @@ export interface SleepSummary {
   avgPerDayMinutes: number;
 }
 
+export interface SleepReference {
+  label: string;
+  ageStartMonth: number;
+  ageEndMonth: number;
+  minHours: number;
+  maxHours: number;
+  note: string;
+}
+
 export interface SleepInput {
   loggedAt: string;
   kind: SleepKind;
@@ -30,6 +39,8 @@ export interface SleepInput {
 export interface SleepResponse {
   logs: SleepLog[];
   summary: SleepSummary;
+  ageMonths: number;
+  reference: SleepReference;
 }
 
 export function listSleep(babyId: string) {

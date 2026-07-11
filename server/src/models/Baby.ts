@@ -9,6 +9,10 @@ export interface IBaby {
   birthWeightG?: number;
   birthLengthCm?: number;
   birthHeadCircCm?: number;
+  // Onboarding feeding baseline: the date solids were first introduced. Absent means
+  // "not started" (exclusively breastfeeding). Drives the nutrition journey + the
+  // 6-month "ready to start solids?" nudge. Guidance stays breastfeeding-first / IMS-compliant.
+  solidsStartedOn?: Date;
   createdAt: Date;
 }
 
@@ -22,6 +26,7 @@ const babySchema = new Schema<IBaby>(
     birthWeightG: { type: Number },
     birthLengthCm: { type: Number },
     birthHeadCircCm: { type: Number },
+    solidsStartedOn: { type: Date },
   },
   { timestamps: { createdAt: true, updatedAt: false } },
 );

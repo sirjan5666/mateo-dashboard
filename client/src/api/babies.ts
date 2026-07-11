@@ -8,6 +8,7 @@ export interface Baby {
   birthWeightG?: number;
   birthLengthCm?: number;
   birthHeadCircCm?: number;
+  solidsStartedOn?: string;
   createdAt: string;
 }
 
@@ -18,6 +19,7 @@ export interface BabyInput {
   birthWeightG?: number;
   birthLengthCm?: number;
   birthHeadCircCm?: number;
+  solidsStartedOn?: string;
 }
 
 export function listBabies() {

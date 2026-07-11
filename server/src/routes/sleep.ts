@@ -7,8 +7,10 @@ import { requireAuth } from '../middleware/auth.js';
 import { requireSubscription } from '../middleware/subscription.js';
 import { loadOwnedBaby } from '../middleware/ownership.js';
 import { isFutureISTDate, istDateString } from '../lib/ist.js';
+import { sleepReferenceForAge } from '../sleep/reference.js';
 
 const MIN_DATE = new Date('2000-01-01T00:00:00.000Z');
+const MS_PER_MONTH = 86_400_000 * 30.4375;
 
 const createSleepSchema = z.object({
   loggedAt: z.coerce
@@ -59,6 +61,7 @@ router.get('/babies/:id/sleep', requireAuth, requireSubscription, loadOwnedBaby,
     }
   }
   const last7Days = seenDays.size;
+  const ageMonths = Math.max(0, Math.floor((Date.now() - baby.dob.getTime()) / MS_PER_MONTH));
   res.json({
     logs: logs.map((l) => publicLog(l)),
     summary: {
@@ -66,6 +69,10 @@ router.get('/babies/:id/sleep', requireAuth, requireSubscription, loadOwnedBaby,
       todayNaps,
       avgPerDayMinutes: last7Days > 0 ? Math.round(last7Total / last7Days) : 0,
     },
+    // Age-driven "what's typical" band, so the tracker shows expectations even
+    // before anything is logged. Typical ranges, never a target.
+    ageMonths,
+    reference: sleepReferenceForAge(ageMonths),
   });
 });
 
