@@ -1,5 +1,8 @@
 import { api } from './client';
 
+export type BloodGroup = 'A+' | 'A-' | 'B+' | 'B-' | 'AB+' | 'AB-' | 'O+' | 'O-' | 'unknown';
+export type FeedingType = 'breastfed' | 'mixed';
+
 export interface Baby {
   id: string;
   name: string;
@@ -9,6 +12,12 @@ export interface Baby {
   birthWeightG?: number;
   birthLengthCm?: number;
   birthHeadCircCm?: number;
+  gestationalAgeWeeks?: number;
+  bloodGroup?: BloodGroup;
+  feedingType?: FeedingType;
+  knownAllergies?: string[];
+  pediatricianName?: string;
+  pediatricianPhone?: string;
   solidsStartedOn?: string;
   createdAt: string;
 }
@@ -21,6 +30,12 @@ export interface BabyInput {
   birthWeightG?: number;
   birthLengthCm?: number;
   birthHeadCircCm?: number;
+  gestationalAgeWeeks?: number;
+  bloodGroup?: BloodGroup;
+  feedingType?: FeedingType;
+  knownAllergies?: string[];
+  pediatricianName?: string;
+  pediatricianPhone?: string;
   solidsStartedOn?: string;
 }
 

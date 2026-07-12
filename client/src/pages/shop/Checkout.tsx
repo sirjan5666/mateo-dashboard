@@ -14,6 +14,9 @@ import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { inputCls } from '../../components/ui/field';
 import { buttonClass } from '../../components/ui/buttonStyles';
+import { ApplySitare } from '../../components/sitare/ApplySitare';
+import { toast } from '../../lib/toast';
+import { refreshSitare, formatStars } from '../../lib/sitare';
 import { cn } from '../../lib/cn';
 
 const SHIPPING_FLAT = 49;
@@ -46,9 +49,18 @@ export default function Checkout() {
   });
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [redeemPoints, setRedeemPoints] = useState(0);
+  const [redeemDiscount, setRedeemDiscount] = useState(0);
 
   const shipping = subtotalInr >= FREE_OVER || subtotalInr === 0 ? 0 : SHIPPING_FLAT;
   const total = subtotalInr + shipping;
+  const payable = Math.max(0, total - redeemDiscount);
+  const hasFormula = items.some((l) => l.brand === 'neucomed');
+
+  function celebrate(earned: number) {
+    refreshSitare();
+    if (earned > 0) toast(`You earned ★ ${formatStars(earned)} Sitare!`, { tone: 'emerald' });
+  }
 
   const set = (k: keyof typeof form) => (e: ChangeEvent<HTMLInputElement>) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
@@ -74,6 +86,7 @@ export default function Checkout() {
       const res = await createOrder({
         items: items.map((l) => ({ productId: l.productId, quantity: l.quantity, size: l.size })),
         shippingAddress,
+        redeemPoints: redeemPoints > 0 ? redeemPoints : undefined,
       });
 
       if (res.razorpay) {
@@ -95,7 +108,8 @@ export default function Checkout() {
           handler: (resp) => {
             void (async () => {
               try {
-                await verifyPayment(res.order.id, resp.razorpay_payment_id, resp.razorpay_signature);
+                const v = await verifyPayment(res.order.id, resp.razorpay_payment_id, resp.razorpay_signature);
+                celebrate(v.order.sitare?.earnedPoints ?? 0);
                 clear();
                 navigate(`/shop/orders/${res.order.id}`);
               } catch (err) {
@@ -114,6 +128,7 @@ export default function Checkout() {
       }
 
       // Mock path — the server already marked this paid + confirmed.
+      celebrate(res.earnedPoints ?? 0);
       clear();
       navigate(`/shop/orders/${res.order.id}`);
     } catch (err) {
@@ -190,11 +205,27 @@ export default function Checkout() {
                 <dt className="text-stone-500">{t('shop.shipping')}</dt>
                 <dd>{shipping === 0 ? t('shop.free') : inr(shipping)}</dd>
               </div>
+              {redeemDiscount > 0 && (
+                <div className="flex justify-between text-emerald-700">
+                  <dt className="font-semibold">Sitare applied</dt>
+                  <dd className="font-semibold">−{inr(redeemDiscount)}</dd>
+                </div>
+              )}
               <div className="flex justify-between border-t border-stone-200 pt-2 font-display text-base font-extrabold text-stone-900">
                 <dt>{t('shop.total')}</dt>
-                <dd>{inr(total)}</dd>
+                <dd>{inr(payable)}</dd>
               </div>
             </dl>
+            <div className="mt-3">
+              <ApplySitare
+                ctx={{ context: 'cart', items: items.map((l) => ({ productId: l.productId, quantity: l.quantity })), hasFormula }}
+                applied={redeemPoints}
+                onApplied={(pts, disc) => {
+                  setRedeemPoints(pts);
+                  setRedeemDiscount(disc);
+                }}
+              />
+            </div>
             <Button type="submit" variant="primary" size="lg" className="mt-4 w-full" disabled={processing}>
               {processing ? (
                 <>
@@ -202,7 +233,7 @@ export default function Checkout() {
                 </>
               ) : (
                 <>
-                  {t('shop.pay')} {inr(total)}
+                  {t('shop.pay')} {inr(payable)}
                 </>
               )}
             </Button>

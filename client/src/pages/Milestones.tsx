@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router';
-import { ArrowLeft, Check, ShieldCheck, Star } from 'lucide-react';
+import { ArrowLeft, Check, MessageCircleHeart, ShieldCheck, Star } from 'lucide-react';
 import { listMilestones, markMilestone, unmarkMilestone } from '../api/milestones';
 import type { MilestoneItem, MilestoneStatus, MilestonesResponse } from '../api/milestones';
 import { getJourney, type Journey } from '../api/journey';
 import { JourneyNowCard } from '../components/journey/JourneyNowCard';
 import { ApiError } from '../api/client';
+import { useLang } from '../i18n/context';
+import { askAssistantLink } from '../lib/assistant';
 import { formatDateIST, todayInputValueIST } from '../lib/age';
 import { Card } from '../components/ui/Card';
 import { Pill } from '../components/ui/Pill';
@@ -31,6 +33,7 @@ function windowText(start: number, end: number): string {
 
 export default function Milestones() {
   const { id } = useParams();
+  const { lang } = useLang();
   const [data, setData] = useState<MilestonesResponse | null>(null);
   const [journey, setJourney] = useState<Journey | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -60,7 +63,7 @@ export default function Milestones() {
   useEffect(() => {
     if (id === undefined) return;
     let cancelled = false;
-    getJourney(id)
+    getJourney(id, lang)
       .then((j) => {
         if (!cancelled) setJourney(j);
       })
@@ -70,7 +73,7 @@ export default function Milestones() {
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [id, lang]);
 
   async function toggle(m: MilestoneItem, el?: HTMLElement) {
     if (id === undefined) return;
@@ -125,8 +128,28 @@ export default function Milestones() {
       {error && <Card className="mt-5 border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{error}</Card>}
 
       {/* Age-driven journey band — this month's developmental checkpoint, from the
-          First 2,000 Days timeline. Makes the page current even between visits. */}
-      {journey && <JourneyNowCard journey={journey} focus="milestone" accent="milestone" className="mt-5" />}
+          First 2,000 Days timeline. Makes the page current even between visits.
+          The action routes an unmet-checkpoint question straight to Dai Maa. */}
+      {journey && id && (
+        <JourneyNowCard
+          journey={journey}
+          focus="milestone"
+          accent="milestone"
+          className="mt-5"
+          action={
+            <Link
+              to={askAssistantLink(
+                id,
+                `We're around the "${journey.milestoneCheck.current?.theme ?? journey.current.theme}" stage. What should I look for now, and when is it worth talking to a doctor?`,
+              )}
+              className="inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-sm font-bold text-white"
+              style={{ background: 'var(--cat-assistant)' }}
+            >
+              <MessageCircleHeart className="h-4 w-4" /> Ask Dai Maa about this
+            </Link>
+          }
+        />
+      )}
 
       {/* Progress */}
       <div className="mt-5">
@@ -193,6 +216,16 @@ export default function Milestones() {
                         <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
                           Most babies reach this by now. Every baby is different — but it&apos;s worth a gentle mention to your pediatrician.
                         </p>
+                      )}
+                      {/* Not met yet + due now (in-window or worth-a-mention) → one tap into Dai Maa. */}
+                      {!m.achieved && (m.status === 'inwindow' || m.status === 'watch') && id && (
+                        <Link
+                          to={askAssistantLink(id, `My baby hasn't reached "${m.label}" yet. Is that okay at their age, and what can I do to gently help?`)}
+                          className="mt-2 inline-flex items-center gap-1 text-xs font-bold"
+                          style={{ color: 'var(--cat-assistant)' }}
+                        >
+                          <MessageCircleHeart className="h-3.5 w-3.5" /> Ask Dai Maa
+                        </Link>
                       )}
                     </div>
                   </Card>

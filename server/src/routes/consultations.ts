@@ -29,6 +29,8 @@ import { milestoneById } from '../milestones/milestones.js';
 import { checkRedFlags } from '../ai/red-flags.js';
 import type { RedFlagContext } from '../ai/red-flags.js';
 import { babyAge } from '../ai/context.js';
+import { award, redeemImmediate } from '../points/service.js';
+import { SITARE } from '../points/economics.js';
 
 const router = Router();
 
@@ -37,6 +39,8 @@ const bookSchema = z.object({
   babyId: z.string().optional(),
   slotStart: z.string().refine((s) => !Number.isNaN(Date.parse(s)), 'Invalid slot'),
   reason: z.string().trim().max(1000).optional().default(''),
+  // Mateo Sitare: ★ to redeem against the consultation fee (re-clamped server-side).
+  redeemPoints: z.number().int().min(0).max(1_000_000).optional(),
 });
 
 const patchSchema = z.object({ status: z.enum(['completed', 'cancelled']) });
@@ -101,7 +105,7 @@ async function enrich(consults: HydratedDocument<IConsultation>[]) {
 
 // ── Parent books a consultation (mock payment) ─────────────────────────
 router.post('/consultations', requireAuth, requireRole('parent'), async (req, res) => {
-  const { doctorId, babyId, slotStart, reason } = bookSchema.parse(req.body);
+  const { doctorId, babyId, slotStart, reason, redeemPoints } = bookSchema.parse(req.body);
 
   const profile = isValidObjectId(doctorId) ? await DoctorProfile.findById(doctorId) : null;
   if (!profile || profile.status !== 'approved') {
@@ -154,6 +158,24 @@ router.post('/consultations', requireAuth, requireRole('parent'), async (req, re
       // Payment is mocked for now — booking marks it paid.
       payment: { amount: profile.consultationFee, status: 'paid', method: 'mock', paidAt: new Date() },
     });
+    // Mateo Sitare redemption. Payment is immediate (mock), so we redeem in-line
+    // after a successful booking (so a slot-conflict 11000 never spends points).
+    if (redeemPoints && redeemPoints > 0) {
+      const r = await redeemImmediate({
+        userId: req.userId!,
+        requestedPoints: redeemPoints,
+        eligibleInr: profile.consultationFee,
+        source: 'consultation_redemption',
+        refType: 'consultation',
+        refId: consult.id,
+      });
+      if (r.appliedPoints > 0) {
+        consult.payment.amount = profile.consultationFee - r.discountInr;
+        consult.payment.pointsRedeemed = r.appliedPoints;
+        consult.payment.discountInr = r.discountInr;
+        await consult.save();
+      }
+    }
     const [pub] = await enrich([consult]);
     res.status(201).json({ consultation: pub });
   } catch (err) {
@@ -242,6 +264,18 @@ router.patch('/consultations/:id', requireAuth, async (req, res) => {
   }
   consult.status = status;
   await consult.save();
+  // Mateo Sitare: a COMPLETED consultation earns the PARENT ★ (this handler runs
+  // as the doctor, so credit consult.parentUserId — never req.userId). Idempotent.
+  if (status === 'completed') {
+    await award({
+      userId: consult.parentUserId.toString(),
+      source: 'consultation_completed',
+      amount: SITARE.CONSULTATION_COMPLETED,
+      refType: 'consultation',
+      refId: consult.id,
+      dedupeKey: `earn:consult:${consult.id}`,
+    }).catch((e) => console.error('sitare award failed:', e));
+  }
   const [pub] = await enrich([consult]);
   res.json({ consultation: pub });
 });

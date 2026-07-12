@@ -6,14 +6,16 @@ import type { IGrowthLog } from '../models/GrowthLog.js';
 import { requireAuth } from '../middleware/auth.js';
 import { requireSubscription } from '../middleware/subscription.js';
 import { loadOwnedBaby } from '../middleware/ownership.js';
+import { awardTrackerEntry } from '../points/service.js';
+import { correctedAgeMonths } from '../lib/correctedAge.js';
 import { bandCurves, computePercentile, percentileZone } from '../growth/percentile.js';
 import type { Indicator, Sex } from '../growth/percentile.js';
 import { isFutureISTDate } from '../lib/ist.js';
 
-const MS_PER_MONTH = 1000 * 60 * 60 * 24 * 30.4375;
-
-function ageInMonths(dob: Date, at: Date): number {
-  return (at.getTime() - dob.getTime()) / MS_PER_MONTH;
+// Growth percentiles evaluate against CORRECTED age for premature babies (term
+// babies + anyone past 24 months are unaffected). See lib/correctedAge.ts.
+function growthAgeMonths(dob: Date, gestationalAgeWeeks: number | undefined, at: Date): number {
+  return correctedAgeMonths(dob, gestationalAgeWeeks, at);
 }
 
 // indicator -> measurement value in the WHO unit (kg / cm), or null if not logged.
@@ -41,11 +43,11 @@ const createLogSchema = z
     'Add at least one measurement (weight, length or head circumference)',
   );
 
-function publicLog(log: IGrowthLog & { id: string }, dob: Date) {
+function publicLog(log: IGrowthLog & { id: string }, dob: Date, gestationalAgeWeeks?: number) {
   return {
     id: log.id,
     loggedAt: log.loggedAt,
-    ageMonths: Math.round(ageInMonths(dob, log.loggedAt) * 100) / 100,
+    ageMonths: Math.round(growthAgeMonths(dob, gestationalAgeWeeks, log.loggedAt) * 100) / 100,
     weightG: log.weightG,
     lengthCm: log.lengthCm,
     headCircCm: log.headCircCm,
@@ -60,7 +62,7 @@ router.get('/babies/:id/growth', requireAuth, requireSubscription, loadOwnedBaby
   const logs = await GrowthLog.find({ babyId: baby._id }).sort({ loggedAt: 1 });
 
   const points = logs.map((log) => {
-    const ageMonths = ageInMonths(baby.dob, log.loggedAt);
+    const ageMonths = growthAgeMonths(baby.dob, baby.gestationalAgeWeeks, log.loggedAt);
     const metrics: Record<string, { value: number; percentile: number; z: number; outOfRange: boolean }> = {};
     for (const m of MEASUREMENTS) {
       const value = m.valueOf(log);
@@ -68,7 +70,7 @@ router.get('/babies/:id/growth', requireAuth, requireSubscription, loadOwnedBaby
       const { percentile, z, outOfRange } = computePercentile(m.indicator, sex, ageMonths, value);
       metrics[m.indicator] = { value, percentile: Math.round(percentile * 10) / 10, z: Math.round(z * 100) / 100, outOfRange };
     }
-    return { ...publicLog(log, baby.dob), metrics };
+    return { ...publicLog(log, baby.dob, baby.gestationalAgeWeeks), metrics };
   });
 
   const bands = {
@@ -78,7 +80,7 @@ router.get('/babies/:id/growth', requireAuth, requireSubscription, loadOwnedBaby
   };
 
   res.json({
-    baby: { id: baby.id, name: baby.name, dob: baby.dob, sex: baby.sex },
+    baby: { id: baby.id, name: baby.name, dob: baby.dob, sex: baby.sex, gestationalAgeWeeks: baby.gestationalAgeWeeks },
     logs: points,
     bands,
     insights: buildInsights(points),
@@ -93,7 +95,8 @@ router.post('/babies/:id/growth', requireAuth, requireSubscription, loadOwnedBab
     return;
   }
   const log = await GrowthLog.create({ babyId: baby._id, ...body });
-  res.status(201).json({ log: publicLog(log, baby.dob) });
+  void awardTrackerEntry(req.userId!, 'growth_log', log.id, `earn:growth:${log.id}`).catch((e) => console.error('sitare award failed:', e));
+  res.status(201).json({ log: publicLog(log, baby.dob, baby.gestationalAgeWeeks) });
 });
 
 router.delete('/babies/:id/growth/:logId', requireAuth, requireSubscription, loadOwnedBaby, async (req, res) => {

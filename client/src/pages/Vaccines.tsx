@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router';
-import { AlertTriangle, ArrowLeft, CalendarClock, Check, PartyPopper, ShieldCheck, Syringe, Undo2 } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, CalendarClock, Check, MessageCircleHeart, PartyPopper, ShieldCheck, Syringe, Undo2 } from 'lucide-react';
+import { askAssistantLink } from '../lib/assistant';
 import { gsap, useScrollReveal, celebrate, prefersReducedMotion } from '../lib/gsap';
 import { getBaby } from '../api/babies';
 import type { Baby } from '../api/babies';
@@ -29,16 +30,11 @@ function groupByAge(doses: VaccineDose[]): { ageLabel: string; doses: VaccineDos
   return groups;
 }
 
-function computeSummary(doses: VaccineDose[]): VaccineSummary {
-  const s: VaccineSummary = { total: doses.length, done: 0, due: 0, overdue: 0, upcoming: 0 };
-  for (const d of doses) s[d.status]++;
-  return s;
-}
-
 export default function Vaccines() {
   const { id } = useParams();
   const [baby, setBaby] = useState<Baby | null>(null);
   const [doses, setDoses] = useState<VaccineDose[] | null>(null);
+  const [summary, setSummary] = useState<VaccineSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [dateDraft, setDateDraft] = useState<Record<string, string>>({});
@@ -51,6 +47,7 @@ export default function Vaccines() {
         if (cancelled) return;
         setBaby(b.baby);
         setDoses(v.doses);
+        setSummary(v.summary);
       })
       .catch((err: unknown) => {
         if (cancelled) return;
@@ -65,8 +62,15 @@ export default function Vaccines() {
     setSavingId(doseId);
     setError(null);
     try {
-      const { dose } = await setVaccineAdministered(doseId, administeredOn);
-      setDoses((prev) => (prev ? prev.map((d) => (d.id === dose.id ? dose : d)) : prev));
+      await setVaccineAdministered(doseId, administeredOn);
+      // Refetch the whole list so EVERY dose's status AND the summary are recomputed
+      // by the server against one "today" — a single-dose optimistic patch would
+      // leave siblings stale and let the client-side tally disagree with the server.
+      if (id) {
+        const v = await listVaccines(id);
+        setDoses(v.doses);
+        setSummary(v.summary);
+      }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Something went wrong, please try again');
     } finally {
@@ -74,7 +78,6 @@ export default function Vaccines() {
     }
   }
 
-  const summary = doses ? computeSummary(doses) : null;
   const onTrack = summary ? upToDatePct(summary) : 0;
 
   // Cascade dose cards in as they scroll into view; re-runs once doses load.
@@ -135,6 +138,18 @@ export default function Vaccines() {
           {/* Forward-looking "next up" band — turns the schedule into a journey:
               what needs attention now, or what's coming, at a glance. */}
           <NextUpCard doses={doses} babyName={baby?.name} />
+
+          {id && (
+            <div className="mt-3">
+              <Link
+                to={askAssistantLink(id, `What vaccines are due for my baby around now, and what should I know about after-effects or catching up if we're a bit behind?`)}
+                className="inline-flex items-center gap-1.5 text-sm font-bold"
+                style={{ color: 'var(--cat-assistant)' }}
+              >
+                <MessageCircleHeart className="h-4 w-4" /> Vaccine questions? Ask Dai Maa
+              </Link>
+            </div>
+          )}
 
           {id && <TrackerInsight babyId={id} tracker="vaccines" hasData={doses.length > 0} signature={summary?.done} className="mt-5" />}
 

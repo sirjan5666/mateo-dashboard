@@ -37,3 +37,16 @@ export function setVaccineAdministered(doseId: string, administeredOn: string | 
     body: JSON.stringify({ administeredOn }),
   });
 }
+
+// Onboarding baseline (NOT subscription-gated): the vaccines whose window has
+// opened, so a parent can tick which were already given, and mark them in one call.
+export function listBaselineVaccines(babyId: string) {
+  return api<{ doses: VaccineDose[] }>(`/babies/${babyId}/vaccines/baseline`);
+}
+
+export function markBaselineVaccines(babyId: string, doseIds: string[]) {
+  return api<{ ok: true; marked: number }>(`/babies/${babyId}/vaccines/baseline`, {
+    method: 'POST',
+    body: JSON.stringify({ doseIds }),
+  });
+}

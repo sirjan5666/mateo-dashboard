@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link, useParams } from 'react-router';
-import { Activity, ArrowLeft, Info, Trash2, TrendingUp } from 'lucide-react';
+import { Activity, ArrowLeft, Info, MessageCircleHeart, Trash2, TrendingUp } from 'lucide-react';
 import { gsap, prefersReducedMotion } from '../lib/gsap';
 import { addGrowthLog, deleteGrowthLog, getGrowth } from '../api/growth';
 import type { Growth, Indicator } from '../api/growth';
 import { getJourney, type Journey } from '../api/journey';
 import { JourneyNowCard } from '../components/journey/JourneyNowCard';
 import { ApiError } from '../api/client';
-import { formatAge, formatDateIST, toDateInputValueIST, todayInputValueIST } from '../lib/age';
+import { useLang } from '../i18n/context';
+import { askAssistantLink } from '../lib/assistant';
+import { formatAge, formatDateIST, toDateInputValueIST, todayInputValueIST, correctedAgeLabel } from '../lib/age';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Skeleton } from '../components/ui/Skeleton';
@@ -40,6 +42,7 @@ function metricText(log: { metrics: Growth['logs'][number]['metrics'] }, indicat
 
 export default function Growth() {
   const { id } = useParams();
+  const { lang } = useLang();
   const [data, setData] = useState<Growth | null>(null);
   const [journey, setJourney] = useState<Journey | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -82,7 +85,7 @@ export default function Growth() {
   useEffect(() => {
     if (id === undefined) return;
     let cancelled = false;
-    getJourney(id)
+    getJourney(id, lang)
       .then((j) => {
         if (!cancelled) setJourney(j);
       })
@@ -92,7 +95,7 @@ export default function Growth() {
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [id, lang]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -172,6 +175,11 @@ export default function Growth() {
           {baby && (
             <p className="text-sm text-stone-500">
               {baby.name} · {formatAge(baby.dob)}
+              {correctedAgeLabel(baby.dob, baby.gestationalAgeWeeks) && (
+                <span className="ml-1.5 rounded-full bg-violet-50 px-2 py-0.5 text-[11.5px] font-bold text-violet-700">
+                  {correctedAgeLabel(baby.dob, baby.gestationalAgeWeeks)}
+                </span>
+              )}
             </p>
           )}
         </div>
@@ -191,7 +199,24 @@ export default function Growth() {
 
       {/* Age-driven journey band — the expected growth snapshot for this baby's age,
           so the page shows what to look for, not just a blank form. */}
-      {journey && <JourneyNowCard journey={journey} focus="growth" accent="growth" babyName={baby?.name} className="mt-5" />}
+      {journey && id && (
+        <JourneyNowCard
+          journey={journey}
+          focus="growth"
+          accent="growth"
+          babyName={baby?.name}
+          className="mt-5"
+          action={
+            <Link
+              to={askAssistantLink(id, `We're at the "${journey.current.theme}" stage. Is ${baby?.name ?? 'my baby'}'s growth on track for their age, and what should I watch for?`)}
+              className="inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-sm font-bold text-white"
+              style={{ background: 'var(--cat-assistant)' }}
+            >
+              <MessageCircleHeart className="h-4 w-4" /> Ask Dai Maa about this
+            </Link>
+          }
+        />
+      )}
 
       {data === null ? (
         <GrowthSkeleton />

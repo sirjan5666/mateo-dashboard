@@ -35,7 +35,7 @@ export interface GrowthInsight {
 }
 
 export interface Growth {
-  baby: { id: string; name: string; dob: string; sex: 'male' | 'female' };
+  baby: { id: string; name: string; dob: string; sex: 'male' | 'female'; gestationalAgeWeeks?: number };
   logs: GrowthLogPoint[];
   bands: Record<Indicator, BandPoint[]>;
   insights: GrowthInsight[];

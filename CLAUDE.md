@@ -77,6 +77,28 @@ brand. See PROJECT_SPEC.md for full scope, data models, and AI agent rules.
 - Run `npm run lint && npm run typecheck` in both client/ and server/
   before considering a task done
 
+## Pull requests & deploys — always follow (main auto-deploys to PRODUCTION)
+A merge to `main` AUTO-DEPLOYS to production (https://app.mateocare.com on AWS
+Lightsail) via `.github/workflows/deploy.yml`: gate (typecheck·lint·build for
+client+server) → SSH → `git pull` → build → restart mateo + Caddy → health check. So
+opening/merging a PR = shipping to real families. Whenever you create a PR:
+1. **Green before it ships.** `npm run lint && npm run typecheck` in BOTH client/ and
+   server/ + a passing build. The CI gate blocks deploy on any failure; never merge a
+   red gate. Verify the change actually WORKS end-to-end (drive the flow) — it goes
+   live, so types/tests passing is not enough.
+2. **Scope the PR to just its change.** The working tree often has large unrelated WIP
+   — never sweep it in. `git add` only the intended files and confirm with
+   `git diff --cached --name-only` before committing.
+3. **Branch → PR against `main`.** Never push straight to `main`, never `--no-verify` /
+   skip hooks, never hand-edit the production box.
+4. **Preserve the hard rules above** — any PR touching AI replies, red-flags,
+   formula/IMS-Act compliance, growth percentiles, or route auth/ownership must keep
+   them intact; call it out explicitly in the PR body.
+5. **Secrets/keys stay out of the repo and out of chat** — never commit `.env`, tokens,
+   or SSH keys; deploy secrets live only in GitHub Actions secrets.
+6. PR title + body: state what ships and how it was verified; note the prod impact.
+   Co-author the commit and end the PR body with the Claude Code footer.
+
 ## Current phase
 V1 = auth + baby profile + the following per-baby trackers, plus an AI assistant
 (mateo.ai) with red-flag escalation: vaccinations, growth, food

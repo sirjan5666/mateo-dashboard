@@ -4,7 +4,14 @@ import { categoryFor, tintFor } from '../../shop/presentation';
 import { inr } from '../../shop/format';
 import { useT } from '../../i18n/context';
 import { cn } from '../../lib/cn';
+import { SitareChip } from '../sitare/SitareBits';
 import type { ShopProduct } from '../../api/shop';
+
+// ★ earned on this product (mirrors server earnForSpend: ★5 per ₹100). Never
+// shown for formula (IMS Act — no inducements).
+function earnFor(priceInr: number): number {
+  return Math.floor(priceInr / 100) * 5;
+}
 
 // Premium hover-lift skincare card: tinted image area, a real category micro-badge,
 // two REAL highlight chips (verbatim from the catalog — the only trust signal), a
@@ -55,6 +62,11 @@ export function ProductCard({ product, onAdd, onQuickView }: { product: ShopProd
         <h3 className="mt-3 font-display text-[15px] font-bold text-stone-900 sm:mt-3.5 sm:text-[17px]">{product.name}</h3>
         <p className="mt-0.5 line-clamp-1 text-xs leading-snug text-stone-400 sm:text-[13px]">{product.tagline}</p>
       </Link>
+      {!isFormula && earnFor(product.priceInr) > 0 && (
+        <div className="mt-1.5">
+          <SitareChip points={earnFor(product.priceInr)} prefix="Earn" />
+        </div>
+      )}
       {chips.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-1.5">
           {chips.map((h, i) => (

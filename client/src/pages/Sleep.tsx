@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link, useParams } from 'react-router';
-import { ArrowLeft, Moon, ShieldCheck, Sun, Trash2 } from 'lucide-react';
+import { ArrowLeft, MessageCircleHeart, Moon, ShieldCheck, Sun, Trash2 } from 'lucide-react';
+import { askAssistantLink } from '../lib/assistant';
 import { addSleep, deleteSleep, formatDuration, listSleep } from '../api/sleep';
 import type { SleepKind, SleepQuality, SleepResponse } from '../api/sleep';
 import { ApiError } from '../api/client';
@@ -229,6 +230,17 @@ export default function Sleep() {
       {/* Age-driven expectation: typical total sleep for this age, so the tracker
           shows what's normal — gently — even before much is logged. */}
       {data?.reference && <ExpectedSleepCard reference={data.reference} avgMinutes={summary?.avgPerDayMinutes ?? 0} />}
+      {data?.reference && id && (
+        <div className="mt-3">
+          <Link
+            to={askAssistantLink(id, `What's a typical sleep pattern at my baby's age, and how can I gently help them sleep better?`)}
+            className="inline-flex items-center gap-1.5 text-sm font-bold"
+            style={{ color: 'var(--cat-assistant)' }}
+          >
+            <MessageCircleHeart className="h-4 w-4" /> Sleep troubles? Ask Dai Maa
+          </Link>
+        </div>
+      )}
 
       {id && logs !== null && <TrackerInsight babyId={id} tracker="sleep" hasData={logs.length > 0} signature={logs.length} className="mt-5" />}
 

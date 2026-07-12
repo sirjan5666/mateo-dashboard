@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { NavLink, useLocation } from 'react-router';
 import { useReveal } from '../../lib/gsap';
-import { Activity, Apple, BookText, CalendarClock, Droplets, FileText, Gift, LayoutDashboard, LogOut, MessageCircleHeart, MessagesSquare, Moon, Package, PanelLeft, PanelLeftClose, Pill, Settings, ShoppingBag, Star, Stethoscope, Syringe, Users } from 'lucide-react';
+import { Activity, Apple, Award, BookText, CalendarClock, Droplets, FileText, Gift, LayoutDashboard, LogOut, MessageCircleHeart, MessagesSquare, Moon, Package, PanelLeft, PanelLeftClose, Pill, Settings, ShoppingBag, Star, Stethoscope, Syringe, Users } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useAuth } from '../../auth/context';
 import { useT } from '../../i18n/context';
@@ -67,14 +67,14 @@ export function Sidebar({
   const t = useT();
   const subscribed = useSubscribed();
   const location = useLocation();
-  const [firstBabyId, setFirstBabyId] = useState<string | null>(null);
+  const [babyIds, setBabyIds] = useState<string[]>([]);
   const initial = user?.name?.trim().charAt(0).toUpperCase() || 'M';
 
   useEffect(() => {
     let cancelled = false;
     listBabies()
       .then((d) => {
-        if (!cancelled) setFirstBabyId(d.babies[0]?.id ?? null);
+        if (!cancelled) setBabyIds(d.babies.map((b) => b.id));
       })
       .catch(() => {
         /* ignore — trackers just stay disabled */
@@ -85,8 +85,11 @@ export function Sidebar({
   }, []);
 
   // Trackers navigate for the baby you're currently viewing, else the first baby.
+  // Only trust the URL's baby id if it's actually one the user owns — a stale/
+  // deleted id lingering in the route must fall back to a real baby, not 404
+  // every tracker link with "Baby not found" (mirrors Dashboard.tsx reconciliation).
   const routeBabyId = /^\/babies\/([^/]+)\//.exec(location.pathname)?.[1] ?? null;
-  const activeBabyId = routeBabyId ?? firstBabyId;
+  const activeBabyId = (routeBabyId && babyIds.includes(routeBabyId) ? routeBabyId : babyIds[0]) ?? null;
 
   // Cascade the nav links in on mount. Re-runs once the baby id resolves so the
   // trackers (which switch from disabled <li> to active <a>) animate in too.
@@ -226,6 +229,16 @@ export function Sidebar({
               <>
                 <NavIcon icon={Gift} active={isActive} />
                 {!collapsed && t('nav.refer')}
+              </>
+            )}
+          </NavLink>
+        )}
+        {user?.role === 'parent' && (
+          <NavLink to="/rewards" onClick={onNavigate} title={collapsed ? t('nav.rewards') : undefined} className={({ isActive }) => navClass(isActive, collapsed)}>
+            {({ isActive }) => (
+              <>
+                <NavIcon icon={Award} active={isActive} color="var(--sitare)" />
+                {!collapsed && t('nav.rewards')}
               </>
             )}
           </NavLink>

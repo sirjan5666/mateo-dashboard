@@ -4,11 +4,11 @@ import { MilestoneAchievement } from '../models/MilestoneAchievement.js';
 import { requireAuth } from '../middleware/auth.js';
 import { requireSubscription } from '../middleware/subscription.js';
 import { loadOwnedBaby } from '../middleware/ownership.js';
+import { awardTrackerEntry, reverse } from '../points/service.js';
+import { correctedAgeMonths } from '../lib/correctedAge.js';
 import { isFutureISTDate } from '../lib/ist.js';
 import { milestones, milestoneById, milestoneStatus } from '../milestones/milestones.js';
 
-const DAY = 86_400_000;
-const MS_PER_MONTH = DAY * 30.4375;
 const MIN_DATE = new Date('2000-01-01T00:00:00.000Z');
 
 const markSchema = z.object({
@@ -22,7 +22,8 @@ const router = Router();
 
 router.get('/babies/:id/milestones', requireAuth, requireSubscription, loadOwnedBaby, async (req, res) => {
   const baby = req.baby!;
-  const ageMonths = (Date.now() - baby.dob.getTime()) / MS_PER_MONTH;
+  // Milestones use CORRECTED age for premature babies (term/24m+ unaffected).
+  const ageMonths = correctedAgeMonths(baby.dob, baby.gestationalAgeWeeks);
   const achievements = await MilestoneAchievement.find({ babyId: baby._id });
   const byId = new Map(achievements.map((a) => [a.milestoneId, a]));
 
@@ -69,6 +70,10 @@ router.post('/babies/:id/milestones/:milestoneId', requireAuth, requireSubscript
     { $set: { achievedOn }, $setOnInsert: { babyId: baby._id, milestoneId } },
     { upsert: true },
   );
+  // Content-stable dedupeKey (baby+milestone) => re-marking never re-awards.
+  void awardTrackerEntry(req.userId!, 'milestone', `${baby.id}:${milestoneId}`, `earn:milestone:${baby.id}:${milestoneId}`).catch(
+    (e) => console.error('sitare award failed:', e),
+  );
   res.json({ ok: true });
 });
 
@@ -76,6 +81,10 @@ router.delete('/babies/:id/milestones/:milestoneId', requireAuth, requireSubscri
   const baby = req.baby!;
   const milestoneId = String(req.params.milestoneId);
   await MilestoneAchievement.deleteOne({ babyId: baby._id, milestoneId });
+  // Un-marking claws back the ★ (prevents mark/unmark farming).
+  void reverse({ dedupeKey: `earn:milestone:${baby.id}:${milestoneId}`, reason: 'milestone_unmarked' }).catch((e) =>
+    console.error('sitare reverse failed:', e),
+  );
   res.json({ ok: true });
 });
 

@@ -47,6 +47,14 @@ const createBabySchema = z.object({
   birthHeadCircCm: z.number().min(20, 'Head circumference should be between 20 cm and 60 cm').max(60, 'Head circumference should be between 20 cm and 60 cm').optional(),
   // Onboarding feeding baseline (see IBaby.solidsStartedOn). Optional; must not be in the future.
   solidsStartedOn: z.coerce.date().refine((d) => d.getTime() <= Date.now(), 'That date is in the future').optional(),
+  // Smart-baseline fields (Auto-Pilot Trackers). Gestational age drives corrected
+  // age for premature babies; the rest are static baseline notes.
+  gestationalAgeWeeks: z.number().int().min(20).max(42).optional(),
+  bloodGroup: z.enum(['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-', 'unknown']).optional(),
+  feedingType: z.enum(['breastfed', 'mixed']).optional(),
+  knownAllergies: z.array(z.string().trim().min(1).max(80)).max(20).optional(),
+  pediatricianName: z.string().trim().max(120).optional(),
+  pediatricianPhone: z.string().trim().max(20).optional(),
 });
 
 // userId is deliberately not part of the schema, so a baby can never be reassigned to another user
@@ -62,6 +70,12 @@ function publicBaby(baby: IBaby & { id: string }) {
     birthWeightG: baby.birthWeightG,
     birthLengthCm: baby.birthLengthCm,
     birthHeadCircCm: baby.birthHeadCircCm,
+    gestationalAgeWeeks: baby.gestationalAgeWeeks,
+    bloodGroup: baby.bloodGroup,
+    feedingType: baby.feedingType,
+    knownAllergies: baby.knownAllergies,
+    pediatricianName: baby.pediatricianName,
+    pediatricianPhone: baby.pediatricianPhone,
     solidsStartedOn: baby.solidsStartedOn,
     createdAt: baby.createdAt,
   };
@@ -81,6 +95,18 @@ router.post('/', async (req, res) => {
   const baby = await Baby.create({ ...body, userId: req.userId });
   // Expand the IAP schedule into this baby's vaccine doses, dated from its DOB.
   await syncDosesForBaby({ id: baby.id, dob: baby.dob, sex: baby.sex });
+  // Birth measurements ARE the first growth data point. Seed a GrowthLog dated at
+  // DOB so they show on the chart, feed percentiles, and reach the AI — not just
+  // sit unused on the Baby doc. (A log at loggedAt === dob is allowed.)
+  if (body.birthWeightG != null || body.birthLengthCm != null || body.birthHeadCircCm != null) {
+    await GrowthLog.create({
+      babyId: baby._id,
+      loggedAt: baby.dob,
+      weightG: body.birthWeightG,
+      lengthCm: body.birthLengthCm,
+      headCircCm: body.birthHeadCircCm,
+    });
+  }
   res.status(201).json({ baby: publicBaby(baby) });
 });
 

@@ -18,6 +18,7 @@ import {
   Mic,
   Moon,
   Pencil,
+  Phone,
   Sprout,
   Star,
   Plus,
@@ -49,7 +50,10 @@ import type { MilestonesResponse } from '../api/milestones';
 import { listAppointments } from '../api/health';
 import type { Appointment } from '../api/health';
 import { ApiError } from '../api/client';
-import { ageInMonths, formatAge, formatDateIST, greetingIST, toDateInputValueIST, todayInputValueIST } from '../lib/age';
+import { getWalletBalance } from '../api/wallet';
+import { SitareCoin } from '../components/sitare/SitareBits';
+import { formatStars, onSitareRefresh } from '../lib/sitare';
+import { ageInMonths, correctedAgeLabel, formatAge, formatDateIST, greetingIST, toDateInputValueIST, todayInputValueIST } from '../lib/age';
 import { upToDatePct } from '../lib/vaccineStats';
 import { avatarUrl } from '../lib/avatars';
 import { useEntrance, useHeroParallax, prefersReducedMotion, celebrate } from '../lib/gsap';
@@ -221,6 +225,96 @@ function FooterLink({ to, color, children }: { to: string; color: string; childr
   );
 }
 
+// Mateo Sitare rewards balance — FREE feature (not plan-gated). Refreshes when
+// an earn/redeem fires elsewhere via the sitare refresh bus.
+function PointsCard() {
+  const [balance, setBalance] = useState<number | null>(null);
+  useEffect(() => {
+    let alive = true;
+    const load = () => getWalletBalance().then((d) => alive && setBalance(d.balance)).catch(() => alive && setBalance((b) => b ?? 0));
+    load();
+    const off = onSitareRefresh(load);
+    return () => {
+      alive = false;
+      off();
+    };
+  }, []);
+  return (
+    <Card accent="var(--sitare)">
+      <CardHeader eyebrow="Rewards" eyebrowColor="var(--sitare-deep)" title="Mateo Sitare" icon={Star} iconBg="var(--sitare-bg)" iconColor="var(--sitare-deep)" />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <SitareCoin size={30} />
+        <span style={{ fontSize: '2.15rem', fontWeight: 800, color: 'var(--foreground)', lineHeight: 1.05, ...NUMERAL }}>{balance == null ? '—' : formatStars(balance)}</span>
+        <span style={{ marginTop: 8, fontSize: '0.9rem', fontWeight: 700, color: 'var(--muted-foreground)' }}>Sitare</span>
+      </div>
+      <p style={{ marginTop: 4, fontSize: '0.8rem', color: 'var(--muted-foreground)', lineHeight: 1.5 }}>Earn on orders, reviews &amp; tracking — redeem for money off.</p>
+      <FooterLink to="/rewards" color="var(--sitare-deep)">View rewards</FooterLink>
+    </Card>
+  );
+}
+
+// "Aaj ka ek kaam" — the single most important thing to do today, so a parent
+// sees ONE clear priority, never a pile. Vaccine-driven for now (the most
+// time-critical dated tracker); Phase 3's cross-tracker due engine will fold in
+// growth / milestone / feeding priorities behind the same card.
+function DailyCareCard({ baby }: { baby: OverviewBaby }) {
+  const nd = baby.nextDue;
+  const overdue = baby.vaccines.overdue > 0 || nd?.status === 'overdue';
+  const dueNow = !overdue && (baby.vaccines.due > 0 || nd?.status === 'due');
+
+  let accent: string;
+  let iconBg: string;
+  let Icon: LucideIcon;
+  let eyebrow: string;
+  let title: string;
+  let body: string;
+  let cta: { label: string; to: string } | null = null;
+
+  if (nd && overdue) {
+    accent = 'var(--status-overdue-text)';
+    iconBg = 'var(--status-overdue-bg)';
+    Icon = AlertCircle;
+    eyebrow = 'Needs attention today';
+    title = `${nd.vaccineName} is overdue`;
+    body = `${baby.name}'s ${nd.vaccineName} (${nd.doseLabel}) was due on ${formatDateIST(nd.dueDate)}. Catch-up is easy — book a clinic visit, then tick it off. Late is completely okay.`;
+    cta = { label: 'Go to vaccines', to: `/babies/${baby.id}/vaccines` };
+  } else if (nd && dueNow) {
+    accent = 'var(--status-duesoon-text)';
+    iconBg = 'var(--status-duesoon-bg)';
+    Icon = CalendarCheck;
+    eyebrow = "Today's one thing";
+    title = `${nd.vaccineName} is due now`;
+    body = `${baby.name}'s ${nd.vaccineName} (${nd.doseLabel}) is due (${formatDateIST(nd.dueDate)}). Plan a clinic time, then mark it done here.`;
+    cta = { label: 'Go to vaccines', to: `/babies/${baby.id}/vaccines` };
+  } else if (nd) {
+    accent = 'var(--brand-purple-deep)';
+    iconBg = 'var(--accent)';
+    Icon = Calendar;
+    eyebrow = "Today's one thing";
+    title = 'Nothing urgent today';
+    body = `You're on track 💜 Next up is ${nd.vaccineName} on ${formatDateIST(nd.dueDate)} — no rush yet. Enjoy a little moment with ${baby.name}.`;
+  } else {
+    accent = 'var(--status-ontrack-text)';
+    iconBg = 'var(--status-ontrack-bg)';
+    Icon = CheckCircle2;
+    eyebrow = "Today's one thing";
+    title = 'All caught up 🎉';
+    body = `${baby.name} is up to date. Enjoy a cuddle today — you're doing wonderfully.`;
+  }
+
+  return (
+    <Card tier="hero" accent={accent}>
+      <CardHeader eyebrow={eyebrow} eyebrowColor={accent} title={title} icon={Icon} iconBg={iconBg} iconColor={accent} />
+      <p style={{ color: 'var(--muted-foreground)', fontSize: '0.9rem', lineHeight: 1.6 }}>{body}</p>
+      {cta && (
+        <FooterLink to={cta.to} color={accent}>
+          {cta.label}
+        </FooterLink>
+      )}
+    </Card>
+  );
+}
+
 function EmptyTile({ icon: Icon, bg, color, text }: { icon: LucideIcon; bg: string; color: string; text: string }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 10, padding: '0.25rem 0', flex: 1 }}>
@@ -327,6 +421,13 @@ export default function Dashboard() {
       {!subscribed && <SubscribeBanner />}
       {subscribed && <AskAssistantBar babyId={baby.id} />}
 
+      {/* "Aaj ka ek kaam" — one clear priority for today, above the bento. */}
+      {subscribed && (
+        <div className="mb-4">
+          <DailyCareCard baby={baby} />
+        </div>
+      )}
+
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[1fr_312px]">
         <div className="flex flex-col gap-4">
           <Lockable locked={!subscribed}>
@@ -358,6 +459,7 @@ export default function Dashboard() {
 
         <div className="flex flex-col gap-4">
           <BabyProfileCard baby={baby} growth={growth} />
+          <PointsCard />
           <Lockable locked={!subscribed}>
             <MilestonesCard babyId={baby.id} milestones={milestones} />
           </Lockable>
@@ -1017,7 +1119,14 @@ function BabyProfileCard({ baby, growth }: { baby: OverviewBaby; growth: Growth 
           </div>
           <div style={{ minWidth: 0 }}>
             <h3 style={{ color: 'var(--foreground)', marginBottom: 2, fontSize: '1.125rem', fontWeight: 600 }}>{baby.name}</h3>
-            <p style={{ color: 'var(--muted-foreground)', fontSize: '0.825rem' }}>{formatAge(baby.dob)}</p>
+            <p style={{ color: 'var(--muted-foreground)', fontSize: '0.825rem' }}>
+              {formatAge(baby.dob)}
+              {correctedAgeLabel(baby.dob, baby.gestationalAgeWeeks) && (
+                <span style={{ marginLeft: 6, padding: '1px 7px', borderRadius: 999, background: 'var(--accent)', color: 'var(--brand-purple-deep)', fontSize: '0.68rem', fontWeight: 700 }}>
+                  {correctedAgeLabel(baby.dob, baby.gestationalAgeWeeks)}
+                </span>
+              )}
+            </p>
           </div>
         </div>
         <Link
@@ -1037,6 +1146,43 @@ function BabyProfileCard({ baby, growth }: { baby: OverviewBaby; growth: Growth 
           </div>
         ))}
       </div>
+      {((baby.bloodGroup && baby.bloodGroup !== 'unknown') || (baby.knownAllergies?.length ?? 0) > 0 || baby.pediatricianName || baby.feedingType) && (
+        <>
+          <div style={{ height: 1, backgroundColor: 'var(--border)' }} aria-hidden="true" />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {baby.bloodGroup && baby.bloodGroup !== 'unknown' && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
+                <span style={{ color: 'var(--muted-foreground)', fontSize: '0.8rem' }}>Blood group</span>
+                <span style={{ color: 'var(--foreground)', fontSize: '0.825rem', fontWeight: 600 }}>{baby.bloodGroup}</span>
+              </div>
+            )}
+            {baby.feedingType && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
+                <span style={{ color: 'var(--muted-foreground)', fontSize: '0.8rem' }}>Feeding</span>
+                <span style={{ color: 'var(--foreground)', fontSize: '0.825rem', fontWeight: 600 }}>{baby.feedingType === 'breastfed' ? 'Breastfed' : 'Mixed'}</span>
+              </div>
+            )}
+            {baby.knownAllergies && baby.knownAllergies.length > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
+                <span style={{ color: 'var(--muted-foreground)', fontSize: '0.8rem', flexShrink: 0 }}>Allergies</span>
+                <span style={{ color: 'var(--status-overdue-text)', fontSize: '0.8rem', fontWeight: 700, textAlign: 'right' }}>{baby.knownAllergies.join(', ')}</span>
+              </div>
+            )}
+            {baby.pediatricianName && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                <span style={{ color: 'var(--muted-foreground)', fontSize: '0.8rem', flexShrink: 0 }}>Doctor</span>
+                {baby.pediatricianPhone ? (
+                  <a href={`tel:${baby.pediatricianPhone}`} style={{ color: 'var(--brand-purple-deep)', fontSize: '0.825rem', fontWeight: 700, textAlign: 'right', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    <Phone size={13} aria-hidden="true" /> {baby.pediatricianName}
+                  </a>
+                ) : (
+                  <span style={{ color: 'var(--foreground)', fontSize: '0.825rem', fontWeight: 600, textAlign: 'right' }}>{baby.pediatricianName}</span>
+                )}
+              </div>
+            )}
+          </div>
+        </>
+      )}
       <div style={{ height: 1, backgroundColor: 'var(--border)' }} aria-hidden="true" />
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>

@@ -24,6 +24,8 @@ import insightsRouter from './routes/insights.js';
 import notificationPrefsRouter from './routes/notificationPrefs.js';
 import journeyRouter from './routes/journey.js';
 import shopRouter from './routes/shop.js';
+import reviewsRouter from './routes/reviews.js';
+import walletRouter from './routes/wallet.js';
 import subscriptionRouter from './routes/subscription.js';
 import dosingRouter from './routes/dosing.js';
 import doctorPatientsRouter from './routes/doctorPatients.js';
@@ -100,6 +102,10 @@ export function createApp() {
   app.use('/api', chatRouter);
   // Shop: Mateo + Neucomed catalog, cart checkout (Razorpay), orders + admin
   app.use('/api/shop', shopRouter);
+  // Product reviews (verified buyers; formula non-reviewable) — /api/shop/products/:id/reviews
+  app.use('/api', reviewsRouter);
+  // Mateo Sitare loyalty wallet: balance, ledger history, apply-points preview
+  app.use('/api/wallet', walletRouter);
   // Parent paid plan: status + checkout/verify (Razorpay, labelled mock in dev)
   app.use('/api', subscriptionRouter);
   // Pediatric dose-check (doctor decision-support) — catalog + deterministic check

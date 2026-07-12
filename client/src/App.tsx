@@ -45,7 +45,10 @@ import ManageParents from './pages/admin/AdminParents';
 import ManageDoctors from './pages/admin/AdminDoctors';
 import AdminChats from './pages/admin/AdminChats';
 import Shop from './pages/shop/Shop';
+import BrandCategories from './pages/shop/BrandCategories';
+import ProductGrid from './pages/shop/ProductGrid';
 import ProductDetail from './pages/shop/ProductDetail';
+import Rewards from './pages/Rewards';
 import Cart from './pages/shop/Cart';
 import Checkout from './pages/shop/Checkout';
 import MyOrders from './pages/shop/MyOrders';
@@ -184,12 +187,16 @@ function AppRoutes() {
         <Route path="/refer" element={<ReferEarn />} />
         <Route path="/community" element={<Community />} />
         <Route path="/shop" element={<Shop />} />
+        <Route path="/shop/b/:brand" element={<BrandCategories />} />
+        <Route path="/shop/b/:brand/:category" element={<ProductGrid />} />
         <Route path="/shop/p/:id" element={<ProductDetail />} />
         <Route path="/shop/cart" element={<Cart />} />
         <Route path="/shop/checkout" element={<Checkout />} />
         <Route path="/shop/orders" element={<MyOrders />} />
         <Route path="/shop/orders/:id" element={<OrderDetail />} />
         {isAdmin && <Route path="/shop/admin/orders" element={<AdminOrders />} />}
+        {/* Rewards wallet is FREE (earn/redeem regardless of plan) — outside RequireSubscribed. */}
+        {!isAdmin && <Route path="/rewards" element={<Rewards />} />}
         <Route path="/settings" element={<Settings />} />
         {isAdmin && <Route path="/parents" element={<ManageParents />} />}
         {isAdmin && <Route path="/doctors" element={<ManageDoctors />} />}

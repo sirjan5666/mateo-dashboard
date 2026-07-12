@@ -6,6 +6,7 @@ import type { IFoodLog } from '../models/FoodLog.js';
 import { requireAuth } from '../middleware/auth.js';
 import { requireSubscription } from '../middleware/subscription.js';
 import { loadOwnedBaby } from '../middleware/ownership.js';
+import { awardTrackerEntry } from '../points/service.js';
 import { ageInWholeMonthsIST, isFutureISTDate } from '../lib/ist.js';
 import {
   feedingNote,
@@ -84,6 +85,7 @@ router.post('/babies/:id/food', requireAuth, requireSubscription, loadOwnedBaby,
     return;
   }
   const log = await FoodLog.create({ babyId: baby._id, ...body });
+  void awardTrackerEntry(req.userId!, 'food_log', log.id, `earn:food:${log.id}`).catch((e) => console.error('sitare award failed:', e));
   res.status(201).json({ log: publicLog(log) });
 });
 

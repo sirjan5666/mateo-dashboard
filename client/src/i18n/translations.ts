@@ -516,6 +516,7 @@ const en: Dict = {
   'nav.community': 'Community',
   'nav.report': 'Report',
   'nav.refer': 'Refer & Earn',
+  'nav.rewards': 'Rewards',
   'nav.settings': 'Settings',
   'nav.signOut': 'Sign out',
   // Trackers
@@ -648,6 +649,7 @@ const hi: Dict = {
   'nav.community': 'समुदाय',
   'nav.report': 'रिपोर्ट',
   'nav.refer': 'रेफ़र करें और कमाएँ',
+  'nav.rewards': 'रिवॉर्ड्स',
   'nav.settings': 'सेटिंग्स',
   'nav.signOut': 'साइन आउट',
   'tracker.vaccines': 'टीकाकरण',
