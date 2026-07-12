@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
-import { Mic, Send, Sparkles, X } from 'lucide-react';
+import { Send, Sparkles, X } from 'lucide-react';
 import { listBabies } from '../../api/babies';
 import type { Baby } from '../../api/babies';
 import { ASSISTANT_BY, ASSISTANT_NAME, QUICK_CHIPS, SUGGESTED_QUESTIONS, askAssistantLink } from '../../lib/assistant';
 import { useTypewriter } from '../../lib/useTypewriter';
-import { useVoiceInput } from '../../lib/useVoiceInput';
 import { AssistantMark } from './AssistantMark';
 import { cn } from '../../lib/cn';
 
@@ -18,7 +17,6 @@ export function AssistantLauncher() {
   const [babies, setBabies] = useState<Baby[] | null>(null);
   const [input, setInput] = useState('');
   const typed = useTypewriter(SUGGESTED_QUESTIONS);
-  const voice = useVoiceInput((text) => setInput((p) => (p ? `${p} ${text}` : text)));
   const inputRef = useRef<HTMLInputElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
@@ -128,8 +126,8 @@ export function AssistantLauncher() {
                   {/* The self-typing text is decorative (aria-hidden) so its churn never
                       reaches a screen reader on the auto-focused input. */}
                   {!input && (
-                    <span aria-hidden="true" className={cn('pointer-events-none absolute inset-0 flex items-center truncate text-sm', voice.listening ? 'font-medium text-rose-500' : 'text-stone-400')}>
-                      {voice.listening ? 'Listening…' : `${typed}▏`}
+                    <span aria-hidden="true" className="pointer-events-none absolute inset-0 flex items-center truncate text-sm text-stone-400">
+                      {typed}▏
                     </span>
                   )}
                   <input
@@ -141,17 +139,6 @@ export function AssistantLauncher() {
                     className="w-full min-w-0 bg-transparent text-sm text-stone-900 focus:outline-none"
                   />
                 </div>
-                {voice.supported && (
-                  <button
-                    type="button"
-                    onClick={voice.toggle}
-                    aria-label={voice.listening ? 'Stop listening' : 'Speak your question'}
-                    aria-pressed={voice.listening}
-                    className={cn('grid h-8 w-8 shrink-0 place-items-center rounded-xl transition-colors', voice.listening ? 'animate-pulse bg-rose-100 text-rose-600' : 'text-stone-500 hover:bg-stone-200')}
-                  >
-                    <Mic className="h-4 w-4" />
-                  </button>
-                )}
                 <button
                   type="submit"
                   disabled={!input.trim()}

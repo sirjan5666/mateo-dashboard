@@ -29,9 +29,6 @@ export const QUICK_CHIPS = [
 ];
 
 // Build the chat deep-link that hands a question straight into a fresh thread.
-// `speak` (set when the question was asked by voice) makes the chat read the
-// reply aloud.
-export function askAssistantLink(babyId: string, question: string, opts?: { speak?: boolean }): string {
-  const base = `/babies/${babyId}/chat?q=${encodeURIComponent(question.trim())}`;
-  return opts?.speak ? `${base}&speak=1` : base;
+export function askAssistantLink(babyId: string, question: string): string {
+  return `/babies/${babyId}/chat?q=${encodeURIComponent(question.trim())}`;
 }
