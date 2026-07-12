@@ -15,7 +15,6 @@ import {
   Clock,
   Droplets,
   Info,
-  Mic,
   Moon,
   Pencil,
   Phone,
@@ -61,7 +60,6 @@ import { Skeleton } from '../components/ui/Skeleton';
 import { CountUp } from '../components/ui/CountUp';
 import { AssistantMark } from '../components/assistant/AssistantMark';
 import { useTypewriter } from '../lib/useTypewriter';
-import { useVoiceInput } from '../lib/useVoiceInput';
 import { ASSISTANT_NAME, QUICK_CHIPS, SUGGESTED_QUESTIONS, askAssistantLink } from '../lib/assistant';
 
 type StatusType = 'on-track' | 'due-soon' | 'overdue' | 'info';
@@ -1264,7 +1262,6 @@ function AskAssistantBar({ babyId }: { babyId: string }) {
   const navigate = useNavigate();
   const [input, setInput] = useState('');
   const typed = useTypewriter(SUGGESTED_QUESTIONS);
-  const voice = useVoiceInput((text) => setInput((p) => (p ? `${p} ${text}` : text)));
   function ask(question: string) {
     const q = question.trim();
     if (q) navigate(askAssistantLink(babyId, q));
@@ -1287,8 +1284,8 @@ function AskAssistantBar({ babyId }: { babyId: string }) {
           <AssistantMark size={30} />
           <div style={{ position: 'relative', flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', height: 28 }}>
             {!input && (
-              <span aria-hidden="true" style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', overflow: 'hidden', whiteSpace: 'nowrap', pointerEvents: 'none', fontSize: '1rem', color: voice.listening ? 'var(--status-overdue-text)' : 'var(--text-muted-color)', fontWeight: voice.listening ? 600 : 400 }}>
-                {voice.listening ? 'Listening…' : `${typed}▏`}
+              <span aria-hidden="true" style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', overflow: 'hidden', whiteSpace: 'nowrap', pointerEvents: 'none', fontSize: '1rem', color: 'var(--text-muted-color)' }}>
+                {typed}▏
               </span>
             )}
             <input
@@ -1299,18 +1296,6 @@ function AskAssistantBar({ babyId }: { babyId: string }) {
               style={{ width: '100%', minWidth: 0, border: 'none', outline: 'none', background: 'transparent', fontSize: '1rem', color: 'var(--foreground)' }}
             />
           </div>
-          {voice.supported && (
-            <button
-              type="button"
-              onClick={voice.toggle}
-              aria-label={voice.listening ? 'Stop listening' : 'Speak your question'}
-              aria-pressed={voice.listening}
-              className={voice.listening ? 'animate-pulse' : 'pop-hover'}
-              style={{ display: 'grid', placeItems: 'center', width: 44, height: 44, borderRadius: 14, background: voice.listening ? 'var(--status-overdue-bg)' : 'var(--secondary)', color: voice.listening ? 'var(--status-overdue-text)' : 'var(--text-secondary)', flexShrink: 0 }}
-            >
-              <Mic size={19} aria-hidden="true" />
-            </button>
-          )}
           <button
             type="submit"
             disabled={!input.trim()}

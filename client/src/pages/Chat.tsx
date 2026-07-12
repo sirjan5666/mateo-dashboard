@@ -1,15 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import type { FormEvent, KeyboardEvent } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router';
-import { AlertTriangle, ArrowLeft, Check, History, Mic, Plus, Send, ShieldCheck, Square, Stethoscope, Trash2, Volume2, X } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Check, History, Plus, Send, ShieldCheck, Stethoscope, Trash2, X } from 'lucide-react';
 import { getBaby } from '../api/babies';
 import type { Baby } from '../api/babies';
 import { deleteSession, getSession, listSessions, sendChat } from '../api/chat';
 import type { ChatMessage, ChatSession } from '../api/chat';
 import { ApiError } from '../api/client';
 import { useLang } from '../i18n/context';
-import { createRecognition, speak, speechRecognitionSupported, speechSynthesisSupported, stopSpeaking } from '../lib/speech';
-import type { SpeechRecognitionLike } from '../lib/speech';
 import { formatAge, toDateInputValueIST, todayInputValueIST } from '../lib/age';
 import { Card } from '../components/ui/Card';
 import { Skeleton } from '../components/ui/Skeleton';
@@ -55,50 +53,6 @@ export default function Chat() {
   const [messages, setMessages] = useState<ChatMessage[] | null>(null);
   const [assistantEnabled, setAssistantEnabled] = useState(true);
   const { lang } = useLang();
-  const [listening, setListening] = useState(false);
-  // Which assistant message is being read aloud right now (per-message Listen).
-  const [speakingId, setSpeakingId] = useState<string | null>(null);
-  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
-
-  function toggleMic() {
-    if (listening) {
-      recognitionRef.current?.stop();
-      return;
-    }
-    const rec = createRecognition(lang);
-    if (!rec) return;
-    recognitionRef.current = rec;
-    stopSpeaking();
-    rec.onresult = (e) => {
-      const transcript = e.results?.[0]?.[0]?.transcript ?? '';
-      if (transcript) setInput((prev) => (prev ? `${prev} ${transcript}` : transcript));
-    };
-    rec.onend = () => {
-      setListening(false);
-      recognitionRef.current = null;
-    };
-    rec.onerror = () => {
-      setListening(false);
-      recognitionRef.current = null;
-    };
-    setListening(true);
-    try {
-      rec.start();
-    } catch {
-      setListening(false);
-    }
-  }
-
-  // Read one assistant message aloud on demand (Dai Maa only speaks when asked).
-  function toggleSpeak(m: ChatMessage) {
-    if (speakingId === m.id) {
-      stopSpeaking();
-      setSpeakingId(null);
-      return;
-    }
-    setSpeakingId(m.id);
-    speak(m.content, lang, { onend: () => setSpeakingId((cur) => (cur === m.id ? null : cur)) });
-  }
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -420,7 +374,7 @@ export default function Chat() {
                 </div>
               </Card>
             ) : (
-              messages.map((m) => <Bubble key={m.id} message={m} speaking={speakingId === m.id} onListen={() => toggleSpeak(m)} />)
+              messages.map((m) => <Bubble key={m.id} message={m} />)
             )}
             {sending && (
               <div className="flex items-center gap-2 text-sm text-stone-400">
@@ -450,20 +404,9 @@ export default function Chat() {
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 rows={1}
-                placeholder={listening ? 'Listening…' : 'Ask about feeding, sleep, skin, milestones…'}
+                placeholder="Ask about feeding, sleep, skin, milestones…"
                 className="max-h-32 flex-1 resize-none bg-transparent px-2 py-1.5 text-stone-900 placeholder:text-stone-400 focus:outline-none"
               />
-              {speechRecognitionSupported && (
-                <button
-                  type="button"
-                  onClick={toggleMic}
-                  aria-label={listening ? 'Stop voice input' : 'Speak your question'}
-                  title={listening ? 'Stop' : 'Speak your question'}
-                  className={cn('grid h-9 w-9 shrink-0 place-items-center rounded-xl transition-colors', listening ? 'animate-pulse bg-rose-100 text-rose-600' : 'text-stone-500 hover:bg-stone-100')}
-                >
-                  <Mic className="h-4 w-4" />
-                </button>
-              )}
               <button
                 type="submit"
                 disabled={sending || !input.trim()}
@@ -480,25 +423,7 @@ export default function Chat() {
   );
 }
 
-// A small "Listen" toggle under each assistant reply — Dai Maa reads it aloud only
-// when asked (no auto-speak), and shows "Stop" while speaking.
-function ListenButton({ speaking, onClick }: { speaking: boolean; onClick: () => void }) {
-  if (!speechSynthesisSupported) return null;
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={speaking}
-      aria-label={speaking ? 'Stop reading aloud' : 'Listen to this reply'}
-      className={cn('mt-1.5 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-bold transition-colors', speaking ? 'bg-emerald-50 text-emerald-700' : 'text-stone-500 hover:bg-stone-100')}
-    >
-      {speaking ? <Square className="h-3 w-3 fill-current" /> : <Volume2 className="h-3.5 w-3.5" />}
-      {speaking ? 'Stop' : 'Listen'}
-    </button>
-  );
-}
-
-function Bubble({ message, speaking, onListen }: { message: ChatMessage; speaking: boolean; onListen: () => void }) {
+function Bubble({ message }: { message: ChatMessage }) {
   const ref = useRef<HTMLDivElement>(null);
   // Slide new bubbles in (user from the right, assistant from the left). The
   // red-flag escalation is deliberately NOT animated — urgent-care guidance must
@@ -537,7 +462,6 @@ function Bubble({ message, speaking, onListen }: { message: ChatMessage; speakin
           </p>
           <p className="mt-1.5 whitespace-pre-wrap text-sm text-rose-900">{message.content}</p>
         </div>
-        <ListenButton speaking={speaking} onClick={onListen} />
         <Disclaimer />
       </div>
     );
@@ -548,7 +472,6 @@ function Bubble({ message, speaking, onListen }: { message: ChatMessage; speakin
       <div className="whitespace-pre-wrap rounded-2xl rounded-bl-sm border border-stone-200 bg-white px-4 py-2.5 text-stone-700">
         {message.content}
       </div>
-      <ListenButton speaking={speaking} onClick={onListen} />
       <Disclaimer />
     </div>
   );
