@@ -35,13 +35,14 @@ import { MascotHero } from '../components/ui/MascotHero';
 import { cn } from '../lib/cn';
 import { useScrollReveal, celebrate } from '../lib/gsap';
 
-// A real photo for each milestone that has one (7 of the 8); "babbling" has no
-// true photo and falls back to a domain-tinted emoji tile. Each photo genuinely
-// depicts its own milestone — never a stand-in.
+// A real photo for each milestone (all 8). Each photo genuinely depicts its own
+// milestone — never a stand-in. If a photo is ever missing, MilestonePhoto falls
+// back to a domain-tinted emoji tile.
 const MILESTONE_PHOTO: Record<string, string> = {
   social_smile: '/milestones/social_smile.jpg',
   rolling: '/milestones/rolling.jpg',
   sitting: '/milestones/sitting.jpg',
+  babbling: '/milestones/babbling.jpg',
   crawling: '/milestones/crawling.jpg',
   standing_alone: '/milestones/standing_alone.jpg',
   first_words: '/milestones/first_words.jpg',
