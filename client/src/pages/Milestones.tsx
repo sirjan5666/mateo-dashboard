@@ -327,14 +327,16 @@ function SummaryCard({ tone, icon: Icon, value, label, hint }: { tone: keyof typ
 
 /* ── photo / emoji tile ───────────────────────────────────────────────── */
 
-function MilestonePhoto({ m, className, objectPos = 'center 8%' }: { m: MilestoneItem; className?: string; objectPos?: string }) {
+// Photos are pre-normalized to a square canvas with the baby trimmed + centered
+// (~92%), so object-cover on any square/circular frame shows the whole baby with
+// no awkward cropping. "babbles" has no photo → a domain-tinted emoji tile.
+function MilestonePhoto({ m, className, objectPos = 'center' }: { m: MilestoneItem; className?: string; objectPos?: string }) {
   const src = MILESTONE_PHOTO[m.id];
   const d = DOMAIN[m.domain];
   if (src) {
     return (
-      <div className={cn('relative overflow-hidden bg-white', className)}>
+      <div className={cn('overflow-hidden bg-white', className)}>
         <img src={src} alt="" className="h-full w-full object-cover" style={{ objectPosition: objectPos }} loading="lazy" />
-        <span aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3" style={{ background: 'linear-gradient(to top,#fff 6%, transparent)' }} />
       </div>
     );
   }
@@ -390,7 +392,7 @@ function MilestoneCard({ m, pending, onToggle, showAsk, askHref }: { m: Mileston
   return (
     <Card className={cn('flex flex-col overflow-hidden p-0 transition-shadow hover:shadow-md', m.achieved && 'ring-1 ring-emerald-200')}>
       <div className="relative">
-        <MilestonePhoto m={m} className="h-32" />
+        <MilestonePhoto m={m} className="aspect-square" />
         <span className={cn('absolute left-2.5 top-2.5 rounded-full px-2 py-0.5 text-[10px] font-bold', d.pill)}>{d.label}</span>
         <span className="absolute right-2.5 top-2.5">
           <Pill tone={cfg.tone}>{cfg.label}</Pill>
@@ -487,7 +489,7 @@ function ProgressCard({ pct, summary, items }: { pct: number; summary: { achieve
 function NextMilestoneCard({ m, askHref }: { m: MilestoneItem; askHref: string }) {
   return (
     <Card className="overflow-hidden p-0">
-      <MilestonePhoto m={m} className="h-32" />
+      <MilestonePhoto m={m} className="aspect-square" />
       <div className="p-4">
         <span className="eyebrow" style={{ color: 'var(--cat-milestone-text)' }}>Next up</span>
         <h3 className="mt-1 text-lg font-bold text-stone-800">{m.label}</h3>
