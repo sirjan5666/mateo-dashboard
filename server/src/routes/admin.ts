@@ -21,6 +21,8 @@ import { requireAuth, requireRole, setAuthCookie } from '../middleware/auth.js';
 import { generatePassword } from '../lib/password.js';
 import { eraseUserData } from '../lib/eraseUser.js';
 import { REWARD_PER_REFERRAL } from '../lib/referral.js';
+import { award } from '../points/service.js';
+import { SITARE } from '../points/economics.js';
 import { doseStatus, istToday } from '../vaccines/schedule.js';
 
 interface VaccineCounts {
@@ -88,12 +90,14 @@ router.post('/parents', async (req, res) => {
   }
   // If a valid referral code was supplied, credit the referrer and record it.
   let referredByCode: string | undefined;
+  let referrerId: string | undefined;
   if (referralCode) {
     const referrer = await User.findOne({ referralCode });
     if (referrer) {
       referrer.referralCredits = (referrer.referralCredits ?? 0) + REWARD_PER_REFERRAL;
       await referrer.save();
       referredByCode = referralCode;
+      referrerId = referrer.id;
     }
   }
   const tempPassword = password ?? generatePassword();
@@ -111,6 +115,26 @@ router.post('/parents', async (req, res) => {
     referredByCode,
     subscription: { active: true, source: 'mateo', activatedAt: new Date() },
   });
+  // Mateo Sitare (runs ALONGSIDE the ₹ referral credit above): reward both sides.
+  // Keyed on the new user's id so each pairing is awarded exactly once.
+  if (referrerId) {
+    await award({
+      userId: referrerId,
+      source: 'referral_referrer',
+      amount: SITARE.REFERRAL_REFERRER,
+      refType: 'user',
+      refId: user.id,
+      dedupeKey: `earn:ref:${user.id}`,
+    }).catch((e) => console.error('sitare referrer award failed:', e));
+    await award({
+      userId: user.id,
+      source: 'referral_referee',
+      amount: SITARE.REFERRAL_REFEREE,
+      refType: 'user',
+      refId: user.id,
+      dedupeKey: `earn:refee:${user.id}`,
+    }).catch((e) => console.error('sitare referee award failed:', e));
+  }
   res.status(201).json({ user: { id: user.id, name: user.name, email: user.email, role: user.role }, tempPassword });
 });
 

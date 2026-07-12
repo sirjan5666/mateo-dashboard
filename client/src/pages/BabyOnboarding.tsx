@@ -16,13 +16,13 @@ import {
   Syringe,
   UtensilsCrossed,
 } from 'lucide-react';
-import { createBaby, updateBaby } from '../api/babies';
+import { createBaby, updateBaby, type BloodGroup, type FeedingType } from '../api/babies';
 import { addGrowthLog } from '../api/growth';
-import { listVaccines, setVaccineAdministered, type VaccineDose } from '../api/vaccines';
+import { listBaselineVaccines, markBaselineVaccines, type VaccineDose } from '../api/vaccines';
 import { addSleep } from '../api/sleep';
 import { updateNotificationPreferences, type NotificationLanguage } from '../api/notificationPrefs';
 import { ApiError } from '../api/client';
-import { ageInMonths, toDateInputValueIST, todayInputValueIST } from '../lib/age';
+import { ageInMonths, todayInputValueIST } from '../lib/age';
 import { avatarsForSex, avatarUrl } from '../lib/avatars';
 import { Card } from '../components/ui/Card';
 import { DatePicker } from '../components/ui/DatePicker';
@@ -120,6 +120,15 @@ export default function BabyOnboarding() {
   const [birthWeightKg, setBirthWeightKg] = useState('');
   const [birthLengthCm, setBirthLengthCm] = useState('');
   const [birthHeadCircCm, setBirthHeadCircCm] = useState('');
+  // Gestational age at birth (weeks). < 37 => premature → corrected age for
+  // growth + milestones. Empty = assume term.
+  const [gestWeeks, setGestWeeks] = useState('');
+  // Static baseline notes (feed the AI + profile). Feeding stays brand-neutral.
+  const [bloodGroup, setBloodGroup] = useState<BloodGroup | ''>('');
+  const [feedingType, setFeedingType] = useState<FeedingType | ''>('');
+  const [allergiesText, setAllergiesText] = useState('');
+  const [pedName, setPedName] = useState('');
+  const [pedPhone, setPedPhone] = useState('');
 
   // Step 1 — current measurements
   const [curWeightKg, setCurWeightKg] = useState('');
@@ -158,8 +167,10 @@ export default function BabyOnboarding() {
   async function loadDosesIfNeeded(id: string) {
     if (dosesLoaded) return;
     try {
-      const { doses: all } = await listVaccines(id);
-      setDoses(all.filter((d) => d.status === 'due' || d.status === 'overdue'));
+      // Ungated baseline endpoint (works before subscribing) — already filtered to
+      // the due/overdue candidates for "which vaccines were already given".
+      const { doses: candidates } = await listBaselineVaccines(id);
+      setDoses(candidates);
       setDosesLoaded(true);
     } catch {
       setDoses([]);
@@ -192,6 +203,12 @@ export default function BabyOnboarding() {
           birthWeightG: kgToGrams(birthWeightKg),
           birthLengthCm: parseOptionalNumber(birthLengthCm),
           birthHeadCircCm: parseOptionalNumber(birthHeadCircCm),
+          gestationalAgeWeeks: parseOptionalNumber(gestWeeks),
+          bloodGroup: bloodGroup || undefined,
+          feedingType: feedingType || undefined,
+          knownAllergies: allergiesText.trim() ? allergiesText.split(',').map((s) => s.trim()).filter(Boolean) : undefined,
+          pediatricianName: pedName.trim() || undefined,
+          pediatricianPhone: pedPhone.trim() || undefined,
         };
         // Creating the baby seeds its vaccine schedule server-side. On Back+edit we
         // update the same baby instead of making a second one.
@@ -211,11 +228,10 @@ export default function BabyOnboarding() {
         }
       } else if (s === 'vaccines') {
         const toMark = doses.filter((d) => checkedDoses[d.id]);
-        if (toMark.length > 0) {
-          const results = await Promise.allSettled(
-            toMark.map((d) => setVaccineAdministered(d.id, toDateInputValueIST(d.dueDate))),
-          );
-          if (results.some((r) => r.status === 'rejected')) {
+        if (toMark.length > 0 && babyId) {
+          try {
+            await markBaselineVaccines(babyId, toMark.map((d) => d.id));
+          } catch {
             setSoftNote('Some vaccine marks didn’t save — you can set them on the Vaccines page.');
           }
         }
@@ -395,6 +411,62 @@ export default function BabyOnboarding() {
                 <MeasureInput id="bl" label="Length" unit="cm" step="0.1" placeholder="50" value={birthLengthCm} onChange={setBirthLengthCm} />
                 <MeasureInput id="bh" label="Head" unit="cm" step="0.1" placeholder="35" value={birthHeadCircCm} onChange={setBirthHeadCircCm} />
               </div>
+            </div>
+            <div>
+              <p className="mb-2 text-sm font-bold text-stone-800">
+                Born early? <span className="font-normal text-stone-400">· optional, weeks of pregnancy at birth</span>
+              </p>
+              <div className="grid grid-cols-3 gap-3">
+                <MeasureInput id="ga" label="Gestation" unit="weeks" step="1" placeholder="40" value={gestWeeks} onChange={setGestWeeks} />
+              </div>
+              {gestWeeks !== '' && Number(gestWeeks) >= 20 && Number(gestWeeks) < 37 && (
+                <p className="mt-2 text-[12.5px] leading-snug text-violet-700">
+                  Born {40 - Number(gestWeeks)} weeks early — we’ll use <strong>corrected age</strong> for growth &amp; milestones (until 2 years). Vaccines &amp; feeding still follow actual age.
+                </p>
+              )}
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block">
+                <span className="mb-1 block text-sm font-bold text-stone-800">
+                  Blood group <span className="font-normal text-stone-400">· optional</span>
+                </span>
+                <select value={bloodGroup} onChange={(e) => setBloodGroup(e.target.value as BloodGroup | '')} className="w-full rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm outline-none focus:border-violet-400">
+                  <option value="">Select…</option>
+                  {(['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-', 'unknown'] as const).map((g) => (
+                    <option key={g} value={g}>
+                      {g === 'unknown' ? 'Not known' : g}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-sm font-bold text-stone-800">
+                  Feeding <span className="font-normal text-stone-400">· optional</span>
+                </span>
+                <select value={feedingType} onChange={(e) => setFeedingType(e.target.value as FeedingType | '')} className="w-full rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm outline-none focus:border-violet-400">
+                  <option value="">Select…</option>
+                  <option value="breastfed">Exclusively breastfed</option>
+                  <option value="mixed">Mixed feeding</option>
+                </select>
+              </label>
+              <label className="block sm:col-span-2">
+                <span className="mb-1 block text-sm font-bold text-stone-800">
+                  Known allergies <span className="font-normal text-stone-400">· optional, comma-separated</span>
+                </span>
+                <input value={allergiesText} onChange={(e) => setAllergiesText(e.target.value)} placeholder="e.g. cow’s milk, egg" className="w-full rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm outline-none focus:border-violet-400" />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-sm font-bold text-stone-800">
+                  Pediatrician <span className="font-normal text-stone-400">· optional</span>
+                </span>
+                <input value={pedName} onChange={(e) => setPedName(e.target.value)} placeholder="Dr. name" className="w-full rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm outline-none focus:border-violet-400" />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-sm font-bold text-stone-800">
+                  Doctor’s phone <span className="font-normal text-stone-400">· optional</span>
+                </span>
+                <input value={pedPhone} onChange={(e) => setPedPhone(e.target.value)} inputMode="tel" placeholder="For a quick call later" className="w-full rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm outline-none focus:border-violet-400" />
+              </label>
             </div>
           </div>
         )}

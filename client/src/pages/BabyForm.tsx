@@ -3,7 +3,7 @@ import type { FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { AlertTriangle, ArrowLeft, Baby as BabyIcon, Check, ChevronDown, ChevronUp, HeartHandshake, Ruler, ShieldCheck, Smile, Trash2 } from 'lucide-react';
 import { createBaby, deleteBaby, getBaby, updateBaby } from '../api/babies';
-import type { BabyInput } from '../api/babies';
+import type { BabyInput, BloodGroup, FeedingType } from '../api/babies';
 import { ApiError } from '../api/client';
 import { toDateInputValueIST, todayInputValueIST } from '../lib/age';
 import { avatarsForSex, avatarUrl } from '../lib/avatars';
@@ -83,6 +83,13 @@ export default function BabyForm() {
   const [birthLengthCm, setBirthLengthCm] = useState('');
   const [birthHeadCircCm, setBirthHeadCircCm] = useState('');
   const [showMeasures, setShowMeasures] = useState(false);
+  const [gestWeeks, setGestWeeks] = useState('');
+  const [bloodGroup, setBloodGroup] = useState<BloodGroup | ''>('');
+  const [feedingType, setFeedingType] = useState<FeedingType | ''>('');
+  const [allergiesText, setAllergiesText] = useState('');
+  const [pedName, setPedName] = useState('');
+  const [pedPhone, setPedPhone] = useState('');
+  const [showBaseline, setShowBaseline] = useState(false);
 
   const [loading, setLoading] = useState(isEdit);
   const [error, setError] = useState<string | null>(null);
@@ -111,6 +118,15 @@ export default function BabyForm() {
         setBirthLengthCm(l);
         setBirthHeadCircCm(h);
         if (w || l || h) setShowMeasures(true); // reveal existing measurements
+        setGestWeeks(baby.gestationalAgeWeeks !== undefined ? String(baby.gestationalAgeWeeks) : '');
+        setBloodGroup(baby.bloodGroup ?? '');
+        setFeedingType(baby.feedingType ?? '');
+        setAllergiesText(baby.knownAllergies?.join(', ') ?? '');
+        setPedName(baby.pediatricianName ?? '');
+        setPedPhone(baby.pediatricianPhone ?? '');
+        if (baby.gestationalAgeWeeks || baby.bloodGroup || baby.feedingType || baby.knownAllergies?.length || baby.pediatricianName || baby.pediatricianPhone) {
+          setShowBaseline(true); // reveal existing baseline details
+        }
         setLoading(false);
       })
       .catch((err: unknown) => {
@@ -150,6 +166,12 @@ export default function BabyForm() {
       birthWeightG: kgToGrams(birthWeightKg),
       birthLengthCm: parseOptionalNumber(birthLengthCm),
       birthHeadCircCm: parseOptionalNumber(birthHeadCircCm),
+      gestationalAgeWeeks: parseOptionalNumber(gestWeeks),
+      bloodGroup: bloodGroup || undefined,
+      feedingType: feedingType || undefined,
+      knownAllergies: allergiesText.trim() ? allergiesText.split(',').map((s) => s.trim()).filter(Boolean) : undefined,
+      pediatricianName: pedName.trim() || undefined,
+      pediatricianPhone: pedPhone.trim() || undefined,
     };
     try {
       if (isEdit) await updateBaby(id, input);
@@ -280,6 +302,58 @@ export default function BabyForm() {
                     <MeasureInput id="birthWeightKg" label="Weight" unit="kg" step="0.01" placeholder="3.2" value={birthWeightKg} onChange={setBirthWeightKg} />
                     <MeasureInput id="birthLengthCm" label="Length" unit="cm" step="0.1" placeholder="50" value={birthLengthCm} onChange={setBirthLengthCm} />
                     <MeasureInput id="birthHeadCircCm" label="Head" unit="cm" step="0.1" placeholder="35" value={birthHeadCircCm} onChange={setBirthHeadCircCm} />
+                  </div>
+                )}
+              </div>
+
+              {/* Baseline details — gestation (→ corrected age), blood group, feeding, allergies, doctor */}
+              <div className="overflow-hidden rounded-xl border border-dashed border-stone-300 bg-stone-50/70">
+                <button type="button" onClick={() => setShowBaseline((s) => !s)} aria-expanded={showBaseline} className="flex w-full items-center gap-2.5 px-4 py-3 text-left">
+                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg" style={{ background: 'var(--cat-record-bg)', color: 'var(--cat-record-text)' }}><HeartHandshake className="h-[17px] w-[17px]" /></span>
+                  <span className="flex-1">
+                    <span className="block text-sm font-bold text-stone-800">Baseline details</span>
+                    <span className="block text-[0.72rem] text-stone-500">Optional · gestation, blood group, feeding, allergies, doctor</span>
+                  </span>
+                  {showBaseline ? <ChevronUp className="h-[18px] w-[18px] text-stone-400" /> : <ChevronDown className="h-[18px] w-[18px] text-stone-400" />}
+                </button>
+                {showBaseline && (
+                  <div className="animate-popin flex flex-col gap-3 px-4 pb-4 pt-1">
+                    <div className="grid grid-cols-2 gap-3">
+                      <MeasureInput id="gestWeeks" label="Gestation at birth" unit="wks" step="1" placeholder="40" value={gestWeeks} onChange={setGestWeeks} />
+                      <div>
+                        <label htmlFor="bloodGroup" className="mb-1 block text-[0.72rem] font-semibold text-stone-600">Blood group</label>
+                        <select id="bloodGroup" value={bloodGroup} onChange={(e) => setBloodGroup(e.target.value as BloodGroup | '')} className={fieldCls}>
+                          <option value="">Select…</option>
+                          {(['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-', 'unknown'] as const).map((g) => (
+                            <option key={g} value={g}>
+                              {g === 'unknown' ? 'Not known' : g}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    <div>
+                      <label htmlFor="feedingType" className="mb-1 block text-[0.72rem] font-semibold text-stone-600">Feeding</label>
+                      <select id="feedingType" value={feedingType} onChange={(e) => setFeedingType(e.target.value as FeedingType | '')} className={fieldCls}>
+                        <option value="">Select…</option>
+                        <option value="breastfed">Exclusively breastfed</option>
+                        <option value="mixed">Mixed feeding</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label htmlFor="allergies" className="mb-1 block text-[0.72rem] font-semibold text-stone-600">Known allergies · comma-separated</label>
+                      <input id="allergies" type="text" value={allergiesText} onChange={(e) => setAllergiesText(e.target.value)} placeholder="e.g. cow’s milk, egg" className={fieldCls} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label htmlFor="pedName" className="mb-1 block text-[0.72rem] font-semibold text-stone-600">Pediatrician</label>
+                        <input id="pedName" type="text" value={pedName} onChange={(e) => setPedName(e.target.value)} placeholder="Dr. name" className={fieldCls} />
+                      </div>
+                      <div>
+                        <label htmlFor="pedPhone" className="mb-1 block text-[0.72rem] font-semibold text-stone-600">Doctor’s phone</label>
+                        <input id="pedPhone" type="tel" inputMode="tel" value={pedPhone} onChange={(e) => setPedPhone(e.target.value)} placeholder="For a quick call" className={fieldCls} />
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>

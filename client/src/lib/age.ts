@@ -27,6 +27,36 @@ export function formatAge(dobIso: string): string {
   return `${plural(years, 'year')} ${plural(remMonths, 'month')} old`;
 }
 
+// Corrected (adjusted) age for premature babies — mirrors server lib/correctedAge.ts.
+// Display-only: growth + milestone MATH is corrected server-side.
+const TERM_WEEKS = 40;
+const MS_PER_MONTH = MS_PER_DAY * 30.4375;
+
+export function prematurityWeeks(gestationalAgeWeeks?: number): number {
+  if (gestationalAgeWeeks == null || gestationalAgeWeeks >= 37) return 0;
+  return Math.max(0, TERM_WEEKS - gestationalAgeWeeks);
+}
+
+export function isPreterm(gestationalAgeWeeks?: number): boolean {
+  return prematurityWeeks(gestationalAgeWeeks) > 0;
+}
+
+// A short "corrected age" label for a preterm baby under 24 months chronological;
+// null for term babies or once correction no longer applies.
+export function correctedAgeLabel(dobIso: string, gestationalAgeWeeks?: number, now: Date = new Date()): string | null {
+  const premo = prematurityWeeks(gestationalAgeWeeks);
+  if (premo === 0) return null;
+  const chronoMonths = (now.getTime() - new Date(dobIso).getTime()) / MS_PER_MONTH;
+  if (chronoMonths >= 24) return null;
+  const corr = Math.max(0, chronoMonths - (premo * 7) / 30.4375);
+  const months = Math.floor(corr);
+  if (months < 1) {
+    const wk = Math.max(0, Math.floor(corr * 4.345));
+    return `${plural(wk, 'week')} corrected`;
+  }
+  return `${plural(months, 'month')} corrected`;
+}
+
 // Whole calendar months since DOB — for age-gating features (e.g. complementary
 // feeding starts at 6 months). Matches formatAge's month calc so both agree.
 export function ageInMonths(dobIso: string, now: Date = new Date()): number {

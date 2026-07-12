@@ -8,10 +8,13 @@ export const CONSULTATION_STATUSES: ConsultationStatus[] = ['booked', 'completed
 
 // Payment is mocked for now (no real gateway): booking marks it 'paid'.
 export interface IConsultationPayment {
-  amount: number; // whole INR
+  amount: number; // whole INR actually charged (fee minus any Sitare discount)
   status: 'paid' | 'pending';
   method: string; // 'mock' for now
   paidAt?: Date;
+  // Mateo Sitare: ★ redeemed against this booking and the ₹ they took off.
+  pointsRedeemed?: number;
+  discountInr?: number;
 }
 
 export interface IConsultation {
@@ -36,6 +39,8 @@ const paymentSchema = new Schema<IConsultationPayment>(
     status: { type: String, enum: ['paid', 'pending'], default: 'pending' },
     method: { type: String, default: 'mock' },
     paidAt: { type: Date },
+    pointsRedeemed: { type: Number, min: 0 },
+    discountInr: { type: Number, min: 0 },
   },
   { _id: false },
 );

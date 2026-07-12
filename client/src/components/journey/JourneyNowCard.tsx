@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { AlertTriangle, Lightbulb, Sparkles } from 'lucide-react';
 import type { Journey } from '../../api/journey';
 import { Card } from '../ui/Card';
@@ -36,6 +37,7 @@ export function JourneyNowCard({
   accent = 'milestone',
   babyName,
   className,
+  action,
 }: {
   journey: Journey;
   focus?: Focus;
@@ -43,6 +45,8 @@ export function JourneyNowCard({
   accent?: string;
   babyName?: string;
   className?: string;
+  /** Optional CTA row (e.g. a "Ask Dai Maa" button) rendered at the foot of the band. */
+  action?: ReactNode;
 }) {
   const { title, body } = headline(journey, focus);
   const pct = Math.min(100, Math.round((journey.day / journey.totalDays) * 100));
@@ -89,6 +93,8 @@ export function JourneyNowCard({
             </p>
           </div>
         )}
+
+        {action && <div className="mt-4">{action}</div>}
       </div>
     </Card>
   );

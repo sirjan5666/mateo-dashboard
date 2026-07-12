@@ -10,6 +10,9 @@ import { AdminNotification } from '../models/AdminNotification.js';
 import { createRazorpayOrder, razorpayConfigured, verifyPaymentSignature } from '../lib/razorpay.js';
 import { env } from '../config/env.js';
 import { notifyAdminsOfNewOrder } from '../shop/notify.js';
+import { eligibleSubtotalInr } from '../points/eligibility.js';
+import { earnForSpend } from '../points/economics.js';
+import { award, confirmReservation, releaseReservation, reserveForOrder, reverse } from '../points/service.js';
 
 // Free shipping over this subtotal, otherwise a flat fee. This is plain shipping
 // — NOT a discount or inducement (which the IMS Act forbids for formula).
@@ -42,6 +45,9 @@ const createOrderSchema = z.object({
     .min(1, 'Your cart is empty')
     .max(50),
   shippingAddress: addressSchema,
+  // Mateo Sitare: how many ★ the buyer wants to redeem. Always re-clamped
+  // server-side (balance, 20% eligible cap, whole-rupee steps) — never trusted.
+  redeemPoints: z.number().int().min(0).max(1_000_000).optional(),
 });
 
 const verifySchema = z.object({
@@ -82,6 +88,14 @@ function publicOrder(o: HydratedDocument<IOrder>) {
     statusHistory: o.statusHistory,
     tracking: o.tracking,
     hasFormula: o.items.some((i) => i.brand === 'neucomed'),
+    sitare: o.sitare
+      ? {
+          pointsRedeemed: o.sitare.pointsRedeemed,
+          discountInr: o.sitare.discountInr,
+          eligibleSubtotalInr: o.sitare.eligibleSubtotalInr,
+          earnedPoints: o.sitare.earnedPoints,
+        }
+      : null,
     payment: {
       method: o.payment.method,
       status: o.payment.status,
@@ -91,6 +105,22 @@ function publicOrder(o: HydratedDocument<IOrder>) {
     createdAt: o.createdAt,
     updatedAt: o.updatedAt,
   };
+}
+
+// Award Sitare for a paid order on its eligible (non-formula) subtotal.
+// Idempotent via the order-scoped dedupeKey, so re-verify never double-awards.
+async function earnOrder(order: HydratedDocument<IOrder>): Promise<number> {
+  const amount = earnForSpend(eligibleSubtotalInr(order.items));
+  if (amount <= 0) return 0;
+  const result = await award({
+    userId: order.userId.toString(),
+    source: 'shop_purchase',
+    amount,
+    refType: 'order',
+    refId: order.id,
+    dedupeKey: `earn:order:${order.id}`,
+  });
+  return result.awarded;
 }
 
 const router = Router();
@@ -157,9 +187,30 @@ router.post('/orders', requireAuth, async (req, res) => {
     },
   });
 
+  // Mateo Sitare redemption: hold points against this order. The eligible base
+  // excludes formula (IMS Act). The hold is CONFIRMED on payment or RELEASED on
+  // failure/cancel so points and money can never diverge.
+  const eligibleInr = eligibleSubtotalInr(items);
+  const reservation = await reserveForOrder({
+    userId: req.userId!,
+    orderId: order.id,
+    requestedPoints: body.redeemPoints ?? 0,
+    eligibleSubtotalInr: eligibleInr,
+  });
+  const chargeInr = totalInr - reservation.discountInr;
+  order.payment.amountInr = chargeInr;
+  order.sitare = {
+    pointsRedeemed: reservation.reservedPoints,
+    discountInr: reservation.discountInr,
+    eligibleSubtotalInr: eligibleInr,
+    reservationId: reservation.reservationId,
+    earnedPoints: 0,
+  };
+  await order.save();
+
   if (razorpayConfigured()) {
     try {
-      const rzp = await createRazorpayOrder(totalInr, order.orderNumber);
+      const rzp = await createRazorpayOrder(chargeInr, order.orderNumber);
       order.payment.razorpayOrderId = rzp.id;
       await order.save();
       res.status(201).json({
@@ -170,6 +221,8 @@ router.post('/orders', requireAuth, async (req, res) => {
       console.error('Razorpay order creation failed:', err);
       order.payment.status = 'failed';
       await order.save();
+      // Never reached the gateway — give the held points back.
+      await releaseReservation(order.id).catch((e) => console.error('release failed:', e));
       res.status(502).json({ error: 'Could not start payment right now. Please try again.' });
     }
     return;
@@ -180,9 +233,12 @@ router.post('/orders', requireAuth, async (req, res) => {
   order.payment.paidAt = now;
   order.status = 'confirmed';
   order.statusHistory.push({ status: 'confirmed', at: now, note: 'Payment received (mock)' });
+  await confirmReservation(order.id);
+  const earned = await earnOrder(order);
+  if (order.sitare) order.sitare.earnedPoints = earned;
   await order.save();
   void notifyAdminsOfNewOrder(order).catch((e) => console.error('notifyAdmins failed:', e));
-  res.status(201).json({ order: publicOrder(order), mock: true });
+  res.status(201).json({ order: publicOrder(order), mock: true, earnedPoints: earned });
 });
 
 // Verify a Razorpay payment and confirm the order. The signature is the trust
@@ -210,6 +266,8 @@ router.post('/orders/:id/verify', requireAuth, async (req, res) => {
   if (!ok) {
     order.payment.status = 'failed';
     await order.save();
+    // Payment didn't verify — return any held Sitare to the wallet.
+    await releaseReservation(order.id).catch((e) => console.error('release failed:', e));
     res.status(400).json({ error: 'Payment verification failed' });
     return;
   }
@@ -219,6 +277,9 @@ router.post('/orders/:id/verify', requireAuth, async (req, res) => {
   order.payment.paidAt = now;
   order.status = 'confirmed';
   order.statusHistory.push({ status: 'confirmed', at: now, note: 'Payment received' });
+  await confirmReservation(order.id);
+  const earned = await earnOrder(order);
+  if (order.sitare) order.sitare.earnedPoints = earned;
   await order.save();
   void notifyAdminsOfNewOrder(order).catch((e) => console.error('notifyAdmins failed:', e));
   res.json({ order: publicOrder(order) });
@@ -286,6 +347,12 @@ router.patch('/admin/orders/:id', requireAuth, requireRole('admin'), async (req,
     };
   }
   await order.save();
+  // Cancelling an order returns any still-held redemption and claws back the
+  // earned ★ (prevents a buy→earn→cancel farm). Both are no-ops if inapplicable.
+  if (body.status === 'cancelled') {
+    await releaseReservation(order.id).catch((e) => console.error('release failed:', e));
+    await reverse({ dedupeKey: `earn:order:${order.id}`, reason: 'order_cancelled' }).catch((e) => console.error('reverse failed:', e));
+  }
   res.json({ order: publicOrder(order) });
 });
 
@@ -299,6 +366,9 @@ router.delete('/admin/orders/:id', requireAuth, requireRole('admin'), async (req
     res.status(404).json({ error: 'Order not found' });
     return;
   }
+  // Return any held redemption and claw back earned ★ before removing the record.
+  await releaseReservation(order.id).catch((e) => console.error('release failed:', e));
+  await reverse({ dedupeKey: `earn:order:${order.id}`, reason: 'order_deleted' }).catch((e) => console.error('reverse failed:', e));
   await order.deleteOne();
   res.json({ ok: true, id });
 });

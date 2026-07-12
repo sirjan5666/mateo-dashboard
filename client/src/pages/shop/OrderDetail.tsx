@@ -12,6 +12,8 @@ import { Pill } from '../../components/ui/Pill';
 import { Skeleton } from '../../components/ui/Skeleton';
 import { OrderStatusTimeline } from '../../components/shop/OrderStatusTimeline';
 import { NeucomedNotice } from '../../components/shop/NeucomedNotice';
+import { SitareCoin } from '../../components/sitare/SitareBits';
+import { formatStars } from '../../lib/sitare';
 
 export default function OrderDetail() {
   const { id } = useParams();
@@ -111,13 +113,24 @@ export default function OrderDetail() {
             <dt className="text-stone-500">{t('shop.shipping')}</dt>
             <dd>{order.shippingInr === 0 ? t('shop.free') : inr(order.shippingInr)}</dd>
           </div>
+          {order.sitare && order.sitare.discountInr > 0 && (
+            <div className="flex justify-between text-emerald-700">
+              <dt className="font-semibold">Sitare redeemed ({formatStars(order.sitare.pointsRedeemed)} ★)</dt>
+              <dd className="font-semibold">−{inr(order.sitare.discountInr)}</dd>
+            </div>
+          )}
           <div className="flex justify-between font-display text-base font-extrabold text-stone-900">
             <dt>{t('shop.total')}</dt>
-            <dd>{inr(order.totalInr)}</dd>
+            <dd>{inr(order.totalInr - (order.sitare?.discountInr ?? 0))}</dd>
           </div>
           <p className="pt-1 text-xs text-stone-400">
             {t('shop.paidVia')} {order.payment.method === 'mock' ? t('shop.testPayment') : 'Razorpay'}
           </p>
+          {order.sitare && order.sitare.earnedPoints > 0 && (
+            <p className="mt-2 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-extrabold" style={{ background: 'var(--sitare-bg)', color: 'var(--sitare-deep)' }}>
+              <SitareCoin size={14} /> You earned ★ {formatStars(order.sitare.earnedPoints)} Sitare
+            </p>
+          )}
         </dl>
       </Card>
 

@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link, useParams } from 'react-router';
-import { Apple, ArrowLeft, Baby, CheckCircle2, Leaf, ShieldAlert, ShieldCheck, Sparkles, Trash2 } from 'lucide-react';
+import { Apple, ArrowLeft, Baby, CheckCircle2, Leaf, MessageCircleHeart, ShieldAlert, ShieldCheck, Sparkles, Trash2 } from 'lucide-react';
+import { askAssistantLink } from '../lib/assistant';
 import { addFood, deleteFood, listFood } from '../api/food';
 import type { FoodAmount, FoodReaction, FoodResponse, FoodTexture, MealType } from '../api/food';
 import { getBaby, updateBaby } from '../api/babies';
@@ -269,6 +270,22 @@ export default function Food() {
           <UnderSixBanner guidance={guidance} />
         ) : (
           <StageBanner guidance={guidance} onUseIdea={useIdea} />
+        )}
+        {guidance && id && (
+          <div className="mt-3">
+            <Link
+              to={askAssistantLink(
+                id,
+                guidance.underSix
+                  ? `When and how should I start solids for my baby, and what first foods are safe to try?`
+                  : `What foods and roughly how much are right for my baby's age now, and how do I introduce variety and common allergens safely?`,
+              )}
+              className="inline-flex items-center gap-1.5 text-sm font-bold"
+              style={{ color: 'var(--cat-assistant)' }}
+            >
+              <MessageCircleHeart className="h-4 w-4" /> Feeding questions? Ask Dai Maa
+            </Link>
+          </div>
         )}
       </div>
 

@@ -76,6 +76,13 @@ export interface OrderPayment {
   paidAt?: string;
 }
 
+export interface OrderSitare {
+  pointsRedeemed: number;
+  discountInr: number;
+  eligibleSubtotalInr: number;
+  earnedPoints: number;
+}
+
 export interface Order {
   id: string;
   orderNumber: string;
@@ -88,6 +95,7 @@ export interface Order {
   statusHistory: OrderStatusEvent[];
   tracking: OrderTracking;
   hasFormula: boolean;
+  sitare?: OrderSitare | null;
   payment: OrderPayment;
   createdAt: string;
   updatedAt: string;
@@ -110,6 +118,7 @@ export interface AdminNotification {
 export interface CreateOrderInput {
   items: { productId: string; quantity: number; size?: string }[];
   shippingAddress: ShippingAddress;
+  redeemPoints?: number; // Mateo Sitare to redeem (server re-clamps)
 }
 
 export interface RazorpayInit {
@@ -123,6 +132,7 @@ export interface CreateOrderResult {
   order: Order;
   razorpay?: RazorpayInit;
   mock?: boolean;
+  earnedPoints?: number;
 }
 
 // ── Catalog ──────────────────────────────────────────────────────────────────

@@ -12,6 +12,43 @@
 
 ---
 
+## 0. 2026-07-11 UPDATE — foundation fixed + enriched blueprint folded in
+
+The owner shared an **enriched "Auto-Pilot Trackers" blueprint** ("Set once, we watch the
+rest"). It does not replace this plan — it enriches it. Mapping + status:
+
+**Foundation bugs — FIXED & verified (2026-07-11)** (automation needs clean data first):
+- Birth measurements now seed a `GrowthLog` at DOB (`routes/babies.ts`) → this IS Phase-1 step 2.
+- AI growth context reads weight+length+head, not weight-only (`ai/context.ts`).
+- Sidebar validates the URL baby id vs owned babies (no more stale-id "Baby not found").
+- Vaccines page trusts the server summary + refetches after a mark (stable counters).
+
+**Blueprint enrichments folded into existing phases:**
+- **Phase 1 (baseline):** add `gestationalAgeWeeks` (→ **corrected age**, medically load-bearing),
+  `bloodGroup`, feeding type, `knownAllergies`, `pediatricianName/Phone` (one-tap "call your
+  doctor" in notifications). OCR auto-fill (discharge summary / vaccine-card photo) reuses the
+  existing Claude-vision path — scoped as a Phase-1b add-on, not a blocker.
+- **Phase 2 (journeys):** post-vaccine fever check-in; combo-vaccine merge; printable vaccine
+  certificate; growth trend-alerts (not single-number) + "before vs now" photo gallery;
+  new-food 3-day allergy watch + allergen-intro schedule + iron/protein gap nudge + seasonal
+  Indian foods; sleep regression heads-up + nap schedule + safe-sleep/SIDS reminders; milestone
+  "activities to encourage" + photo/video capture. **Medicines + Records** join as journeys 7–8.
+- **Phase 3 (notifications):** add **digest mode** (one daily summary, not N pings), **quiet
+  hours**, **snooze / "remind me tomorrow"**, warm non-judgmental tone (no guilt on late/missed).
+- **Phase 4:** the blueprint's **"Aaj ka ek kaam" (Daily Care Card)** = the single-priority
+  framing of the "Today for {baby}" hub + a completion **streak**.
+
+**Corrected-age policy (proposed default, standard practice):** for babies born <37 weeks,
+subtract prematurity from age when evaluating **growth percentiles and developmental
+milestones only** — NOT vaccines or solids (those follow chronological age). Correct until
+chronological age 24 months, then use chronological. UI shows chronological age with a
+"corrected: X" note while it applies.
+
+**Still open (owner):** OCR-now-vs-later; Bug 1B paywall (may an UNSUBSCRIBED doctor-invited
+parent seed baseline vaccines during onboarding, or only after subscribing?).
+
+---
+
 ## 1. The core reframe
 
 Move the trackers from **reactive logging** ("mother enters data → system reacts")

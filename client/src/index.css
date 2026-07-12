@@ -72,6 +72,14 @@
   --brand-purple-tint: #ede7ff;
   --text-muted-color: #6f6796;
 
+  /* Mateo Sitare (loyalty ★) — a warm amber/gold accent kept DISTINCT from the
+     purple UI and from gold product-rating stars. Used on the ★ token, balance
+     pill and reward chips. */
+  --sitare: #f4a629;
+  --sitare-deep: #b9770c;
+  --sitare-bg: #fff2d8;
+  --sitare-gradient: linear-gradient(135deg, #ffce6b 0%, #f6a91f 55%, #f08c1c 100%);
+
   /* Poppy multi-colour brand gradient — logo mark, avatars */
   --brand-gradient: linear-gradient(135deg, #8b6bff 0%, #7c5cfc 45%, #b06bff 100%);
 

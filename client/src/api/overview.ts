@@ -25,6 +25,12 @@ export interface OverviewBaby {
   birthWeightG?: number;
   birthLengthCm?: number;
   birthHeadCircCm?: number;
+  gestationalAgeWeeks?: number;
+  bloodGroup?: string;
+  feedingType?: 'breastfed' | 'mixed';
+  knownAllergies?: string[];
+  pediatricianName?: string;
+  pediatricianPhone?: string;
   createdAt: string;
   vaccines: VaccineCounts;
   nextDue: NextDue | null;

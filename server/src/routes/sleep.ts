@@ -6,6 +6,7 @@ import type { ISleepLog } from '../models/SleepLog.js';
 import { requireAuth } from '../middleware/auth.js';
 import { requireSubscription } from '../middleware/subscription.js';
 import { loadOwnedBaby } from '../middleware/ownership.js';
+import { awardTrackerEntry } from '../points/service.js';
 import { isFutureISTDate, istDateString } from '../lib/ist.js';
 import { sleepReferenceForAge } from '../sleep/reference.js';
 
@@ -84,6 +85,7 @@ router.post('/babies/:id/sleep', requireAuth, requireSubscription, loadOwnedBaby
     return;
   }
   const log = await SleepLog.create({ babyId: baby._id, ...body });
+  void awardTrackerEntry(req.userId!, 'sleep_log', log.id, `earn:sleep:${log.id}`).catch((e) => console.error('sitare award failed:', e));
   res.status(201).json({ log: publicLog(log) });
 });
 

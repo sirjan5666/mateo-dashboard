@@ -10,6 +10,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { requireSubscription } from '../middleware/subscription.js';
 import { loadOwnedBaby } from '../middleware/ownership.js';
 import { uploadPhoto, uploadsDir } from '../middleware/upload.js';
+import { awardTrackerEntry } from '../points/service.js';
 import { isFutureISTDate } from '../lib/ist.js';
 
 const MIN_DATE = new Date('2000-01-01T00:00:00.000Z');
@@ -77,6 +78,7 @@ router.post('/babies/:id/skin', requireAuth, requireSubscription, loadOwnedBaby,
   }
 
   const log = await SkinLog.create({ babyId: baby._id, ...body, photoFile: req.file?.filename });
+  void awardTrackerEntry(req.userId!, 'skin_log', log.id, `earn:skin:${log.id}`).catch((e) => console.error('sitare award failed:', e));
   res.status(201).json({ log: publicLog(log, baby.id) });
 });
 

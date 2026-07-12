@@ -53,6 +53,17 @@ export interface IOrderTracking {
   url?: string;
 }
 
+// Mateo Sitare loyalty snapshot on the order — what was redeemed (points → ₹ off
+// the eligible, non-formula base) and what was earned. Self-describing for
+// receipts + reconciliation. `reservationId` links to the held PointsLedger row.
+export interface IOrderSitare {
+  pointsRedeemed: number;
+  discountInr: number;
+  eligibleSubtotalInr: number;
+  reservationId?: string;
+  earnedPoints: number;
+}
+
 export interface IOrder {
   userId: Types.ObjectId;
   orderNumber: string; // short human-friendly reference, e.g. MT-K3F9Q2
@@ -65,6 +76,7 @@ export interface IOrder {
   statusHistory: IOrderStatusEvent[];
   tracking: IOrderTracking;
   payment: IOrderPayment;
+  sitare?: IOrderSitare;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -127,6 +139,17 @@ const trackingSchema = new Schema<IOrderTracking>(
   { _id: false },
 );
 
+const sitareSchema = new Schema<IOrderSitare>(
+  {
+    pointsRedeemed: { type: Number, required: true, min: 0, default: 0 },
+    discountInr: { type: Number, required: true, min: 0, default: 0 },
+    eligibleSubtotalInr: { type: Number, required: true, min: 0, default: 0 },
+    reservationId: { type: String },
+    earnedPoints: { type: Number, required: true, min: 0, default: 0 },
+  },
+  { _id: false },
+);
+
 const orderSchema = new Schema<IOrder>(
   {
     userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
@@ -140,6 +163,7 @@ const orderSchema = new Schema<IOrder>(
     statusHistory: { type: [statusEventSchema], default: [] },
     tracking: { type: trackingSchema, default: {} },
     payment: { type: paymentSchema, required: true },
+    sitare: { type: sitareSchema },
   },
   { timestamps: true },
 );

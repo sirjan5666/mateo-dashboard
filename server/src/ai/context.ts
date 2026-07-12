@@ -14,6 +14,7 @@ import { computePercentile } from '../growth/percentile.js';
 import type { Sex } from '../growth/percentile.js';
 import { doseStatus, istToday } from '../vaccines/schedule.js';
 import { ageInWholeMonthsIST } from '../lib/ist.js';
+import { correctedAgeMonths, isPreterm, prematurityWeeks } from '../lib/correctedAge.js';
 
 const DAY = 86_400_000;
 const MS_PER_MONTH = DAY * 30.4375;
@@ -43,31 +44,73 @@ interface BabyLike {
   name: string;
   dob: Date;
   sex: string;
+  gestationalAgeWeeks?: number;
+  bloodGroup?: string;
+  feedingType?: 'breastfed' | 'mixed';
+  knownAllergies?: string[];
 }
 
 export async function buildBabyContext(baby: BabyLike): Promise<string> {
   const { ageDays, ageMonths } = babyAge(baby.dob);
   const sex = baby.sex as Sex;
   const lines: string[] = [`Baby: ${baby.name}, ${baby.sex}, ${ageLabel(ageDays, ageMonths)} (${ageDays} days old).`];
+  // Prematurity note — growth + milestones below are assessed on corrected age.
+  if (isPreterm(baby.gestationalAgeWeeks)) {
+    const corrected = correctedAgeMonths(baby.dob, baby.gestationalAgeWeeks);
+    lines.push(
+      `Born premature at ${baby.gestationalAgeWeeks} weeks (${prematurityWeeks(baby.gestationalAgeWeeks)} weeks early). ` +
+        `Assess growth and milestones on CORRECTED age ≈ ${corrected.toFixed(1)} months, not chronological.`,
+    );
+  }
+  // Static baseline notes captured at onboarding. Allergies are safety-relevant;
+  // feeding stays brand-neutral (never suggest formula — the compliance guard also scrubs it).
+  const baseline: string[] = [];
+  if (baby.bloodGroup && baby.bloodGroup !== 'unknown') baseline.push(`blood group ${baby.bloodGroup}`);
+  if (baby.feedingType) baseline.push(baby.feedingType === 'breastfed' ? 'exclusively breastfed' : 'mixed feeding');
+  if (baby.knownAllergies && baby.knownAllergies.length > 0) baseline.push(`known allergies: ${baby.knownAllergies.join(', ')}`);
+  if (baseline.length > 0) lines.push(`Baseline: ${baseline.join('; ')}.`);
 
-  // Growth — percentile trend, never absolute targets.
+  // Growth — latest measurements + percentile trend, never absolute targets.
+  // Reads ALL THREE indicators (weight, length, head), not weight alone, and the
+  // "no data" branch keys on whether ANY growth log exists — otherwise a parent
+  // who logged only height/head would be told (wrongly) that nothing is logged.
   const growth = await GrowthLog.find({ babyId: baby._id }).sort({ loggedAt: 1 });
-  const withWeight = growth.filter((g) => g.weightG != null);
-  if (withWeight.length > 0) {
-    const last = withWeight[withWeight.length - 1];
-    const amLast = (last.loggedAt.getTime() - baby.dob.getTime()) / MS_PER_MONTH;
-    const pLast = computePercentile('weight', sex, amLast, last.weightG! / 1000).percentile;
-    let trend = '';
-    if (withWeight.length >= 2) {
-      const prev = withWeight[withWeight.length - 2];
-      const amPrev = (prev.loggedAt.getTime() - baby.dob.getTime()) / MS_PER_MONTH;
-      const pPrev = computePercentile('weight', sex, amPrev, prev.weightG! / 1000).percentile;
-      const d = pLast - pPrev;
-      trend = Math.abs(d) < 7 ? ', tracking steadily along the curve' : d > 0 ? ', trending upward' : ', trending downward';
-    }
-    lines.push(`Weight is around the ${ordinal(Math.round(pLast))} percentile${trend}.`);
-  } else {
+  if (growth.length === 0) {
     lines.push('No growth measurements logged yet.');
+  } else {
+    // Corrected age for premature babies (term/24m+ = chronological). See lib/correctedAge.ts.
+    const amOf = (g: (typeof growth)[number]) => correctedAgeMonths(baby.dob, baby.gestationalAgeWeeks, g.loggedAt);
+
+    // Weight — raw value + percentile + trend across the last two weigh-ins.
+    const withWeight = growth.filter((g) => g.weightG != null);
+    if (withWeight.length > 0) {
+      const last = withWeight[withWeight.length - 1];
+      const pLast = computePercentile('weight', sex, amOf(last), last.weightG! / 1000).percentile;
+      let trend = '';
+      if (withWeight.length >= 2) {
+        const prev = withWeight[withWeight.length - 2];
+        const pPrev = computePercentile('weight', sex, amOf(prev), prev.weightG! / 1000).percentile;
+        const d = pLast - pPrev;
+        trend = Math.abs(d) < 7 ? ', tracking steadily along the curve' : d > 0 ? ', trending upward' : ', trending downward';
+      }
+      lines.push(`Latest weight ${(last.weightG! / 1000).toFixed(2)} kg — around the ${ordinal(Math.round(pLast))} percentile${trend}.`);
+    }
+
+    // Length (height) — latest value + percentile.
+    const withLength = growth.filter((g) => g.lengthCm != null);
+    if (withLength.length > 0) {
+      const last = withLength[withLength.length - 1];
+      const p = computePercentile('length', sex, amOf(last), last.lengthCm!).percentile;
+      lines.push(`Latest length ${last.lengthCm} cm — around the ${ordinal(Math.round(p))} percentile.`);
+    }
+
+    // Head circumference — latest value + percentile.
+    const withHead = growth.filter((g) => g.headCircCm != null);
+    if (withHead.length > 0) {
+      const last = withHead[withHead.length - 1];
+      const p = computePercentile('head', sex, amOf(last), last.headCircCm!).percentile;
+      lines.push(`Latest head circumference ${last.headCircCm} cm — around the ${ordinal(Math.round(p))} percentile.`);
+    }
   }
 
   // Vaccines.

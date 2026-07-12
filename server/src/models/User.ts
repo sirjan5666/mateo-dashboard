@@ -57,6 +57,11 @@ export interface IUser {
   referralCode?: string;
   referralCredits?: number;
   referredByCode?: string;
+  // Mateo Sitare loyalty — DENORMALISED cache only (PointsLedger is authoritative).
+  // Recomputed on every ledger mutation by points/service.ts. Absent => 0.
+  sitareBalance?: number; // spendable ★ now
+  sitareReserved?: number; // ★ held by in-flight orders
+  sitareLifetime?: number; // total ★ ever earned (for tiers/marketing)
   createdAt: Date;
 }
 
@@ -112,6 +117,10 @@ const userSchema = new Schema<IUser>(
     referralCode: { type: String, unique: true, sparse: true, uppercase: true, trim: true },
     referralCredits: { type: Number, default: 0, min: 0 },
     referredByCode: { type: String, uppercase: true, trim: true },
+    // Mateo Sitare loyalty cache (see IUser note). Non-authoritative.
+    sitareBalance: { type: Number, default: 0, min: 0 },
+    sitareReserved: { type: Number, default: 0, min: 0 },
+    sitareLifetime: { type: Number, default: 0, min: 0 },
   },
   { timestamps: { createdAt: true, updatedAt: false } },
 );

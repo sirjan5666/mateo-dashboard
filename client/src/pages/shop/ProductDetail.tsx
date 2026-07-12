@@ -13,6 +13,8 @@ import { Card } from '../../components/ui/Card';
 import { Skeleton } from '../../components/ui/Skeleton';
 import { ProductCard } from '../../components/shop/ProductCard';
 import { NeucomedNotice } from '../../components/shop/NeucomedNotice';
+import { ProductReviews } from '../../components/shop/ProductReviews';
+import { SitareChip } from '../../components/sitare/SitareBits';
 import { cn } from '../../lib/cn';
 
 function MedicalPill() {
@@ -131,7 +133,12 @@ export default function ProductDetail() {
           <p className="mt-1.5 text-base text-stone-500">{product.tagline}</p>
           {isFormula && <div className="mt-3.5"><MedicalPill /></div>}
 
-          <p className="mt-5 font-display text-[32px] font-extrabold text-stone-900">{inr(product.priceInr)}</p>
+          <div className="mt-5 flex flex-wrap items-center gap-3">
+            <p className="font-display text-[32px] font-extrabold text-stone-900">{inr(product.priceInr)}</p>
+            {!isFormula && Math.floor(product.priceInr / 100) * 5 > 0 && (
+              <SitareChip points={Math.floor(product.priceInr / 100) * 5} prefix="Earn" />
+            )}
+          </div>
 
           {isFormula && <div className="mt-4"><NeucomedNotice /></div>}
 
@@ -225,6 +232,9 @@ export default function ProductDetail() {
           )}
         </div>
       </div>
+
+      {/* Ratings & reviews — never rendered for formula (component self-guards). */}
+      <ProductReviews productId={product.id} />
 
       {related.length > 0 && (
         <>

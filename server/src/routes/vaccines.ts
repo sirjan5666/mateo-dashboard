@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { isValidObjectId } from 'mongoose';
 import type { HydratedDocument } from 'mongoose';
 import { z } from 'zod';
 import { VaccineDose } from '../models/VaccineDose.js';
@@ -6,6 +7,7 @@ import type { IVaccineDose } from '../models/VaccineDose.js';
 import { requireAuth } from '../middleware/auth.js';
 import { requireSubscription } from '../middleware/subscription.js';
 import { loadOwnedBaby, loadOwnedDose } from '../middleware/ownership.js';
+import { awardTrackerEntry, reverse } from '../points/service.js';
 import {
   ageLabelForOffsetDays,
   daysBetween,
@@ -82,7 +84,48 @@ router.patch('/vaccines/:doseId', requireAuth, requireSubscription, loadOwnedDos
 
   dose.administeredOn = administeredOn;
   await dose.save();
+  // Marking a dose given earns ★ (idempotent per dose); clearing it claws back.
+  if (administeredOn !== null) {
+    void awardTrackerEntry(req.userId!, 'vaccine_dose', dose.id, `earn:vaccine:${dose.id}`).catch((e) =>
+      console.error('sitare award failed:', e),
+    );
+  } else {
+    void reverse({ dedupeKey: `earn:vaccine:${dose.id}`, reason: 'vaccine_cleared' }).catch((e) =>
+      console.error('sitare reverse failed:', e),
+    );
+  }
   res.json({ dose: publicDose(dose, baby.dob, today) });
+});
+
+// ── Onboarding baseline seeding — NOT subscription-gated ──────────────────────
+// Recording which vaccines were ALREADY given is one-time account SETUP, so a
+// not-yet-subscribed (doctor-invited) parent may do it during onboarding. Ongoing
+// vaccine-tracker use — the full list + individual edits above — stays behind
+// requireSubscription. These two routes only READ the not-yet-given candidates and
+// SET them given once (never clear), so they can't be used to bypass the paywall.
+router.get('/babies/:id/vaccines/baseline', requireAuth, loadOwnedBaby, async (req, res) => {
+  const baby = req.baby!;
+  const today = istToday();
+  const doses = await VaccineDose.find({ babyId: baby._id }).sort({ dueDate: 1, vaccineName: 1 });
+  // Candidates for "already given": the window has opened (due/overdue) + unmarked.
+  const candidates = doses.filter((d) => !d.administeredOn && ['due', 'overdue'].includes(doseStatus(d, today)));
+  res.json({ doses: candidates.map((d) => publicDose(d, baby.dob, today)) });
+});
+
+const baselineSchema = z.object({ doseIds: z.array(z.string()).max(200) });
+router.post('/babies/:id/vaccines/baseline', requireAuth, loadOwnedBaby, async (req, res) => {
+  const baby = req.baby!;
+  const { doseIds } = baselineSchema.parse(req.body);
+  let marked = 0;
+  for (const id of doseIds.filter((x) => isValidObjectId(x))) {
+    const dose = await VaccineDose.findOne({ _id: id, babyId: baby._id });
+    if (dose && !dose.administeredOn) {
+      dose.administeredOn = dose.dueDate; // recorded as given on its scheduled date
+      await dose.save();
+      marked++;
+    }
+  }
+  res.json({ ok: true, marked });
 });
 
 export default router;
