@@ -317,11 +317,11 @@ function Hero() {
 function FamilyArt() {
   return (
     <img
-      src="/community-family.jpg"
+      src="/community-family.png"
       alt="A mother, father and baby smiling together"
-      width={220}
-      height={165}
-      className="h-auto w-[220px] rounded-3xl object-cover shadow-sm ring-1 ring-white/60"
+      width={230}
+      height={153}
+      className="h-auto w-[230px] object-contain drop-shadow-sm"
     />
   );
 }
