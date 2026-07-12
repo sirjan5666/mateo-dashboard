@@ -209,7 +209,7 @@ export default function Milestones() {
       {items === null || summary === null ? (
         <MilestonesSkeleton />
       ) : (
-        <div className="mt-6 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
+        <div className="mt-5 grid items-start gap-5 lg:mt-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-6">
           {/* ── Main column ── */}
           <div className="min-w-0 space-y-6">
             {/* KPIs */}
@@ -391,25 +391,25 @@ function MilestoneCard({ m, pending, onToggle, showAsk, askHref }: { m: Mileston
   const cfg = STATUS[m.status];
   return (
     <Card className={cn('flex flex-col overflow-hidden p-0 transition-shadow hover:shadow-md', m.achieved && 'ring-1 ring-emerald-200')}>
-      <div className="relative">
-        <MilestonePhoto m={m} className="aspect-square" />
-        <span className={cn('absolute left-2.5 top-2.5 rounded-full px-2 py-0.5 text-[10px] font-bold', d.pill)}>{d.label}</span>
-        <span className="absolute right-2.5 top-2.5">
-          <Pill tone={cfg.tone}>{cfg.label}</Pill>
+      <div className="relative border-b border-stone-100">
+        <MilestonePhoto m={m} className="aspect-[3/2]" />
+        <span
+          className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-white/85 px-2 py-0.5 text-[10px] font-bold shadow-sm ring-1 ring-black/5 backdrop-blur"
+          style={{ color: d.dot }}
+        >
+          <span className="h-1.5 w-1.5 rounded-full" style={{ background: d.dot }} />
+          {d.label}
+        </span>
+        <span className="absolute right-2 top-2">
+          <Pill tone={cfg.tone} className="shadow-sm">{cfg.label}</Pill>
         </span>
       </div>
-      <div className="flex flex-1 flex-col p-4">
-        <h3 className="font-bold text-stone-800">{m.label}</h3>
+      <div className="flex flex-1 flex-col p-3.5">
+        <h3 className="text-[15px] font-bold leading-tight text-stone-800">{m.label}</h3>
         <p className="mt-0.5 text-[11.5px] font-bold" style={{ color: 'var(--cat-milestone-text)' }}>{windowText(m.windowStartMonth, m.windowEndMonth)}</p>
-        <p className="mt-1.5 text-sm leading-relaxed text-stone-600">{m.description}</p>
+        <p className="mt-1 line-clamp-2 text-[13px] leading-snug text-stone-600">{m.description}</p>
 
-        {m.status === 'watch' && !m.achieved && (
-          <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
-            Most babies reach this by now. Every baby is different — but it&apos;s worth a gentle mention to your pediatrician.
-          </p>
-        )}
-
-        <div className="mt-auto flex items-center gap-2 pt-3">
+        <div className="mt-auto flex items-center gap-2 pt-2.5">
           <button
             type="button"
             onClick={(e) => onToggle(m, e.currentTarget)}
@@ -489,7 +489,7 @@ function ProgressCard({ pct, summary, items }: { pct: number; summary: { achieve
 function NextMilestoneCard({ m, askHref }: { m: MilestoneItem; askHref: string }) {
   return (
     <Card className="overflow-hidden p-0">
-      <MilestonePhoto m={m} className="aspect-square" />
+      <MilestonePhoto m={m} className="aspect-[3/2] border-b border-stone-100" />
       <div className="p-4">
         <span className="eyebrow" style={{ color: 'var(--cat-milestone-text)' }}>Next up</span>
         <h3 className="mt-1 text-lg font-bold text-stone-800">{m.label}</h3>
@@ -561,7 +561,7 @@ function TipsCard() {
 
 function MilestonesSkeleton() {
   return (
-    <div className="mt-6 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
+    <div className="mt-5 grid items-start gap-5 lg:mt-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-6">
       <div className="space-y-6">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {Array.from({ length: 4 }).map((_, i) => (
@@ -571,7 +571,7 @@ function MilestonesSkeleton() {
         <Card className="p-5"><Skeleton className="h-24 w-full" /></Card>
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
-            <Card key={i} className="p-0"><Skeleton className="h-64 w-full" /></Card>
+            <Card key={i} className="p-0"><Skeleton className="h-48 w-full" /></Card>
           ))}
         </div>
       </div>
