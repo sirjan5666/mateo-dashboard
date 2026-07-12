@@ -316,40 +316,13 @@ function Hero() {
 
 function FamilyArt() {
   return (
-    <svg width="200" height="150" viewBox="0 0 220 160" fill="none" aria-hidden="true">
-      <ellipse cx="112" cy="140" rx="96" ry="13" fill="#6d4aff" opacity=".07" />
-      <g transform="translate(140,44)">
-        <rect x="2" y="44" width="52" height="60" rx="22" fill="#6d4aff" />
-        <circle cx="28" cy="24" r="22" fill="#f4c9a8" />
-        <path d="M6 22a22 22 0 0 1 44 0c0-6-6-16-22-16S6 16 6 22z" fill="#3a2f5c" />
-        <circle cx="21" cy="24" r="2.3" fill="#3a2f5c" />
-        <circle cx="35" cy="24" r="2.3" fill="#3a2f5c" />
-        <path d="M23 32q5 4 10 0" stroke="#c67b52" strokeWidth="2.4" strokeLinecap="round" fill="none" />
-      </g>
-      <g transform="translate(8,40)">
-        <rect x="2" y="48" width="54" height="64" rx="24" fill="#ff7fa8" />
-        <circle cx="29" cy="26" r="23" fill="#ffd7bb" />
-        <path d="M5 30C5 8 24 3 29 3s24 5 24 27c0 8-4 12-4 12l-3-12-4 8-3-12-5 10-3-9-5 9-3-7-4 12S5 38 5 30z" fill="#5b3a2e" />
-        <circle cx="22" cy="26" r="2.4" fill="#3a2f5c" />
-        <circle cx="36" cy="26" r="2.4" fill="#3a2f5c" />
-        <path d="M24 34q5 4 10 0" stroke="#e0708f" strokeWidth="2.4" strokeLinecap="round" fill="none" />
-        <circle cx="18" cy="31" r="3.2" fill="#ff9ec4" opacity=".7" />
-        <circle cx="40" cy="31" r="3.2" fill="#ff9ec4" opacity=".7" />
-      </g>
-      <g transform="translate(74,74)">
-        <rect x="4" y="34" width="42" height="44" rx="20" fill="#ffce7a" />
-        <circle cx="25" cy="20" r="19" fill="#ffe0c4" />
-        <path d="M8 15a17 17 0 0 1 34 0c0-5-5-11-17-11S8 10 8 15z" fill="#a9713f" />
-        <circle cx="19" cy="21" r="2.1" fill="#3a2f5c" />
-        <circle cx="31" cy="21" r="2.1" fill="#3a2f5c" />
-        <path d="M21 27q4 3 8 0" stroke="#d38a5a" strokeWidth="2" strokeLinecap="round" fill="none" />
-        <circle cx="15" cy="25" r="2.6" fill="#ff9ec4" opacity=".7" />
-        <circle cx="35" cy="25" r="2.6" fill="#ff9ec4" opacity=".7" />
-      </g>
-      <path d="M186 20c3-6 12-4 10 3-1 5-10 9-10 9s-9-4-10-9c-2-7 7-9 10-3z" fill="#ff9ec4" />
-      <circle cx="34" cy="20" r="4" fill="#b06bff" opacity=".5" />
-      <circle cx="120" cy="18" r="3" fill="#ffce7a" opacity=".7" />
-    </svg>
+    <img
+      src="/community-family.jpg"
+      alt="A mother, father and baby smiling together"
+      width={220}
+      height={165}
+      className="h-auto w-[220px] rounded-3xl object-cover shadow-sm ring-1 ring-white/60"
+    />
   );
 }
 
