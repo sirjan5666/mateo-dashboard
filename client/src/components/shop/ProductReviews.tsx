@@ -58,7 +58,7 @@ function ReviewComposer({ productId, reward, minStars, onDone }: { productId: st
     try {
       const res = await createReview(productId, { rating, title: title.trim(), body: body.trim(), photo });
       refreshSitare();
-      if (res.awarded > 0) toast(`Thanks! You earned ★ ${formatStars(res.awarded)} Sitare.`, { tone: 'emerald' });
+      if (res.awarded > 0) toast(`Thanks! You earned ★ ${formatStars(res.awarded)} credits.`, { tone: 'emerald' });
       else toast('Thanks for your review!', { tone: 'violet' });
       onDone();
     } catch (e) {

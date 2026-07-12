@@ -59,7 +59,7 @@ export default function Checkout() {
 
   function celebrate(earned: number) {
     refreshSitare();
-    if (earned > 0) toast(`You earned ★ ${formatStars(earned)} Sitare!`, { tone: 'emerald' });
+    if (earned > 0) toast(`You earned ★ ${formatStars(earned)} credits!`, { tone: 'emerald' });
   }
 
   const set = (k: keyof typeof form) => (e: ChangeEvent<HTMLInputElement>) => setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -207,7 +207,7 @@ export default function Checkout() {
               </div>
               {redeemDiscount > 0 && (
                 <div className="flex justify-between text-emerald-700">
-                  <dt className="font-semibold">Sitare applied</dt>
+                  <dt className="font-semibold">Credits applied</dt>
                   <dd className="font-semibold">−{inr(redeemDiscount)}</dd>
                 </div>
               )}

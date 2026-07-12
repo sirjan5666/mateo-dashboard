@@ -115,7 +115,7 @@ export default function OrderDetail() {
           </div>
           {order.sitare && order.sitare.discountInr > 0 && (
             <div className="flex justify-between text-emerald-700">
-              <dt className="font-semibold">Sitare redeemed ({formatStars(order.sitare.pointsRedeemed)} ★)</dt>
+              <dt className="font-semibold">Credits redeemed ({formatStars(order.sitare.pointsRedeemed)} ★)</dt>
               <dd className="font-semibold">−{inr(order.sitare.discountInr)}</dd>
             </div>
           )}
@@ -128,7 +128,7 @@ export default function OrderDetail() {
           </p>
           {order.sitare && order.sitare.earnedPoints > 0 && (
             <p className="mt-2 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-extrabold" style={{ background: 'var(--sitare-bg)', color: 'var(--sitare-deep)' }}>
-              <SitareCoin size={14} /> You earned ★ {formatStars(order.sitare.earnedPoints)} Sitare
+              <SitareCoin size={14} /> You earned ★ {formatStars(order.sitare.earnedPoints)} credits
             </p>
           )}
         </dl>

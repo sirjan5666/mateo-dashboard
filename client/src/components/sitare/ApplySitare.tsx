@@ -65,7 +65,7 @@ export function ApplySitare({
           </span>
           <span className="min-w-0 flex-1">
             <span className="flex items-center gap-1.5 text-[14px] font-bold text-stone-800">
-              <SitareCoin size={16} /> Use my Sitare
+              <SitareCoin size={16} /> Use my Credits
             </span>
             <span className="text-[12.5px] text-stone-500">
               {on ? (
@@ -79,13 +79,13 @@ export function ApplySitare({
       ) : (
         <div className="flex items-center gap-2 text-[13px] text-stone-500">
           <SitareCoin size={16} />
-          {preview.balance > 0 ? 'No Sitare can be applied here yet.' : 'Earn Sitare to redeem on future orders.'}
+          {preview.balance > 0 ? 'No credits can be applied here yet.' : 'Earn credits to redeem on future orders.'}
         </div>
       )}
       {formulaNote && (
         <p className="mt-2 flex items-start gap-1.5 text-[11.5px] leading-snug text-stone-400">
           <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-          Sitare apply to eligible items only — infant formula is excluded.
+          Credits apply to eligible items only — infant formula is excluded.
         </p>
       )}
     </div>

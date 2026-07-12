@@ -37,7 +37,7 @@ function Hero() {
         <h1 className="mt-4 font-display text-3xl font-semibold leading-[1.08] text-stone-900 sm:text-[48px] sm:leading-[1.05]">{t('shop.heroTitle')}</h1>
         <p className="mt-4 max-w-[440px] text-base leading-relaxed text-stone-500">{t('shop.heroSub')}</p>
         <div className="mt-5 inline-flex items-center gap-2 rounded-full bg-white/70 px-3.5 py-2 text-[13px] font-bold" style={{ color: 'var(--sitare-deep)' }}>
-          <SitareCoin size={16} /> Earn Sitare on every order — redeem for money off
+          <SitareCoin size={16} /> Earn credits on every order — redeem for money off
         </div>
       </div>
     </div>
