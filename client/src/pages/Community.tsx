@@ -288,25 +288,25 @@ export default function Community() {
 function Hero() {
   return (
     <section
-      className="relative overflow-hidden rounded-3xl border border-white/60 p-7 shadow-sm"
+      className="relative overflow-hidden rounded-3xl border border-white/60 p-6 shadow-sm sm:p-7"
       style={{ background: 'linear-gradient(120deg,#efe7ff 0%,#f5efff 44%,#ffe7f3 100%)' }}
     >
       <span aria-hidden className="pointer-events-none absolute -top-16 right-[26%] h-44 w-44 rounded-full bg-[#cdb8ff] opacity-60 blur-sm" />
       <span aria-hidden className="pointer-events-none absolute -bottom-14 right-2 h-36 w-36 rounded-full bg-[#ffc4e2] opacity-60 blur-sm" />
-      <div className="relative z-10 flex items-center gap-5">
-        <div className="max-w-md">
+      <div className="relative z-10 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-5">
+        <div className="sm:max-w-md">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-white/70 px-3 py-1.5 text-xs font-bold text-violet-700 backdrop-blur">
             <Sparkles className="h-3.5 w-3.5" />
             Parent Community
           </span>
-          <h1 className="mt-3 text-balance text-3xl font-extrabold leading-tight tracking-tight text-stone-900">
+          <h1 className="mt-3 text-balance text-2xl font-extrabold leading-tight tracking-tight text-stone-900 sm:text-3xl">
             You’re not doing this alone
           </h1>
           <p className="mt-1.5 text-sm leading-relaxed text-stone-600">
             Ask questions, share milestones, swap parenting tips and connect with parents walking the same path.
           </p>
         </div>
-        <div className="ml-auto hidden shrink-0 self-end sm:block">
+        <div className="shrink-0 self-center sm:ml-auto sm:self-end">
           <FamilyArt />
         </div>
       </div>
@@ -321,7 +321,7 @@ function FamilyArt() {
       alt="A mother, father and baby smiling together"
       width={320}
       height={213}
-      className="-mb-7 block h-auto w-[240px] max-w-full object-contain drop-shadow-sm md:w-[300px] lg:w-[320px]"
+      className="-mb-6 block h-auto w-[210px] max-w-full object-contain drop-shadow-sm sm:-mb-7 sm:w-[240px] md:w-[300px] lg:w-[320px]"
     />
   );
 }
