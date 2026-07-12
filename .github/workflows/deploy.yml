@@ -1,9 +1,10 @@
 name: CI & Deploy
 
-# Flow: open a PR → the build gate runs on it. Merge to main → gate re-runs to
-# confirm main is green (but does NOT deploy). Go live only when YOU manually run
-# this workflow ("Run workflow" button, or `gh workflow run "CI & Deploy"`), which
-# re-verifies then deploys. Production only ever ships what's on GitHub `main`.
+# Flow: open a PR → the build gate runs on it. Merge to main → the gate runs, and
+# if it PASSES, the app AUTO-DEPLOYS to production (continuous deployment). You can
+# also deploy on demand with the "Run workflow" button (workflow_dispatch). A merge
+# only ships when typecheck · lint · build all pass, so broken code never reaches
+# prod. Production only ever ships what's on GitHub `main`.
 
 on:
   pull_request:
@@ -42,7 +43,11 @@ jobs:
   deploy:
     name: Deploy to Lightsail
     needs: gate # only after the gate passes
-    if: github.event_name == 'workflow_dispatch' # ⇐ ships ONLY on your manual trigger
+    # Auto-deploy on every merge to main (continuous deployment), plus manual runs.
+    # Guarded to main so a push to any other branch can never ship to production.
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     steps:
       - name: SSH → pull + deploy on the box
