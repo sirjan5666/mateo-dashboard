@@ -239,11 +239,11 @@ function PointsCard() {
   }, []);
   return (
     <Card accent="var(--sitare)">
-      <CardHeader eyebrow="Rewards" eyebrowColor="var(--sitare-deep)" title="Mateo Sitare" icon={Star} iconBg="var(--sitare-bg)" iconColor="var(--sitare-deep)" />
+      <CardHeader eyebrow="Rewards" eyebrowColor="var(--sitare-deep)" title="Mateo Credits" icon={Star} iconBg="var(--sitare-bg)" iconColor="var(--sitare-deep)" />
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <SitareCoin size={30} />
         <span style={{ fontSize: '2.15rem', fontWeight: 800, color: 'var(--foreground)', lineHeight: 1.05, ...NUMERAL }}>{balance == null ? '—' : formatStars(balance)}</span>
-        <span style={{ marginTop: 8, fontSize: '0.9rem', fontWeight: 700, color: 'var(--muted-foreground)' }}>Sitare</span>
+        <span style={{ marginTop: 8, fontSize: '0.9rem', fontWeight: 700, color: 'var(--muted-foreground)' }}>credits</span>
       </div>
       <p style={{ marginTop: 4, fontSize: '0.8rem', color: 'var(--muted-foreground)', lineHeight: 1.5 }}>Earn on orders, reviews &amp; tracking — redeem for money off.</p>
       <FooterLink to="/rewards" color="var(--sitare-deep)">View rewards</FooterLink>

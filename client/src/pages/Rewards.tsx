@@ -98,11 +98,11 @@ export default function Rewards() {
       <div className="relative overflow-hidden rounded-[28px] p-6 text-white sm:p-8" style={{ background: 'linear-gradient(130deg, #7c5cfc 0%, #9d6bff 55%, #f6a91f 140%)' }}>
         <div aria-hidden className="absolute -right-8 -top-10 h-44 w-44 rounded-full" style={{ background: 'rgba(255,255,255,0.14)' }} />
         <div className="relative">
-          <p className="text-[12.5px] font-extrabold uppercase tracking-wider text-white/85">Mateo Sitare</p>
+          <p className="text-[12.5px] font-extrabold uppercase tracking-wider text-white/85">Mateo Credits</p>
           <div className="mt-2 flex items-center gap-3">
             <SitareCoin size={34} />
             <span className="font-display text-5xl font-bold tabular-nums">{wallet ? formatStars(wallet.balance) : '—'}</span>
-            <span className="mt-2 text-lg font-semibold text-white/80">Sitare</span>
+            <span className="mt-2 text-lg font-semibold text-white/80">credits</span>
           </div>
           <p className="mt-1 text-sm text-white/80">
             Worth about <strong>{inr(inrValue(wallet?.balance ?? 0, perInr))}</strong> off your next order or consultation · ★{perInr} = ₹1
@@ -177,7 +177,7 @@ export default function Rewards() {
             <div className="flex flex-col items-center gap-2 p-10 text-center">
               <SitareCoin size={40} />
               <p className="text-sm font-semibold text-stone-700">No activity yet</p>
-              <p className="max-w-xs text-[13px] text-stone-500">Shop, review, track your baby or refer a friend to start collecting Sitare.</p>
+              <p className="max-w-xs text-[13px] text-stone-500">Shop, review, track your baby or refer a friend to start collecting credits.</p>
             </div>
           ) : (
             <ul className="divide-y divide-stone-100">
