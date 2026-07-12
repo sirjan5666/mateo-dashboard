@@ -306,7 +306,7 @@ function Hero() {
             Ask questions, share milestones, swap parenting tips and connect with parents walking the same path.
           </p>
         </div>
-        <div className="ml-auto hidden shrink-0 sm:block">
+        <div className="ml-auto hidden shrink-0 self-end sm:block">
           <FamilyArt />
         </div>
       </div>
@@ -319,9 +319,9 @@ function FamilyArt() {
     <img
       src="/community-family.png"
       alt="A mother, father and baby smiling together"
-      width={230}
-      height={153}
-      className="h-auto w-[230px] object-contain drop-shadow-sm"
+      width={320}
+      height={213}
+      className="-mb-7 block h-auto w-[240px] max-w-full object-contain drop-shadow-sm md:w-[300px] lg:w-[320px]"
     />
   );
 }
