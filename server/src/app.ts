@@ -40,6 +40,9 @@ import doctorLabsRouter from './routes/doctorLabs.js';
 import doctorBillingRouter from './routes/doctorBilling.js';
 import doctorPrescriptionsRouter from './routes/doctorPrescriptions.js';
 import doctorMessagesRouter from './routes/doctorMessages.js';
+import doctorLocationsRouter from './routes/doctorLocations.js';
+import doctorTeamRouter from './routes/doctorTeam.js';
+import pharmacyRouter from './routes/pharmacy.js';
 import portalRouter from './routes/portal.js';
 import { errorHandler } from './middleware/error.js';
 
@@ -134,6 +137,12 @@ export function createApp() {
   app.use('/api/doctor', doctorPrescriptionsRouter);
   // Doctor EHR: doctor<->patient care messages (doctor side)
   app.use('/api/doctor', doctorMessagesRouter);
+
+  app.use('/api/doctor', doctorLocationsRouter);
+
+  app.use('/api/doctor', doctorTeamRouter);
+
+  app.use('/api/pharmacy', pharmacyRouter);
   // Patient portal: read-only record + care messaging (patient role, strictly scoped)
   app.use('/api/portal', portalRouter);
 

@@ -1,6 +1,6 @@
 import { lazy, useEffect, useState } from 'react';
 import { Navigate, Route, Routes } from 'react-router';
-import { BarChart3, CalendarClock, CreditCard, FileText, HeartPulse, MessageSquare, Stethoscope, UserCog, Users } from 'lucide-react';
+import { HeartPulse, MessageSquare } from 'lucide-react';
 import { AuthProvider } from './auth/AuthProvider';
 import { useAuth } from './auth/context';
 import { AppShell } from './components/layout/AppShell';
@@ -28,11 +28,23 @@ import ConsultationDetail from './pages/ConsultationDetail';
 import ReferEarn from './pages/ReferEarn';
 import Community from './pages/Community';
 import Report from './pages/Report';
-import DoctorHome from './pages/doctor/DoctorHome';
+import DoctorDashboard from './pages/doctor/Dashboard';
+import LocationsManagement from './pages/doctor/LocationsManagement';
+import TeamAndRoles from './pages/doctor/TeamAndRoles';
+import CreateSubUser from './pages/doctor/CreateSubUser';
+import PatientsList from './pages/doctor/PatientsList';
+import RegisterNewPatient from './pages/doctor/RegisterNewPatient';
+import PatientWorkspace from './pages/doctor/PatientWorkspace';
+import AppointmentsPage from './pages/doctor/AppointmentsPage';
+import ConsultationDetails from './pages/doctor/ConsultationDetails';
+import ReportsAnalytics from './pages/doctor/ReportsAnalytics';
+import BillingInvoices from './pages/doctor/BillingInvoices';
+import SettingsPage from './pages/doctor/SettingsPage';
+import PharmacyInventory from './pages/pharmacy/Inventory';
+import NewPurchaseEntry from './pages/pharmacy/NewPurchaseEntry';
+import NewBill from './pages/pharmacy/NewBill';
+import BillSuccess from './pages/pharmacy/BillSuccess';
 import DoctorProfileForm from './pages/doctor/DoctorProfileForm';
-import Appointments from './pages/doctor/Appointments';
-import Patients from './pages/doctor/Patients';
-import PatientDetail from './pages/doctor/PatientDetail';
 import AnalyticsPage from './pages/doctor/Analytics';
 import Reports from './pages/doctor/Reports';
 import Billing from './pages/doctor/Billing';
@@ -59,25 +71,13 @@ import { CartProvider } from './shop/CartProvider';
 import { CartDrawer } from './components/shop/CartDrawer';
 import { CartToast } from './components/shop/CartToast';
 import { SmoothScroll } from './components/SmoothScroll';
-import { DoctorTopBar } from './components/doctor/DoctorTopBar';
 import { CommandPalette } from './components/doctor/CommandPalette';
+import { DoctorScreenStub, DoctorShell } from './components/doctor/v2/DoctorShell';
 // Growth pulls in recharts (~350 kB) — code-split so it stays out of the initial bundle.
 const Growth = lazy(() => import('./pages/Growth'));
 
-// Grouped doctor navigation (labels + section headings are i18n keys resolved in
-// PanelShell). Sections: Today · Patients · Practice. The clinical decision-support
-// tools now live inside each patient (PatientDetail → Tools), not as sidebar pages.
-const DOCTOR_NAV: PanelNavItem[] = [
-  { to: '/doctor', label: 'doctor.nav.home', icon: Stethoscope, end: true, section: 'doctor.section.today' },
-  { to: '/doctor/patients', label: 'doctor.nav.patients', icon: Users, section: 'doctor.section.patients' },
-  { to: '/doctor/messages', label: 'doctor.nav.messages', icon: MessageSquare, section: 'doctor.section.patients' },
-  { to: '/doctor/appointments', label: 'doctor.nav.consultations', icon: CalendarClock, section: 'doctor.section.patients' },
-  { to: '/doctor/analytics', label: 'doctor.nav.analytics', icon: BarChart3, section: 'doctor.section.practice' },
-  { to: '/doctor/reports', label: 'doctor.nav.reports', icon: FileText, section: 'doctor.section.practice' },
-  { to: '/doctor/billing', label: 'doctor.nav.billing', icon: CreditCard, section: 'doctor.section.practice' },
-  { to: '/doctor/profile', label: 'doctor.nav.profile', icon: UserCog, section: 'doctor.section.practice' },
-];
-
+// The doctor panel's navigation now lives inside DoctorShell (Clinic OS rebuild).
+// PanelShell + PanelNavItem still serve the Patient portal below, unchanged.
 const PORTAL_NAV: PanelNavItem[] = [
   { to: '/portal', label: 'My Health', icon: HeartPulse, end: true },
   { to: '/portal/messages', label: 'Messages', icon: MessageSquare },
@@ -122,21 +122,37 @@ function AppRoutes() {
   }
 
   if (user.role === 'doctor') {
-    const nav = doctorUnread ? DOCTOR_NAV.map((it) => (it.to === '/doctor/messages' ? { ...it, badge: doctorUnread } : it)) : DOCTOR_NAV;
     return (
       <Routes>
-        <Route element={<PanelShell panelLabel="Doctor" navItems={nav} topBar={<DoctorTopBar />} globals={<CommandPalette />} />}>
-          <Route path="/doctor" element={<DoctorHome />} />
-          <Route path="/doctor/patients" element={<Patients />} />
-          <Route path="/doctor/patients/:id" element={<PatientDetail />} />
+        <Route element={<DoctorShell unread={doctorUnread} globals={<CommandPalette />} />}>
+          <Route path="/doctor" element={<DoctorDashboard />} />
+          <Route path="/doctor/patients" element={<PatientsList />} />
+          <Route path="/doctor/patients/new" element={<RegisterNewPatient />} />
+          <Route path="/doctor/patients/:id" element={<PatientWorkspace />} />
+          <Route path="/doctor/appointments" element={<AppointmentsPage />} />
+          <Route path="/doctor/consultations/:id" element={<ConsultationDetails />} />
+          <Route path="/doctor/messages" element={<DoctorMessages />} />
           <Route path="/doctor/analytics" element={<AnalyticsPage />} />
           <Route path="/doctor/reports" element={<Reports />} />
           <Route path="/doctor/billing" element={<Billing />} />
           <Route path="/doctor/schedule" element={<Schedule />} />
-          <Route path="/doctor/messages" element={<DoctorMessages />} />
-          <Route path="/doctor/appointments" element={<Appointments />} />
-          <Route path="/doctor/consultations/:id" element={<ConsultationDetail />} />
           <Route path="/doctor/profile" element={<DoctorProfileForm />} />
+          <Route path="/doctor/settings" element={<SettingsPage />} />
+          {/* Screens queued in the Clinic OS rebuild — nav is wired so each drops straight in. */}
+          <Route path="/doctor/consultations" element={<ConsultationDetails />} />
+          <Route path="/doctor/prescriptions" element={<DoctorScreenStub title="Prescriptions" />} />
+          <Route path="/doctor/charts" element={<ReportsAnalytics />} />
+          <Route path="/doctor/pharmacy" element={<PharmacyInventory />} />
+          <Route path="/doctor/pharmacy/purchase" element={<NewPurchaseEntry />} />
+          <Route path="/doctor/pharmacy/billing" element={<NewBill />} />
+          <Route path="/doctor/pharmacy/billing/success" element={<BillSuccess />} />
+          <Route path="/doctor/revenue" element={<BillingInvoices />} />
+          <Route path="/doctor/staff" element={<DoctorScreenStub title="Staff" />} />
+          <Route path="/doctor/locations" element={<LocationsManagement />} />
+          <Route path="/doctor/team" element={<TeamAndRoles />} />
+          <Route path="/doctor/team/new" element={<CreateSubUser />} />
+          <Route path="/doctor/audit" element={<DoctorScreenStub title="Audit Logs" />} />
+          <Route path="/doctor/email-logs" element={<DoctorScreenStub title="Email Logs" />} />
         </Route>
         <Route path="*" element={<Navigate to="/doctor" replace />} />
       </Routes>
