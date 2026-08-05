@@ -43,6 +43,7 @@ import doctorMessagesRouter from './routes/doctorMessages.js';
 import doctorLocationsRouter from './routes/doctorLocations.js';
 import doctorTeamRouter from './routes/doctorTeam.js';
 import pharmacyRouter from './routes/pharmacy.js';
+import doctorLogsRouter from './routes/doctorLogs.js';
 import portalRouter from './routes/portal.js';
 import { errorHandler } from './middleware/error.js';
 
@@ -143,6 +144,8 @@ export function createApp() {
   app.use('/api/doctor', doctorTeamRouter);
 
   app.use('/api/pharmacy', pharmacyRouter);
+
+  app.use('/api/doctor', doctorLogsRouter);
   // Patient portal: read-only record + care messaging (patient role, strictly scoped)
   app.use('/api/portal', portalRouter);
 

@@ -40,6 +40,8 @@ import ConsultationDetails from './pages/doctor/ConsultationDetails';
 import ReportsAnalytics from './pages/doctor/ReportsAnalytics';
 import BillingInvoices from './pages/doctor/BillingInvoices';
 import SettingsPage from './pages/doctor/SettingsPage';
+import AuditLogs from './pages/doctor/AuditLogs';
+import EmailLogs from './pages/doctor/EmailLogs';
 import PharmacyInventory from './pages/pharmacy/Inventory';
 import NewPurchaseEntry from './pages/pharmacy/NewPurchaseEntry';
 import NewBill from './pages/pharmacy/NewBill';
@@ -151,8 +153,8 @@ function AppRoutes() {
           <Route path="/doctor/locations" element={<LocationsManagement />} />
           <Route path="/doctor/team" element={<TeamAndRoles />} />
           <Route path="/doctor/team/new" element={<CreateSubUser />} />
-          <Route path="/doctor/audit" element={<DoctorScreenStub title="Audit Logs" />} />
-          <Route path="/doctor/email-logs" element={<DoctorScreenStub title="Email Logs" />} />
+          <Route path="/doctor/audit" element={<AuditLogs />} />
+          <Route path="/doctor/email-logs" element={<EmailLogs />} />
         </Route>
         <Route path="*" element={<Navigate to="/doctor" replace />} />
       </Routes>
