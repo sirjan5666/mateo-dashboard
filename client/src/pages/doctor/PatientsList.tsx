@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import {
   ChevronDown,
@@ -7,13 +7,15 @@ import {
   Download,
   LayoutGrid,
   List,
+  Loader2,
   Plus,
   Search,
   SlidersHorizontal,
   UserRound,
   UserRoundPlus,
 } from 'lucide-react';
-import { AGE_GROUPS, GENDERS, PATIENTS, SORTS, ageParts, formatDate } from '../../data/patients';
+import { AGE_GROUPS, GENDERS, SORTS, ageParts, formatDate, fromApi } from '../../data/patients';
+import { listPatients } from '../../api/doctorPatients';
 import type { Patient } from '../../data/patients';
 import { useActiveLocation } from '../../lib/doctorLocation';
 import { PatientsTable } from '../../components/doctor/v2/patients/PatientsTable';
@@ -65,14 +67,37 @@ export default function PatientsList() {
   const [growthPatient, setGrowthPatient] = useState<Patient | null>(null);
 
   const { locations, clinics } = useActiveLocation();
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  // Inlined so every setState is provably after an await.
+  useEffect(() => {
+    let cancelled = false;
+    void listPatients()
+      .then((r) => {
+        if (!cancelled) setPatients(r.patients.map(fromApi));
+      })
+      .catch((e: unknown) => {
+        if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Could not load patients');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   /** Clinic name from the live list; an unknown/removed id shows an em dash. */
-  const locationName = (id: string | null | undefined) => locations.find((l) => l.id === id)?.name ?? '—';
-  /** The roster is the source of truth for the headline count. */
-  const rosterTotal = PATIENTS.length;
+  const locationName = useCallback(
+    (id: string | null | undefined) => locations.find((l) => l.id === id)?.name ?? '—',
+    [locations],
+  );
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    let list = PATIENTS.filter((p) => {
+    let list = patients.filter((p) => {
       if (q && !(
         p.name.toLowerCase().includes(q) ||
         p.guardian.toLowerCase().includes(q) ||
@@ -110,18 +135,15 @@ export default function PatientsList() {
     else list = [...list].sort((a, b) => b.registeredOn.localeCompare(a.registeredOn) || b.id.localeCompare(a.id));
 
     return list;
-  }, [query, locationFilter, ageFilter, genderFilter, sort, sortKey, sortDir]);
+  }, [patients, locationName, query, locationFilter, ageFilter, genderFilter, sort, sortKey, sortDir]);
 
-  /**
-   * The headline total uses the best number available. Location is the one filter
-   * the roster can answer for real (each clinic carries its own patient count), so
-   * location-only narrowing still reports the true figure. Search, age and gender
-   * can only be evaluated against the 8-record sample, so those report the sample.
-   */
-  const sampleFiltering = query.trim() !== '' || ageFilter !== 'all' || genderFilter !== 'all';
-  const total = sampleFiltering ? filtered.length : rosterTotal;
+  const filtering =
+    query.trim() !== '' || ageFilter !== 'all' || genderFilter !== 'all' || locationFilter !== 'all';
+  // The roster is the real one now, so every filter reports its true count.
+  const total = filtered.length;
   const totalPages = Math.max(1, Math.ceil(total / rowsPerPage));
-  const shown = filtered.slice(0, rowsPerPage);
+  const from = (page - 1) * rowsPerPage;
+  const shown = filtered.slice(from, from + rowsPerPage);
 
   function toggleSort(k: SortKey) {
     if (sortKey !== k) { setSortKey(k); setSortDir('asc'); return; }
@@ -148,8 +170,22 @@ export default function PatientsList() {
     ? Array.from({ length: totalPages }, (_, i) => i + 1)
     : [1, 2, 3, '…', totalPages];
 
+  if (loading) {
+    return (
+      <p className="flex items-center gap-2 py-16 text-sm text-[#64748B]">
+        <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+        Loading patients…
+      </p>
+    );
+  }
+
   return (
     <div>
+      {loadError && (
+        <p role="alert" className="mb-4 rounded-[10px] border border-[#F8D4D4] bg-[#FDF0F0] px-4 py-3 text-[13px] font-medium text-[#B42318]">
+          {loadError}
+        </p>
+      )}
       {/* Header */}
       <div className="mb-5 flex flex-wrap items-start gap-4">
         <div className="min-w-0 flex-1">
@@ -294,7 +330,7 @@ export default function PatientsList() {
         {/* Pagination */}
         <div className="flex flex-col gap-4 border-t border-[#ECEEF4] px-[22px] py-[18px] lg:flex-row lg:items-center">
           <p className="text-[13px] font-medium text-[#64748B]">
-            Showing {shown.length ? 1 : 0} to {shown.length} of {total.toLocaleString('en-IN')} patients
+            Showing {shown.length ? from + 1 : 0} to {from + shown.length} of {total.toLocaleString('en-IN')} patients
           </p>
 
           <div className="flex items-center gap-2 lg:mx-auto">
@@ -340,7 +376,7 @@ export default function PatientsList() {
       {growthPatient && <GrowthChartModal patient={growthPatient} onClose={() => setGrowthPatient(null)} />}
 
       <p aria-live="polite" className="sr-only">
-        {sampleFiltering || locationFilter !== 'all' ? `${filtered.length} patients match the current filters.` : ''}
+        {filtering ? `${filtered.length} patients match the current filters.` : ''}
       </p>
     </div>
   );

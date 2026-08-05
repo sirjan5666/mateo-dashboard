@@ -51,6 +51,10 @@ export interface Patient {
   phone?: string | null;
   status: string;
   specialtyTemplateId: string;
+  /** Which of the doctor's clinics the patient is registered at. */
+  locationId?: string | null;
+  /** Most recent encounter; null when the patient has never been seen. */
+  lastVisitAt?: string | null;
   archivedAt: string | null;
   createdAt: string;
   updatedAt: string;

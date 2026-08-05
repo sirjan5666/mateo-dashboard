@@ -10,6 +10,7 @@ import { requireConsent } from '../middleware/requireConsent.js';
 import { Patient, PATIENT_SEXES } from '../models/Patient.js';
 import type { IPatient } from '../models/Patient.js';
 import { ClinicLocation } from '../models/ClinicLocation.js';
+import { Encounter } from '../models/Encounter.js';
 import { User } from '../models/User.js';
 import { Baby } from '../models/Baby.js';
 import { syncDosesForBaby } from '../vaccines/sync.js';
@@ -190,7 +191,22 @@ router.get('/patients', auditAccess('patient'), async (req, res) => {
   if (!includeArchived) filter.archivedAt = { $exists: false };
   if (status) filter.status = status;
   const patients = await Patient.find(filter).sort({ updatedAt: -1 }).limit(200);
-  let list = patients.map(publicPatient);
+
+  // Last visit per patient, in one grouped query rather than one per row. Null
+  // means genuinely never seen — the UI shows that rather than guessing.
+  const lastVisits = new Map<string, Date>();
+  if (patients.length) {
+    const rows = await Encounter.aggregate<{ _id: Types.ObjectId; last: Date }>([
+      { $match: { doctorUserId: new Types.ObjectId(req.userId), patientId: { $in: patients.map((x) => x._id) } } },
+      { $group: { _id: '$patientId', last: { $max: '$date' } } },
+    ]);
+    for (const r of rows) lastVisits.set(String(r._id), r.last);
+  }
+
+  let list = patients.map((x) => ({
+    ...publicPatient(x),
+    lastVisitAt: lastVisits.get(x._id.toString()) ?? null,
+  }));
   // Name is encrypted (not server-queryable) — filter the decrypted page in memory.
   if (q) {
     const needle = q.toLowerCase();

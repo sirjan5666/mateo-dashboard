@@ -1,4 +1,5 @@
 import type { LocationId } from '../lib/doctorLocation';
+import type { Patient as ApiPatient } from '../api/doctorPatients';
 
 /**
  * Patient roster (Clinic OS spec 06).
@@ -12,7 +13,12 @@ import type { LocationId } from '../lib/doctorLocation';
  */
 
 /** The dataset's "today" — 8 May 2025, matching every other Clinic OS screen. */
-export const TODAY = new Date(2025, 4, 8);
+/**
+ * Ages are computed against the real clock now that patients come from the API.
+ * Kept as a function, not a captured constant, so a long-lived tab does not
+ * freeze everyone's age at the moment it loaded.
+ */
+export const today = () => new Date();
 
 export interface Patient {
   id: string;
@@ -32,7 +38,7 @@ export interface Patient {
 }
 
 /** Whole years and months between dob and `now`, truncated (never rounded up). */
-export function ageParts(dob: string, now: Date = TODAY): { years: number; months: number } {
+export function ageParts(dob: string, now: Date = today()): { years: number; months: number } {
   const d = new Date(dob);
   let years = now.getFullYear() - d.getFullYear();
   let months = now.getMonth() - d.getMonth();
@@ -44,13 +50,13 @@ export function ageParts(dob: string, now: Date = TODAY): { years: number; month
   return { years, months };
 }
 
-export function formatAge(dob: string, now: Date = TODAY): string {
+export function formatAge(dob: string, now: Date = today()): string {
   const { years, months } = ageParts(dob, now);
   return `${years}y ${months}m`;
 }
 
 /** Spoken form for screen readers — "4 years 3 months". */
-export function spokenAge(dob: string, now: Date = TODAY): string {
+export function spokenAge(dob: string, now: Date = today()): string {
   const { years, months } = ageParts(dob, now);
   const y = `${years} ${years === 1 ? 'year' : 'years'}`;
   const m = `${months} ${months === 1 ? 'month' : 'months'}`;
@@ -204,3 +210,37 @@ export const SORTS = [
   { value: 'lastVisit', label: 'Last Visit' },
   { value: 'age', label: 'Age' },
 ];
+
+/** Deterministic avatar wash, so a patient keeps the same colour across renders. */
+const TINTS = [
+  { tint: '#EDE9FE', fg: '#6D5AE0' }, { tint: '#E4EBFD', fg: '#2B6FF0' },
+  { tint: '#DCF7E6', fg: '#12A150' }, { tint: '#FDECD3', fg: '#E8890B' },
+  { tint: '#FCE7F3', fg: '#EC4899' }, { tint: '#E0F2FE', fg: '#0891B2' },
+];
+
+/**
+ * API patient → the shape this page's table, cards and modals already render.
+ *
+ * `guardian` and `email` have no home on the Patient model yet, so they come
+ * back empty and render as em dashes rather than being invented.
+ */
+export function fromApi(p: ApiPatient): Patient {
+  let h = 0;
+  for (let i = 0; i < p.id.length; i += 1) h = (h * 31 + p.id.charCodeAt(i)) >>> 0;
+  const c = TINTS[h % TINTS.length];
+  const sex = (p.sex || '').toLowerCase();
+  return {
+    id: p.id,
+    name: p.displayName,
+    guardian: '',
+    gender: sex === 'male' ? 'Male' : sex === 'female' ? 'Female' : 'Other',
+    dob: p.dob ?? '',
+    registeredOn: p.createdAt.slice(0, 10),
+    lastVisit: p.lastVisitAt ? p.lastVisitAt.slice(0, 10) : null,
+    phone: p.phone ?? '',
+    locationId: p.locationId ?? '',
+    email: '',
+    tint: c.tint,
+    fg: c.fg,
+  };
+}
