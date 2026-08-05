@@ -20,6 +20,8 @@ export interface IPatient {
   parentUserId?: Types.ObjectId;
   babyId?: Types.ObjectId;
   specialtyTemplateId: Types.ObjectId;
+  /** Which of the doctor's clinics this patient was registered at. */
+  locationId?: Types.ObjectId;
   displayName: string; // PHI — encrypted at rest
   dob?: string; // PHI — encrypted ISO date string at rest
   sex: PatientSex;
@@ -37,6 +39,8 @@ const patientSchema = new Schema<IPatient>(
     parentUserId: { type: Schema.Types.ObjectId, ref: 'User', index: true, sparse: true },
     babyId: { type: Schema.Types.ObjectId, ref: 'Baby', index: true, sparse: true },
     specialtyTemplateId: { type: Schema.Types.ObjectId, ref: 'SpecialtyTemplate', required: true },
+    // Plain (not PHI) so per-clinic counts can aggregate in the DB.
+    locationId: { type: Schema.Types.ObjectId, ref: 'ClinicLocation', index: true },
     displayName: { type: String, required: true },
     dob: { type: String },
     sex: { type: String, enum: PATIENT_SEXES, default: 'unspecified' },

@@ -1,5 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
+import { createPatient, listTemplates } from '../../api/doctorPatients';
+import { useActiveLocation } from '../../lib/doctorLocation';
 import { ArrowLeft, Building2, Calendar, ChevronDown, Info, ShieldCheck, UploadCloud, X } from 'lucide-react';
 import { BLOOD_GROUPS, DELIVERY_TYPES, MARITAL_STATUSES, RELATIONSHIPS, STATES } from '../../data/geo';
 import { FieldError, INPUT, INPUT_ERR, Label, PhoneNumberInput } from '../../components/doctor/v2/subuser/fields';
@@ -47,6 +49,13 @@ export default function RegisterNewPatient() {
   const navigate = useNavigate();
   const formRef = useRef<HTMLFormElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  const { clinics } = useActiveLocation();
+  const [pickedLocation, setPickedLocation] = useState('');
+  // Defaults to the doctor's primary clinic until they choose another.
+  const locationId = pickedLocation || clinics.find((c) => c.primary)?.id || clinics[0]?.id || '';
+  const [saving, setSaving] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const [f, setF] = useState({
     fullName: '', dob: '', gender: 'Male', bloodGroup: '', maritalStatus: '',
@@ -96,8 +105,36 @@ export default function RegisterNewPatient() {
       el?.scrollIntoView({ block: 'center', behavior: 'smooth' });
       return;
     }
-    console.log('[Clinic OS] Register New Patient', { ...f, documents: files.map((x) => x.name) });
-    navigate('/doctor/patients');
+
+    void (async () => {
+      setSaving(true);
+      setSubmitError(null);
+      try {
+        const { templates } = await listTemplates();
+        const template = templates[0];
+        if (!template) {
+          setSubmitError('No specialty template exists yet — one is needed before patients can be registered.');
+          setSaving(false);
+          return;
+        }
+        await createPatient({
+          templateId: template.id,
+          displayName: f.fullName.trim(),
+          dob: f.dob,
+          sex: f.gender === 'Male' ? 'male' : f.gender === 'Female' ? 'female' : 'unspecified',
+          phone: f.phone.trim() || undefined,
+          // Attributes the patient to the clinic they walked into, which is what
+          // makes the per-location counts on the Locations page real.
+          locationId: locationId || undefined,
+        });
+        // Uploaded documents are held client-side only — there is no patient
+        // document endpoint yet, so they are deliberately not claimed as saved.
+        navigate('/doctor/patients');
+      } catch (err) {
+        setSubmitError(err instanceof Error ? err.message : 'Could not register this patient');
+        setSaving(false);
+      }
+    })();
   }
 
   const addFiles = (list: FileList | null) => {
@@ -128,11 +165,26 @@ export default function RegisterNewPatient() {
           <button type="button" onClick={() => navigate('/doctor/patients')} className="h-12 flex-1 rounded-[11px] border border-[#E2E6F0] bg-white px-[34px] text-[14.5px] font-bold text-[#1E2A5A] transition-colors hover:bg-[#F7F8FC] sm:flex-none">
             Cancel
           </button>
-          <button type="submit" className="h-12 flex-1 rounded-[11px] px-7 text-[14.5px] font-bold text-white shadow-[0_8px_18px_-8px_rgba(59,79,224,.65)] transition-[filter] hover:brightness-105 sm:flex-none" style={{ background: 'linear-gradient(135deg, #5B5BF0 0%, #3B3FD8 100%)' }}>
-            Save &amp; Continue
+          {clinics.length > 0 && (
+            <span className="flex items-center gap-2">
+              <label htmlFor="reg-location" className="text-[12.5px] font-bold text-[#334155]">Clinic</label>
+              <select id="reg-location" value={locationId} onChange={(e) => setPickedLocation(e.target.value)}
+                className="h-12 rounded-[11px] border border-[#E4E8F1] bg-white px-3.5 text-[13.5px] font-semibold text-[#334155] focus:border-[#3B4FE0] focus:outline-none">
+                {clinics.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </span>
+          )}
+          <button type="submit" disabled={saving} className="h-12 flex-1 rounded-[11px] px-7 text-[14.5px] font-bold text-white shadow-[0_8px_18px_-8px_rgba(59,79,224,.65)] transition-[filter] hover:brightness-105 disabled:opacity-60 sm:flex-none" style={{ background: 'linear-gradient(135deg, #5B5BF0 0%, #3B3FD8 100%)' }}>
+            {saving ? 'Saving…' : 'Save & Continue'}
           </button>
         </div>
       </div>
+
+      {submitError && (
+        <p role="alert" className="mb-4 rounded-[10px] border border-[#F8D4D4] bg-[#FDF0F0] px-4 py-3 text-[13px] font-medium text-[#B42318]">
+          {submitError}
+        </p>
+      )}
 
       {/* Columns */}
       <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-2 xl:grid-cols-3">

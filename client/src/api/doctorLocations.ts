@@ -16,8 +16,11 @@ export interface ClinicLocationDto {
   active: boolean;
   hue: string;
   createdAt: string;
-  /** Real per-location count — StaffMember carries a locationId. */
+  /** All real per-location counts, scoped to this clinic. */
   teamMembers: number;
+  patients: number;
+  revenueMtd: number;
+  appointmentsMtd: number;
 }
 
 export interface LocationInput {

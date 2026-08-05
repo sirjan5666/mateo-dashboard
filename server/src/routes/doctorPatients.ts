@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { isValidObjectId } from 'mongoose';
+import { Types, isValidObjectId } from 'mongoose';
 import type { HydratedDocument } from 'mongoose';
 import { z } from 'zod';
 import bcrypt from 'bcrypt';
@@ -9,6 +9,7 @@ import { auditAccess, recordAudit } from '../middleware/audit.js';
 import { requireConsent } from '../middleware/requireConsent.js';
 import { Patient, PATIENT_SEXES } from '../models/Patient.js';
 import type { IPatient } from '../models/Patient.js';
+import { ClinicLocation } from '../models/ClinicLocation.js';
 import { User } from '../models/User.js';
 import { Baby } from '../models/Baby.js';
 import { syncDosesForBaby } from '../vaccines/sync.js';
@@ -59,6 +60,7 @@ function publicPatient(p: HydratedDocument<IPatient>) {
     phone: decryptOptional(p.phone),
     status: p.status,
     specialtyTemplateId: p.specialtyTemplateId,
+    locationId: p.locationId ?? null,
     archivedAt: p.archivedAt ?? null,
     createdAt: p.createdAt,
     updatedAt: p.updatedAt,
@@ -110,6 +112,8 @@ const createPatientSchema = z.object({
   sex: z.enum(PATIENT_SEXES).optional(),
   phone: z.string().min(1).max(40).optional(),
   status: z.string().optional(),
+  /** Which clinic the patient walked into — powers the per-location counts. */
+  locationId: z.string().optional(),
 });
 
 router.post('/patients', async (req, res) => {
@@ -124,9 +128,23 @@ router.post('/patients', async (req, res) => {
     res.status(400).json({ error: `Unknown status "${status}" for this template` });
     return;
   }
+  // Never trust a locationId from the client — it must be one of this doctor's.
+  let locationId: Types.ObjectId | undefined;
+  if (body.locationId) {
+    const loc = isValidObjectId(body.locationId)
+      ? await ClinicLocation.findOne(scopeToDoctor(req, { _id: body.locationId }))
+      : null;
+    if (!loc) {
+      res.status(400).json({ error: 'Choose a location from your own practice' });
+      return;
+    }
+    locationId = loc._id;
+  }
+
   const patient = new Patient({
     doctorUserId: req.userId,
     specialtyTemplateId: template._id,
+    locationId,
     displayName: body.displayName,
     dob: body.dob,
     sex: body.sex ?? 'unspecified',

@@ -24,7 +24,14 @@ router.use(requireAuth, requireRole('doctor'));
 
 type LocationDoc = Awaited<ReturnType<typeof ClinicLocation.findOne>>;
 
-function shape(loc: NonNullable<LocationDoc>, teamMembers = 0) {
+interface LocStats {
+  patients: number;
+  revenueMtd: number;
+  appointmentsMtd: number;
+}
+const NO_STATS: LocStats = { patients: 0, revenueMtd: 0, appointmentsMtd: 0 };
+
+function shape(loc: NonNullable<LocationDoc>, teamMembers = 0, stats: LocStats = NO_STATS) {
   return {
     id: loc._id,
     name: loc.name,
@@ -41,18 +48,63 @@ function shape(loc: NonNullable<LocationDoc>, teamMembers = 0) {
     active: loc.active,
     hue: loc.hue,
     createdAt: loc.createdAt,
-    /**
-     * Real, because StaffMember carries a locationId. Patients, revenue and
-     * consultations deliberately are NOT here: Patient/Invoice have no
-     * locationId yet, so any per-clinic split would be invented. They come back
-     * as practice-wide totals from /locations/analytics instead. Add locationId
-     * to Patient + Invoice to make those per-clinic too.
-     */
+    // All three are real counts, scoped to this clinic. Patients carry a
+    // locationId; revenue is attributed through the patient the invoice is for.
     teamMembers,
+    patients: stats.patients,
+    revenueMtd: stats.revenueMtd,
+    appointmentsMtd: stats.appointmentsMtd,
   };
 }
 
 const HUES = ['#4F63F5', '#12A150', '#F59E0B', '#8B5CF6', '#EC4899', '#0EA5E9'];
+
+/**
+ * locationId -> { patients, revenueMtd, appointmentsMtd }, in three grouped
+ * queries rather than three per clinic.
+ *
+ * Revenue and appointments hang off the PATIENT's clinic, not the invoice —
+ * an invoice has no location of its own, and attributing it to where the
+ * patient is registered is the only honest reading. Patients registered before
+ * locations existed have no locationId and are simply not counted anywhere,
+ * rather than being dumped into the primary clinic.
+ */
+async function locationStats(req: Parameters<typeof scopeToDoctor>[0], monthStart: Date): Promise<Map<string, LocStats>> {
+  const doctorId = new Types.ObjectId(req.userId); // $match does not cast
+
+  const [byPatients, byRevenue, byAppts] = await Promise.all([
+    Patient.aggregate<{ _id: Types.ObjectId; n: number }>([
+      { $match: { doctorUserId: doctorId, locationId: { $ne: null }, archivedAt: { $exists: false } } },
+      { $group: { _id: '$locationId', n: { $sum: 1 } } },
+    ]),
+    Invoice.aggregate<{ _id: Types.ObjectId; n: number }>([
+      { $match: { doctorUserId: doctorId, status: { $ne: 'cancelled' }, date: { $gte: monthStart } } },
+      { $lookup: { from: 'patients', localField: 'patientId', foreignField: '_id', as: 'p' } },
+      { $unwind: '$p' },
+      { $match: { 'p.locationId': { $ne: null } } },
+      { $group: { _id: '$p.locationId', n: { $sum: '$amountPaid' } } },
+    ]),
+    DoctorAppointment.aggregate<{ _id: Types.ObjectId; n: number }>([
+      { $match: { doctorUserId: doctorId, start: { $gte: monthStart } } },
+      { $lookup: { from: 'patients', localField: 'patientId', foreignField: '_id', as: 'p' } },
+      { $unwind: '$p' },
+      { $match: { 'p.locationId': { $ne: null } } },
+      { $group: { _id: '$p.locationId', n: { $sum: 1 } } },
+    ]),
+  ]);
+
+  const map = new Map<string, LocStats>();
+  const put = (id: unknown, key: keyof LocStats, n: number) => {
+    const k = String(id);
+    const cur = map.get(k) ?? { ...NO_STATS };
+    cur[key] = n;
+    map.set(k, cur);
+  };
+  for (const r of byPatients) put(r._id, 'patients', r.n);
+  for (const r of byRevenue) put(r._id, 'revenueMtd', r.n);
+  for (const r of byAppts) put(r._id, 'appointmentsMtd', r.n);
+  return map;
+}
 
 /** locationId -> active staff count, in one query rather than N. */
 async function staffCounts(req: Parameters<typeof scopeToDoctor>[0]): Promise<Map<string, number>> {
@@ -82,11 +134,15 @@ const upsertSchema = z.object({
 
 // GET /api/doctor/locations — every clinic this doctor practises at.
 router.get('/locations', auditAccess('location'), async (req, res) => {
-  const [locations, staff] = await Promise.all([
+  const monthStart = new Date(`${istDateString(new Date()).slice(0, 7)}-01T00:00:00+05:30`);
+  const [locations, staff, stats] = await Promise.all([
     ClinicLocation.find(scopeToDoctor(req)).sort({ isPrimary: -1, name: 1 }),
     staffCounts(req),
+    locationStats(req, monthStart),
   ]);
-  res.json({ locations: locations.map((l) => shape(l, staff.get(l._id.toString()) ?? 0)) });
+  res.json({
+    locations: locations.map((l) => shape(l, staff.get(l._id.toString()) ?? 0, stats.get(l._id.toString()))),
+  });
 });
 
 /**
@@ -230,11 +286,15 @@ router.post('/locations/:id/primary', auditAccess('location'), async (req, res) 
   await ClinicLocation.updateMany(scopeToDoctor(req, { isPrimary: true }), { $set: { isPrimary: false } });
   loc.isPrimary = true;
   await loc.save();
-  const [locations, staff] = await Promise.all([
+  const monthStart = new Date(`${istDateString(new Date()).slice(0, 7)}-01T00:00:00+05:30`);
+  const [locations, staff, stats] = await Promise.all([
     ClinicLocation.find(scopeToDoctor(req)).sort({ isPrimary: -1, name: 1 }),
     staffCounts(req),
+    locationStats(req, monthStart),
   ]);
-  res.json({ locations: locations.map((l) => shape(l, staff.get(l._id.toString()) ?? 0)) });
+  res.json({
+    locations: locations.map((l) => shape(l, staff.get(l._id.toString()) ?? 0, stats.get(l._id.toString()))),
+  });
 });
 
 // POST /api/doctor/locations/:id/active — "Deactivate" / "Activate".
@@ -261,11 +321,15 @@ router.post('/locations/:id/active', auditAccess('location'), async (req, res) =
   }
   loc.active = active;
   await loc.save();
-  const [locations, staff] = await Promise.all([
+  const monthStart = new Date(`${istDateString(new Date()).slice(0, 7)}-01T00:00:00+05:30`);
+  const [locations, staff, stats] = await Promise.all([
     ClinicLocation.find(scopeToDoctor(req)).sort({ isPrimary: -1, name: 1 }),
     staffCounts(req),
+    locationStats(req, monthStart),
   ]);
-  res.json({ locations: locations.map((l) => shape(l, staff.get(l._id.toString()) ?? 0)) });
+  res.json({
+    locations: locations.map((l) => shape(l, staff.get(l._id.toString()) ?? 0, stats.get(l._id.toString()))),
+  });
 });
 
 export default router;

@@ -45,16 +45,13 @@ export interface ClinicLocation {
   city: string;
   state: string;
   pincode: string;
-  /** Real: StaffMember carries a locationId. */
   teamMembers: number;
-  /**
-   * NOT TRACKED PER LOCATION YET — Patient and Invoice carry no locationId, so
-   * splitting them per clinic would be invented. `null` renders as an em dash;
-   * the honest practice-wide figures live in the Location Analytics panel.
-   * Wire locationId onto Patient + Invoice to turn these into real numbers.
-   */
   patients: number | null;
   revenueMtd: number | null;
+  /**
+   * Consultations are still not split per clinic — Encounter carries no
+   * location. `null` renders as an em dash rather than a fabricated zero.
+   */
   consultationsMtd: number | null;
   appointmentsMtd: number | null;
 }
@@ -106,10 +103,10 @@ export function fromDto(dto: ClinicLocationDto): ClinicLocation {
     state: dto.state,
     pincode: dto.pincode,
     teamMembers: dto.teamMembers ?? 0,
-    patients: null,
-    revenueMtd: null,
+    patients: dto.patients ?? 0,
+    revenueMtd: dto.revenueMtd ?? 0,
     consultationsMtd: null,
-    appointmentsMtd: null,
+    appointmentsMtd: dto.appointmentsMtd ?? 0,
   };
 }
 
@@ -139,10 +136,10 @@ export function aggregateOf(clinics: ClinicLocation[]): ClinicLocation {
     state: '',
     pincode: '',
     teamMembers: clinics.reduce((t, c) => t + c.teamMembers, 0),
-    patients: null,
-    revenueMtd: null,
+    patients: clinics.reduce((t, c) => t + (c.patients ?? 0), 0),
+    revenueMtd: clinics.reduce((t, c) => t + (c.revenueMtd ?? 0), 0),
     consultationsMtd: null,
-    appointmentsMtd: null,
+    appointmentsMtd: clinics.reduce((t, c) => t + (c.appointmentsMtd ?? 0), 0),
   };
 }
 

@@ -71,7 +71,8 @@ export interface CreatePatientInput {
   dob?: string;
   sex?: string;
   phone?: string;
-  status?: string;
+  status?: string;  /** Which of the doctor's clinics the patient registered at. */
+  locationId?: string;
 }
 
 export interface UpdatePatientInput {
