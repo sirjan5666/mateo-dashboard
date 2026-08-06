@@ -3,8 +3,8 @@ name: CI & Deploy
 # Flow: open a PR → the build gate runs on it. Merge to main → the gate runs, and
 # if it PASSES, the app AUTO-DEPLOYS to production (continuous deployment). You can
 # also deploy on demand with the "Run workflow" button (workflow_dispatch). A merge
-# only ships when typecheck · lint · build all pass, so broken code never reaches
-# prod. Production only ever ships what's on GitHub `main`.
+# only ships when typecheck · lint · test · build all pass, so broken code never
+# reaches prod. Production only ever ships what's on GitHub `main`.
 
 on:
   pull_request:
@@ -19,19 +19,35 @@ concurrency:
 
 jobs:
   gate:
-    name: Build gate (typecheck · lint · build)
+    name: Build gate (typecheck · lint · test · build)
     runs-on: ubuntu-latest
+    # The server suite includes DB-backed cross-tenant boundary and DPDP-erasure
+    # tests. Those are precisely the ones that must gate a deploy of children's
+    # health data, so CI gets a real MongoDB rather than letting them skip.
+    services:
+      mongo:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.runCommand({ping:1}).ok'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - name: Server — install · typecheck · lint · build
+      - name: Server — install · typecheck · lint · test · build
         working-directory: server
+        env:
+          MONGODB_URI: mongodb://127.0.0.1:27017/mateo
         run: |
           npm ci
           npm run typecheck
           npm run lint
+          npm test
           npm run build
       - name: Client — install · lint · build (build also runs tsc)
         working-directory: client
