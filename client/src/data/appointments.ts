@@ -32,11 +32,17 @@ export interface Appointment {
   createdOn: string;
 }
 
-export const HOURS = ['09:00 AM', '10:00 AM', '11:00 AM', '12:00 PM', '01:00 PM', '02:00 PM', '03:00 PM', '04:00 PM', '05:00 PM', '06:00 PM'];
-
-/** 01:00 PM is the lunch break; 06:00 PM is the empty add slot. */
-export const LUNCH_HOUR = '01:00 PM';
-export const EMPTY_HOUR = '06:00 PM';
+/**
+ * The calendar rows. Re-exported from lib/clinicHours so the grid and the
+ * booking wizard cannot disagree about when the clinic is open — the list
+ * used to stop at 6 PM while the wizard happily booked until 8 PM, and those
+ * bookings then had no row to appear in.
+ *
+ * The old LUNCH_HOUR / EMPTY_HOUR constants are gone: they pinned "Lunch
+ * Break" to 1 PM and an add-button to 6 PM, and both HID any real
+ * appointment booked in those hours.
+ */
+export { CLINIC_HOURS as HOURS } from '../lib/clinicHours';
 
 const CLINIC = 'Greenview Children Clinic';
 // Spec 10 §6.3: "Delhi 110016" — no comma before the PIN on this screen.

@@ -6,7 +6,7 @@ import {
   ClipboardList, Clock, FileText, Hourglass, MapPin, Pencil, Phone, Plus, Trash2, UserRound, X,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { APPT_STATUS, EMPTY_HOUR, HOURS, LUNCH_HOUR, TONE_STYLE, appointmentFromApi, istDayKey } from '../../data/appointments';
+import { APPT_STATUS, HOURS, TONE_STYLE, appointmentFromApi, istDayKey } from '../../data/appointments';
 import { listSchedule, updateAppointment } from '../../api/doctorAppointments';
 import { createEncounter } from '../../api/doctorEncounters';
 import type { Appointment, ApptStatus } from '../../data/appointments';
@@ -80,7 +80,6 @@ const labelOf = (key: string) => IST_DATE.format(new Date(fromIstDay(key)));
 export default function AppointmentsPage() {
   const { user } = useAuth();
   const doctorName = user?.name ?? 'Doctor';
-  const todayLabel = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', weekday: 'long' });
 
   const navigate = useNavigate();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -341,47 +340,61 @@ export default function AppointmentsPage() {
               {/* Grid */}
               <div role="grid" aria-label="Day schedule">
                 {HOURS.map((h) => {
-                  // Scoped to the anchor day so a stale week/month fetch can never leak a
-                  // booking from another date into today's grid.
-                  const appt = dayAppointments.find((a) => a.hour === h);
-                  const dimmed = appt ? !matches(appt) : false;
+                  /*
+                    EVERY booking in the hour, not the first one.
+                    `hour` is a whole-hour bucket, and the default booking length
+                    is 30 minutes, so `find` silently hid half the day's roster —
+                    a 10:30 patient vanished behind the 10:00 one. The Week grid
+                    always did this correctly; the Day grid was the outlier.
+
+                    Scoped to the anchor day so a stale week/month fetch can never
+                    leak a booking from another date into this grid.
+                  */
+                  const inHour = dayAppointments.filter((a) => a.hour === h);
                   return (
-                    <div key={h} role="row" aria-label={h === LUNCH_HOUR ? '1 PM, Lunch break, no appointments' : undefined} className="flex min-h-[66px] border-b border-[#F1F3F9] last:border-b-0">
-                      <div className="flex w-[104px] shrink-0 items-center justify-end pr-5 text-[12.5px] font-medium text-[#64748B] sm:w-[104px]">{h}</div>
+                    <div key={h} role="row" className="flex min-h-[66px] border-b border-[#F1F3F9] last:border-b-0">
+                      <div className="flex w-[104px] shrink-0 items-center justify-end pr-5 pt-4 text-[12.5px] font-medium text-[#64748B] sm:w-[104px]">{h}</div>
                       <div className="min-w-0 flex-1 py-2 pl-5 pr-6">
-                        {h === LUNCH_HOUR ? (
-                          <p className="flex h-[50px] items-center justify-center text-[13px] font-medium text-[#64748B]">Lunch Break</p>
-                        ) : h === EMPTY_HOUR ? (
+                        {inHour.length ? (
+                          <div className="flex flex-col gap-2">
+                            {inHour.map((appt) => {
+                              const dimmed = !matches(appt);
+                              return (
+                                <button
+                                  key={appt.id}
+                                  role="gridcell"
+                                  type="button"
+                                  onClick={() => setSelected(appt)}
+                                  aria-label={`${appt.start} to ${appt.end}, ${appt.patient}, ${appt.type}, ${APPT_STATUS[appt.status].label}`}
+                                  style={{ background: TONE_STYLE[appt.tone].bg, borderLeft: `4px solid ${TONE_STYLE[appt.tone].bar}`, opacity: dimmed ? 0.35 : 1 }}
+                                  className={cn(
+                                    'flex h-[50px] w-full items-center gap-3 rounded-[9px] py-2 pl-[15px] pr-3.5 text-left transition-shadow hover:shadow-[0_6px_16px_-8px_rgba(15,23,42,.20)]',
+                                    selected?.id === appt.id && 'shadow-[0_0_0_3px_rgba(43,111,240,.10)] ring-[1.5px] ring-[#6E97F5]',
+                                  )}
+                                >
+                                  <span className="min-w-0">
+                                    <span className="block text-[11.5px] font-semibold" style={{ color: TONE_STYLE[appt.tone].bar }}>
+                                      {appt.start} – {appt.end}
+                                    </span>
+                                    <span className="mt-[3px] flex items-baseline gap-[7px]">
+                                      <span className="truncate text-[13.5px] font-bold text-[#0F172A]">{appt.patient}</span>
+                                    </span>
+                                  </span>
+                                  <span className="hidden shrink-0 text-[12.5px] font-medium text-[#475569] lg:block lg:w-[150px]">{appt.type}</span>
+                                  <span className="ml-auto"><StatusChip status={appt.status} /></span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          /* Every free hour books, not just a hard-coded 6 PM one. */
                           <button type="button" onClick={() => navigate('/doctor/appointments/new')}
-                            className="flex h-[50px] w-full items-center justify-center gap-2 rounded-[10px] border-[1.5px] border-dashed border-[#DDE3F5] transition-colors hover:border-[#3B4FE0] hover:bg-[#F5F7FF]">
-                            <Plus className="h-4 w-4 text-[#3B4FE0]" />
-                            <span className="text-[13.5px] font-semibold text-[#3B4FE0]">Add Appointment</span>
+                            aria-label={`Book an appointment at ${h}`}
+                            className="flex h-[50px] w-full items-center justify-center gap-2 rounded-[10px] border-[1.5px] border-dashed border-[#E8ECF7] text-transparent transition-colors hover:border-[#3B4FE0] hover:bg-[#F5F7FF] hover:text-[#3B4FE0] focus-visible:border-[#3B4FE0] focus-visible:text-[#3B4FE0]">
+                            <Plus className="h-4 w-4" />
+                            <span className="text-[13.5px] font-semibold">Add Appointment</span>
                           </button>
-                        ) : appt ? (
-                          <button
-                            role="gridcell"
-                            type="button"
-                            onClick={() => setSelected(appt)}
-                            aria-label={`${appt.start} to ${appt.end}, ${appt.patient}, ${appt.age}, ${appt.type}, ${APPT_STATUS[appt.status].label}`}
-                            style={{ background: TONE_STYLE[appt.tone].bg, borderLeft: `4px solid ${TONE_STYLE[appt.tone].bar}`, opacity: dimmed ? 0.35 : 1 }}
-                            className={cn(
-                              'flex h-[50px] w-full items-center gap-3 rounded-[9px] py-2 pl-[15px] pr-3.5 text-left transition-shadow hover:shadow-[0_6px_16px_-8px_rgba(15,23,42,.20)]',
-                              selected?.id === appt.id && 'shadow-[0_0_0_3px_rgba(43,111,240,.10)] ring-[1.5px] ring-[#6E97F5]',
-                            )}
-                          >
-                            <span className="min-w-0">
-                              <span className="block text-[11.5px] font-semibold" style={{ color: TONE_STYLE[appt.tone].bar }}>
-                                {appt.start} – {appt.end}
-                              </span>
-                              <span className="mt-[3px] flex items-baseline gap-[7px]">
-                                <span className="truncate text-[13.5px] font-bold text-[#0F172A]">{appt.patient}</span>
-                                <span className="shrink-0 text-xs font-medium text-[#64748B]">({appt.age})</span>
-                              </span>
-                            </span>
-                            <span className="hidden shrink-0 text-[12.5px] font-medium text-[#475569] lg:block lg:w-[150px]">{appt.type}</span>
-                            <span className="ml-auto"><StatusChip status={appt.status} /></span>
-                          </button>
-                        ) : null}
+                        )}
                       </div>
                     </div>
                   );
@@ -492,7 +505,7 @@ export default function AppointmentsPage() {
 
           <dl className="mt-5 flex flex-col gap-[18px]">
             <DetailRow icon={Calendar} label="Date & Time">
-              {todayLabel} <span aria-hidden="true" className="px-1 text-[#CBD5E1]">•</span> {selected.start} – {selected.end}
+              {labelOf(selected.dayKey)} <span aria-hidden="true" className="px-1 text-[#CBD5E1]">•</span> {selected.start} – {selected.end}
             </DetailRow>
             <DetailRow icon={UserRound} label="Provider">
               {doctorName}

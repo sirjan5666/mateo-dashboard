@@ -10,6 +10,8 @@ import type { AppointmentMode } from '../../api/doctorAppointments';
 import { createPatient, listPatients, listTemplates, patientNumber } from '../../api/doctorPatients';
 import type { Patient } from '../../api/doctorPatients';
 import { useActiveLocation } from '../../lib/doctorLocation';
+// Clinic day in IST — shared with the calendar grid so the two cannot drift.
+import { DAY_END_HOUR, DAY_START_HOUR } from '../../lib/clinicHours';
 import { formatTimeIST, todayInputValueIST } from '../../lib/age';
 import { ageParts } from '../../data/patients';
 import { cn } from '../../lib/cn';
@@ -33,10 +35,6 @@ const DURATIONS = [15, 20, 30, 45, 60];
 
 /** Common paediatric booking reasons; "Other" reveals a free-text field. */
 const REASONS = ['Fever', 'Cough & Cold', 'Vaccination', 'Well-baby checkup', 'Follow-up', 'Growth review', 'Rash / skin', 'Other'];
-
-/** Clinic day in IST, in whole hours. Slots are cut at the chosen duration. */
-const DAY_START_HOUR = 9;
-const DAY_END_HOUR = 20;
 
 /**
  * The clinic runs on IST and CLAUDE.md requires IST display, so the whole page
