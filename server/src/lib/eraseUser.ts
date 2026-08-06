@@ -31,6 +31,14 @@ import { SpecialtyTemplate } from '../models/SpecialtyTemplate.js';
 import { ConsentRecord } from '../models/ConsentRecord.js';
 import { Invoice } from '../models/Invoice.js';
 import { Transaction } from '../models/Transaction.js';
+import {
+  GrowthMeasurement, Immunisation, PatientDocument, PatientNote,
+} from '../models/PatientClinical.js';
+import { ClinicLocation } from '../models/ClinicLocation.js';
+import { StaffMember } from '../models/StaffMember.js';
+import { StaffRole } from '../models/StaffRole.js';
+import { Distributor, Medicine, PharmacyBill, PharmacyPurchase, StockMovement } from '../models/Pharmacy.js';
+import { EmailLog } from '../models/EmailLog.js';
 import { User } from '../models/User.js';
 import { uploadsDir } from '../middleware/upload.js';
 
@@ -85,6 +93,16 @@ export async function eraseUserData(userId: string): Promise<void> {
 
   // Doctor EHR domain (doctor-owned PHI). If this user is a doctor, erase the
   // patients, their records, their consent history, and the templates they own.
+  //
+  // EVERY doctorUserId-keyed collection has to be listed here. A new clinical
+  // store that is not in this list silently survives a DPDP erasure request,
+  // which is exactly the failure mode this function exists to prevent.
+
+  // Uploaded patient documents live on disk; unlink the files before the rows
+  // that point at them are gone.
+  const patientDocs = await PatientDocument.find({ doctorUserId: userId }).select('storedName');
+  await Promise.all(patientDocs.map((d) => unlink(path.join(uploadsDir, path.basename(d.storedName))).catch(() => undefined)));
+
   await Promise.all([
     PatientRecord.deleteMany({ doctorUserId: userId }),
     Encounter.deleteMany({ doctorUserId: userId }),
@@ -94,6 +112,21 @@ export async function eraseUserData(userId: string): Promise<void> {
     ConsentRecord.deleteMany({ doctorUserId: userId }),
     Invoice.deleteMany({ doctorUserId: userId }),
     Transaction.deleteMany({ doctorUserId: userId }),
+    // Per-patient clinical stores behind the Patient Workspace tabs.
+    GrowthMeasurement.deleteMany({ doctorUserId: userId }),
+    PatientNote.deleteMany({ doctorUserId: userId }),
+    PatientDocument.deleteMany({ doctorUserId: userId }),
+    Immunisation.deleteMany({ doctorUserId: userId }),
+    // Practice administration: clinics, sub-users, roles, pharmacy, mail log.
+    ClinicLocation.deleteMany({ doctorUserId: userId }),
+    StaffMember.deleteMany({ doctorUserId: userId }),
+    StaffRole.deleteMany({ doctorUserId: userId }),
+    Distributor.deleteMany({ doctorUserId: userId }),
+    Medicine.deleteMany({ doctorUserId: userId }),
+    StockMovement.deleteMany({ doctorUserId: userId }),
+    PharmacyPurchase.deleteMany({ doctorUserId: userId }),
+    PharmacyBill.deleteMany({ doctorUserId: userId }),
+    EmailLog.deleteMany({ doctorUserId: userId }),
   ]);
   await Patient.deleteMany({ doctorUserId: userId });
   await SpecialtyTemplate.deleteMany({ ownerUserId: userId });
