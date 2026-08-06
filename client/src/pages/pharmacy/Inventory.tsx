@@ -203,7 +203,7 @@ export default function PharmacyInventory() {
   }
 
   return (
-    <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[1fr_336px]">
+    <div className="flex flex-col gap-[18px]">
       <div className="flex min-w-0 flex-col">
         {/* Header */}
         <div className="mb-4 flex flex-wrap items-start gap-3">
@@ -420,8 +420,10 @@ export default function PharmacyInventory() {
         </section>
       </div>
 
-      {/* ── Right rail ── */}
-      <div className="flex min-w-0 flex-col gap-[18px]">
+      {/* Fast Movers and Stock by Category sit BELOW the stock table now, side
+          by side — the table is what the page is for, and it was the thing
+          being squeezed to make room for two small charts. */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <section className={cn(CARD, 'px-5 pb-5 pt-[18px]')}>
           <div className="flex flex-wrap items-baseline gap-2">
             <h2 className={H2}>Fast Movers</h2>
@@ -429,11 +431,11 @@ export default function PharmacyInventory() {
           </div>
           {summary?.fastMovers.length ? (
             <>
-              <div role="img" aria-label="Fast-moving medicines by units sold this month" style={{ height: 190 }} className="mt-3.5">
+              <div role="img" aria-label="Fast-moving medicines by units sold this month" style={{ height: 230 }} className="mt-3.5">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={summary.fastMovers} layout="vertical" margin={{ top: 0, right: 38, bottom: 0, left: 0 }}>
                     <XAxis type="number" tick={{ fontSize: 10.5, fill: '#94A3B8' }} tickLine={false} axisLine={false} />
-                    <YAxis type="category" dataKey="name" width={104} tick={{ fontSize: 11.5, fill: '#334155' }} tickLine={false} axisLine={false} />
+                    <YAxis type="category" dataKey="name" width={150} tick={{ fontSize: 11.5, fill: '#334155' }} tickLine={false} axisLine={false} />
                     <Bar dataKey="units" barSize={11} radius={[0, 5, 5, 0]} isAnimationActive={false}>
                       {summary.fastMovers.map((m) => <Cell key={m.name} fill={m.color} />)}
                       <LabelList dataKey="units" position="right" style={{ fontSize: 11.5, fontWeight: 700, fill: '#0F172A' }} />
@@ -457,11 +459,11 @@ export default function PharmacyInventory() {
           <h2 className={H2}>Stock by Category</h2>
           {summary?.categories.length ? (
             <div className="mt-3.5 flex flex-wrap items-center gap-4">
-              <div className="relative shrink-0" style={{ width: 120, height: 120 }} role="img"
+              <div className="relative shrink-0" style={{ width: 150, height: 150 }} role="img"
                 aria-label={`Stock by category, ${summary.kpis.totalSkus} total SKUs`}>
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie data={summary.categories} dataKey="count" innerRadius={40} outerRadius={58} startAngle={90} endAngle={-270}
+                    <Pie data={summary.categories} dataKey="count" innerRadius={50} outerRadius={72} startAngle={90} endAngle={-270}
                       paddingAngle={1} stroke="none" isAnimationActive={false}>
                       {summary.categories.map((c) => <Cell key={c.label} fill={c.color} />)}
                     </Pie>
