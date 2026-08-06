@@ -118,10 +118,10 @@ export function InvoiceDocument({
 
       {/* Totals */}
       <dl className="ml-auto mt-3.5 max-w-[260px]">
-        <TotalRow label="Subtotal" value={`₹${amt(totals.subtotal)}`} />
+        <TotalRow label="Subtotal (incl. GST)" value={`₹${amt(totals.subtotal)}`} />
         <div className="mt-2"><TotalRow label="Discount" value={`– ₹${amt(totals.discount)}`} /></div>
-        <div className="mt-2"><TotalRow label="Taxable Amount" value={`₹${amt(totals.taxable)}`} /></div>
-        <div className="mt-2"><TotalRow label="GST (12%)" value={`₹${amt(totals.gst)}`} /></div>
+        <div className="mt-2"><TotalRow label="Taxable Value" value={`₹${amt(totals.taxable)}`} /></div>
+        <div className="mt-2"><TotalRow label="GST (included)" value={`₹${amt(totals.gst)}`} /></div>
         <div className="my-3 border-t border-dashed border-[#E4E8F1]" />
         <div className="flex items-center gap-4">
           <dt className="text-xs font-extrabold uppercase tracking-[0.02em] text-[#3B4FE0]">Payable Amount</dt>

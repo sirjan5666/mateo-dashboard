@@ -1,17 +1,5 @@
 import { Area, AreaChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { CalendarCheck, ClipboardList, TrendingUp, Users, UsersRound } from 'lucide-react';
-import {
-  APPT_STATUSES,
-  APPT_TOTAL,
-  DEMOGRAPHICS,
-  DEMOGRAPHICS_TOTAL,
-  RETURNING_SHARE,
-  TOTAL_NEW,
-  TOTAL_RETURNING,
-  TOTAL_VISITS,
-  VISIT_REASONS,
-  VISIT_TREND,
-} from '../../../data/doctorDashboard';
 import { ChartData, LinkArrow, Panel, PanelHead, SelectPill } from './kit';
 
 const AXIS = '#64748B';
@@ -110,7 +98,13 @@ function LegendRow({ label, color, value, percent, height = 36 }: { label: strin
 
 // ── Patient Demographics ─────────────────────────────────────────────────────
 
-export function PatientDemographics() {
+export interface Slice { label: string; value: number; color: string }
+export interface TrendPoint { label: string; new: number; returning: number }
+export interface Reason { label: string; value: number }
+
+export function PatientDemographics({ data }: { data: Slice[] }) {
+  const DEMOGRAPHICS = data;
+  const DEMOGRAPHICS_TOTAL = data.reduce((t, d) => t + d.value, 0);
   return (
     <Panel className="flex flex-col">
       <PanelHead icon={Users} title="Patient Demographics" info right={<SelectPill label="This Month" />} />
@@ -154,7 +148,13 @@ export function PatientDemographics() {
 
 const TREND_TICKS = ['1 May', '8 May', '15 May', '22 May', '31 May'];
 
-export function NewVsReturning() {
+export function NewVsReturning({ data }: { data: TrendPoint[] }) {
+  const VISIT_TREND = data;
+  const TOTAL_NEW = data.reduce((t, d) => t + d.new, 0);
+  const TOTAL_RETURNING = data.reduce((t, d) => t + d.returning, 0);
+  const RETURNING_SHARE = TOTAL_NEW + TOTAL_RETURNING > 0
+    ? Math.round((TOTAL_RETURNING / (TOTAL_NEW + TOTAL_RETURNING)) * 100)
+    : 0;
   return (
     <Panel className="flex flex-col">
       <PanelHead icon={TrendingUp} title="New vs Returning Patients" iconColor="#3B4FE0" solid info right={<SelectPill label="This Month" />} />
@@ -254,7 +254,9 @@ export function NewVsReturning() {
 
 // ── Today's Appointments Overview ────────────────────────────────────────────
 
-export function AppointmentsOverview() {
+export function AppointmentsOverview({ data }: { data: Slice[] }) {
+  const APPT_STATUSES = data;
+  const APPT_TOTAL = data.reduce((t, d) => t + d.value, 0);
   return (
     <Panel className="flex flex-col">
       <PanelHead icon={CalendarCheck} title="Today's Appointments Overview" />
@@ -283,7 +285,9 @@ export function AppointmentsOverview() {
 
 // ── Top 5 Visit Reasons ──────────────────────────────────────────────────────
 
-export function TopVisitReasons() {
+export function TopVisitReasons({ data }: { data: Reason[] }) {
+  const VISIT_REASONS = data;
+  const TOTAL_VISITS = data.reduce((t, d) => t + d.value, 0);
   const max = Math.max(...VISIT_REASONS.map((r) => r.value));
 
   return (

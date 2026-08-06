@@ -21,8 +21,6 @@ import { useActiveLocation } from '../../lib/doctorLocation';
 import { PatientsTable } from '../../components/doctor/v2/patients/PatientsTable';
 import type { SortDir, SortKey } from '../../components/doctor/v2/patients/PatientsTable';
 import { PatientCardList, PatientGridView } from '../../components/doctor/v2/patients/PatientViews';
-import { VaccinationRecordsModal } from '../../components/doctor/v2/patients/VaccinationRecordsModal';
-import { GrowthChartModal } from '../../components/doctor/v2/patients/GrowthChartModal';
 import { cn } from '../../lib/cn';
 
 const CARD = 'rounded-[14px] border border-[#ECEEF4] bg-white shadow-[0_1px_2px_rgba(16,24,40,.04),0_8px_24px_-12px_rgba(16,24,40,.10)]';
@@ -62,9 +60,9 @@ export default function PatientsList() {
   const [sortDir, setSortDir] = useState<SortDir>(null);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [page, setPage] = useState(1);
-  // Row-menu modals (specs 07 and 08) — the Patients page stays mounted behind them.
-  const [vaxPatient, setVaxPatient] = useState<Patient | null>(null);
-  const [growthPatient, setGrowthPatient] = useState<Patient | null>(null);
+  // The vaccination + growth quick-peek modals are withheld: they rendered a
+  // fixed mock record under the real child's name. They return once they read
+  // that child's own doses and measurements.
 
   const { locations, clinics } = useActiveLocation();
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -308,7 +306,7 @@ export default function PatientsList() {
         </div>
 
         {view === 'grid' ? (
-          <PatientGridView patients={shown} onOpenVaccination={setVaxPatient} onOpenGrowth={setGrowthPatient} />
+          <PatientGridView patients={shown} />
         ) : (
           <>
             <div className="hidden md:block">
@@ -317,12 +315,10 @@ export default function PatientsList() {
                 sortKey={sortKey}
                 sortDir={sortDir}
                 onSort={toggleSort}
-                onOpenVaccination={setVaxPatient}
-                onOpenGrowth={setGrowthPatient}
               />
             </div>
             <div className="md:hidden">
-              <PatientCardList patients={shown} onOpenVaccination={setVaxPatient} onOpenGrowth={setGrowthPatient} />
+              <PatientCardList patients={shown} />
             </div>
           </>
         )}
@@ -372,8 +368,6 @@ export default function PatientsList() {
         </div>
       </div>
 
-      {vaxPatient && <VaccinationRecordsModal patient={vaxPatient} onClose={() => setVaxPatient(null)} />}
-      {growthPatient && <GrowthChartModal patient={growthPatient} onClose={() => setGrowthPatient(null)} />}
 
       <p aria-live="polite" className="sr-only">
         {filtering ? `${filtered.length} patients match the current filters.` : ''}

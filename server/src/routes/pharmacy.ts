@@ -481,7 +481,14 @@ router.post('/purchases', auditAccess('pharmacy'), async (req, res) => {
     return;
   }
 
-  // Money is computed HERE from the line items. A client-sent total is ignored.
+  /**
+   * Money is computed HERE from the line items. A client-sent total is ignored.
+   *
+   * NOTE the deliberate difference from a counter bill: a distributor quotes an
+   * ex-GST `rate`, so tax is ADDED here. On a retail bill the price is the MRP,
+   * which is tax-inclusive, so tax is EXTRACTED there. Both are correct; do not
+   * "align" them.
+   */
   const subtotal = round2(body.items.reduce((t, i) => t + i.qty * i.rate, 0));
   const gstAmount = round2(body.items.reduce((t, i) => t + (i.qty * i.rate * i.gstPct) / 100, 0));
   const discount = round2(body.discount ?? 0);
@@ -682,12 +689,30 @@ router.post('/bills', auditAccess('pharmacy'), async (req, res) => {
     });
   }
 
-  // Money, derived server-side from the lines we just priced.
-  const subtotal = round2(lines.reduce((t, l) => t + l.amount, 0));
-  const discount = round2(Math.min(body.discount ?? 0, subtotal));
-  const taxable = round2(subtotal - discount);
-  const gstAmount = round2(lines.reduce((t, l) => t + ((l.amount / (subtotal || 1)) * taxable * l.gstPct) / 100, 0));
-  const payable = round2(taxable + gstAmount);
+  /**
+   * Money, derived server-side from the lines we just priced.
+   *
+   * ⚠ MRP IS TAX-INCLUSIVE. Under the Legal Metrology (Packaged Commodities)
+   * Rules a retail sale may never exceed the printed MRP, so GST is EXTRACTED
+   * from the amount the customer pays — never added on top of it. Adding it
+   * would bill ₹72.80 for a ₹65 MRP strip, which is an offence, not a rounding
+   * quibble.
+   *
+   *   payable = Σ(MRP × qty × (1 − lineDisc)) − billDiscount
+   *   taxable = Σ(lineShareOfPayable ÷ (1 + rate))      ← back-calculated
+   *   gst     = payable − taxable
+   *
+   * Rates can differ per line, so the split is computed per line and only then
+   * summed; `factor` spreads the bill-level discount proportionally.
+   */
+  const gross = round2(lines.reduce((t, l) => t + l.amount, 0));
+  const discount = round2(Math.min(body.discount ?? 0, gross));
+  const payable = round2(gross - discount);
+  const factor = gross > 0 ? payable / gross : 0;
+  const taxable = round2(lines.reduce((t, l) => t + (l.amount * factor) / (1 + l.gstPct / 100), 0));
+  const gstAmount = round2(payable - taxable);
+  // Kept for the response/receipt: what the goods listed at before any discount.
+  const subtotal = gross;
   const amountReceived = round2(body.amountReceived ?? 0);
   const changeReturned = round2(Math.max(0, amountReceived - payable));
   const status = amountReceived >= payable ? 'paid' : 'partial';

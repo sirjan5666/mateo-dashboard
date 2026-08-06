@@ -33,12 +33,8 @@ import LocationsManagement from './pages/doctor/LocationsManagement';
 import TeamAndRoles from './pages/doctor/TeamAndRoles';
 import CreateSubUser from './pages/doctor/CreateSubUser';
 import PatientsList from './pages/doctor/PatientsList';
+import PatientDetail from './pages/doctor/PatientDetail';
 import RegisterNewPatient from './pages/doctor/RegisterNewPatient';
-import PatientWorkspace from './pages/doctor/PatientWorkspace';
-import AppointmentsPage from './pages/doctor/AppointmentsPage';
-import ConsultationDetails from './pages/doctor/ConsultationDetails';
-import ReportsAnalytics from './pages/doctor/ReportsAnalytics';
-import BillingInvoices from './pages/doctor/BillingInvoices';
 import SettingsPage from './pages/doctor/SettingsPage';
 import AuditLogs from './pages/doctor/AuditLogs';
 import EmailLogs from './pages/doctor/EmailLogs';
@@ -130,9 +126,14 @@ function AppRoutes() {
           <Route path="/doctor" element={<DoctorDashboard />} />
           <Route path="/doctor/patients" element={<PatientsList />} />
           <Route path="/doctor/patients/new" element={<RegisterNewPatient />} />
-          <Route path="/doctor/patients/:id" element={<PatientWorkspace />} />
-          <Route path="/doctor/appointments" element={<AppointmentsPage />} />
-          <Route path="/doctor/consultations/:id" element={<ConsultationDetails />} />
+          {/*
+            Patient chart: PatientDetail is the LIVE screen (real encounters,
+            prescriptions, records). The Clinic OS v2 PatientWorkspace looked a
+            real Mongo id up in a mock array and fell back to a fabricated child,
+            so it is withheld until its tabs read the API.
+          */}
+          <Route path="/doctor/patients/:id" element={<PatientDetail />} />
+          <Route path="/doctor/appointments" element={<Schedule />} />
           <Route path="/doctor/messages" element={<DoctorMessages />} />
           <Route path="/doctor/analytics" element={<AnalyticsPage />} />
           <Route path="/doctor/reports" element={<Reports />} />
@@ -140,15 +141,22 @@ function AppRoutes() {
           <Route path="/doctor/schedule" element={<Schedule />} />
           <Route path="/doctor/profile" element={<DoctorProfileForm />} />
           <Route path="/doctor/settings" element={<SettingsPage />} />
-          {/* Screens queued in the Clinic OS rebuild — nav is wired so each drops straight in. */}
-          <Route path="/doctor/consultations" element={<ConsultationDetails />} />
+          {/*
+            Withheld until they read real data — each currently renders fabricated
+            clinical content under a real patient's identity:
+              ConsultationDetails  hardcoded vitals + prescription, ignores :id
+              AppointmentsPage     invented schedule, no network calls
+              ReportsAnalytics     invented practice figures
+              BillingInvoices      invented invoices
+              PatientWorkspace     falls back to a fabricated child
+          */}
           <Route path="/doctor/prescriptions" element={<DoctorScreenStub title="Prescriptions" />} />
-          <Route path="/doctor/charts" element={<ReportsAnalytics />} />
+          <Route path="/doctor/charts" element={<AnalyticsPage />} />
           <Route path="/doctor/pharmacy" element={<PharmacyInventory />} />
           <Route path="/doctor/pharmacy/purchase" element={<NewPurchaseEntry />} />
           <Route path="/doctor/pharmacy/billing" element={<NewBill />} />
           <Route path="/doctor/pharmacy/billing/success" element={<BillSuccess />} />
-          <Route path="/doctor/revenue" element={<BillingInvoices />} />
+          <Route path="/doctor/revenue" element={<Billing />} />
           <Route path="/doctor/staff" element={<DoctorScreenStub title="Staff" />} />
           <Route path="/doctor/locations" element={<LocationsManagement />} />
           <Route path="/doctor/team" element={<TeamAndRoles />} />

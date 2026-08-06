@@ -111,8 +111,8 @@ function ReceiptDocument({ bill }: { bill: Bill }) {
         {([
           [`Subtotal (${bill.items.length} item${bill.items.length === 1 ? '' : 's'})`, `₹${amt(bill.subtotal)}`],
           ['Discount', `– ₹${amt(bill.discount)}`],
-          ['Taxable Amount', `₹${amt(bill.taxable)}`],
-          ['GST', `₹${amt(bill.gstAmount)}`],
+          ['Taxable Value', `₹${amt(bill.taxable)}`],
+          ['GST (included)', `₹${amt(bill.gstAmount)}`],
         ] as const).map(([l, v]) => (
           <div key={l} className="mt-2 flex items-center gap-4 first:mt-0">
             <dt className="text-[11px] font-medium text-[#475569]">{l}</dt>
@@ -368,8 +368,8 @@ export default function BillSuccess() {
             <dl className="mt-3.5 space-y-3">
               <SummaryRow label={`Subtotal (${bill.items.length} item${bill.items.length === 1 ? '' : 's'})`} value={amt(bill.subtotal)} />
               <SummaryRow label="Discount" value={`– ${amt(bill.discount)}`} symbol={false} />
-              <SummaryRow label="Taxable Amount" value={amt(bill.taxable)} />
-              <SummaryRow label="GST" value={amt(bill.gstAmount)} />
+              <SummaryRow label="Taxable Value" value={amt(bill.taxable)} />
+              <SummaryRow label="GST (included)" value={amt(bill.gstAmount)} />
             </dl>
             <div className="my-3 border-t border-dashed border-[#E4E8F1]" />
             <p className="flex items-center gap-3">

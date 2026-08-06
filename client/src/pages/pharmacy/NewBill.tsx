@@ -114,18 +114,23 @@ export default function NewBill() {
    * commits, and the response replaces them.
    */
   const totals = useMemo(() => {
-    const subtotal = round2(lines.reduce((t, l) => t + l.qty * l.med.mrp * (1 - l.discPct / 100), 0));
-    const disc = round2(Math.min(Number(discount) || 0, subtotal));
-    const taxable = round2(subtotal - disc);
-    const gst = round2(
+    // MRP is tax-inclusive, so GST is EXTRACTED from what the customer pays,
+    // never added on top — see the note in server/src/routes/pharmacy.ts.
+    // This mirrors the server exactly so the preview cannot promise a different
+    // figure from the one that gets billed.
+    const gross = round2(lines.reduce((t, l) => t + l.qty * l.med.mrp * (1 - l.discPct / 100), 0));
+    const disc = round2(Math.min(Number(discount) || 0, gross));
+    const payable = round2(gross - disc);
+    const factor = gross > 0 ? payable / gross : 0;
+    const taxable = round2(
       lines.reduce((t, l) => {
         const lineAmt = l.qty * l.med.mrp * (1 - l.discPct / 100);
-        return t + ((lineAmt / (subtotal || 1)) * taxable * l.med.gstPct) / 100;
+        return t + (lineAmt * factor) / (1 + l.med.gstPct / 100);
       }, 0),
     );
-    const payable = round2(taxable + gst);
+    const gst = round2(payable - taxable);
     const rec = round2(Number(received) || 0);
-    return { count: lines.length, subtotal, discount: disc, taxable, gst, payable, received: rec, change: round2(Math.max(0, rec - payable)) };
+    return { count: lines.length, subtotal: gross, discount: disc, taxable, gst, payable, received: rec, change: round2(Math.max(0, rec - payable)) };
   }, [lines, discount, received]);
 
   const addLine = (med: MedicineDto) => {
@@ -404,10 +409,10 @@ export default function NewBill() {
           <section className={cn(CARD, 'min-w-0 px-[18px] pb-[18px] pt-4')}>
             <h2 className="font-display text-[14.5px] font-bold text-[#0F172A]">Bill Summary</h2>
             <dl className="mt-3 space-y-3">
-              <SummaryRow label={`Subtotal (${totals.count} item${totals.count === 1 ? '' : 's'})`} value={amt(totals.subtotal)} />
+              <SummaryRow label={`Subtotal incl. GST (${totals.count} item${totals.count === 1 ? '' : 's'})`} value={amt(totals.subtotal)} />
               <SummaryRow label="Discount" value={`– ${amt(totals.discount)}`} symbol={false} />
-              <SummaryRow label="Taxable Amount" value={amt(totals.taxable)} />
-              <SummaryRow label="GST" value={amt(totals.gst)} />
+              <SummaryRow label="Taxable Value" value={amt(totals.taxable)} />
+              <SummaryRow label="GST (included)" value={amt(totals.gst)} />
             </dl>
             <div className="my-3 border-t border-dashed border-[#E4E8F1]" />
             <p className="flex items-center gap-3">

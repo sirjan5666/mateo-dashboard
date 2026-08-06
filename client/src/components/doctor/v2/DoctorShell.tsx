@@ -24,7 +24,6 @@ import {
   Settings,
   ShieldPlus,
   ShoppingCart,
-  Stethoscope,
   Users,
   X,
 } from 'lucide-react';
@@ -71,15 +70,14 @@ const NAV: NavGroup[] = [
     items: [
       { to: '/doctor', label: 'Dashboard', icon: LayoutGrid, end: true },
       { to: '/doctor/appointments', label: 'Appointments', icon: CalendarDays },
-      { to: '/doctor/consultations', label: 'Consultations', icon: Stethoscope },
     ],
   },
   {
     section: 'Patients',
     items: [
       { to: '/doctor/patients', label: 'Patients', icon: Users },
-      { to: '/doctor/prescriptions', label: 'Prescriptions', icon: FileText },
-      { to: '/doctor/charts', label: 'Charts', icon: Activity },
+      { to: '/doctor/charts', label: 'Analytics', icon: Activity },
+      { to: '/doctor/reports', label: 'Reports', icon: FileText },
       { to: '/doctor/messages', label: 'Messages', icon: MessageSquare },
     ],
   },
@@ -98,7 +96,6 @@ const NAV: NavGroup[] = [
         ],
       },
       { to: '/doctor/revenue', label: 'Revenue', icon: IndianRupee, tile: '#16A34A' },
-      { to: '/doctor/staff', label: 'Staff', icon: Users, tile: '#F43F5E' },
     ],
   },
   {
