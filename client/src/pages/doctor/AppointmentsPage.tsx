@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import {
   Loader2,
@@ -6,7 +6,7 @@ import {
   ClipboardList, Clock, FileText, Hourglass, MapPin, Pencil, Phone, Plus, Trash2, UserRound, X,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { APPT_STATUS, EMPTY_HOUR, HOURS, LUNCH_HOUR, TONE_STYLE, appointmentFromApi } from '../../data/appointments';
+import { APPT_STATUS, EMPTY_HOUR, HOURS, LUNCH_HOUR, TONE_STYLE, appointmentFromApi, istDayKey } from '../../data/appointments';
 import { listSchedule, updateAppointment } from '../../api/doctorAppointments';
 import { createEncounter } from '../../api/doctorEncounters';
 import type { Appointment, ApptStatus } from '../../data/appointments';
@@ -42,6 +42,41 @@ function DetailRow({ icon: Icon, label, children }: { icon: LucideIcon; label: s
   );
 }
 
+/**
+ * The calendar works in IST wall-clock, matching the rest of the app. Before
+ * this the week and month grids were hard-coded scaffolding — literally
+ * `['Mon 12', 'Tue 13', …]` with every booking forced into the first column,
+ * and a month whose only populated cell was the 12th — so no real appointment
+ * ever appeared, and the arrows and Today had no handlers at all.
+ */
+const IST_OFFSET_MIN = 330;
+
+/** The UTC instant of IST midnight on the given IST calendar day. */
+const fromIstDay = (key: string) => new Date(`${key}T00:00:00.000Z`).getTime() - IST_OFFSET_MIN * 60_000;
+
+const addDays = (key: string, n: number) => istDayKey(new Date(fromIstDay(key) + n * 86_400_000));
+
+function addMonths(key: string, n: number): string {
+  const [y, m, d] = key.split('-').map(Number);
+  const target = new Date(Date.UTC(y, m - 1 + n, 1));
+  // Clamp so 31 Jan + 1 month is 28/29 Feb rather than spilling into March.
+  const lastDay = new Date(Date.UTC(target.getUTCFullYear(), target.getUTCMonth() + 1, 0)).getUTCDate();
+  target.setUTCDate(Math.min(d, lastDay));
+  return target.toISOString().slice(0, 10);
+}
+
+/** Monday of the week containing `key`. */
+function weekStart(key: string): string {
+  const dow = new Date(`${key}T00:00:00.000Z`).getUTCDay(); // 0 = Sunday
+  return addDays(key, dow === 0 ? -6 : 1 - dow);
+}
+
+const DAY_MS = 86_400_000;
+const IST_DATE = new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', year: 'numeric', weekday: 'long' });
+const IST_SHORT = new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', weekday: 'short', day: 'numeric' });
+const IST_MONTH = new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', month: 'long', year: 'numeric' });
+const labelOf = (key: string) => IST_DATE.format(new Date(fromIstDay(key)));
+
 export default function AppointmentsPage() {
   const { user } = useAuth();
   const doctorName = user?.name ?? 'Doctor';
@@ -53,17 +88,33 @@ export default function AppointmentsPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Appointment | null>(null);
   const [busy, setBusy] = useState(false);
+  const [view, setView] = useState<'Day' | 'Week' | 'Month'>('Day');
+  /** The IST day the calendar is looking at. The arrows and Today move this. */
+  const [anchor, setAnchor] = useState(() => istDayKey(new Date()));
 
-  /** Today only — the grid is a day view. Re-run after every write. */
+  /** The IST day range the current view needs — the fetch follows the view. */
+  const range = useMemo(() => {
+    if (view === 'Day') return { from: anchor, to: anchor };
+    if (view === 'Week') {
+      const start = weekStart(anchor);
+      return { from: start, to: addDays(start, 6) };
+    }
+    // Six whole weeks, so the leading and trailing days the month grid shows are
+    // fetched too rather than rendering as empty cells that look like free days.
+    const gridStart = weekStart(`${anchor.slice(0, 7)}-01`);
+    return { from: gridStart, to: addDays(gridStart, 41) };
+  }, [view, anchor]);
+
+  /** Loads whatever the current view spans. Re-run after every write. */
   const reload = useCallback(async () => {
-    const day = new Date();
-    const from = new Date(day.getFullYear(), day.getMonth(), day.getDate()).toISOString();
-    const to = new Date(day.getFullYear(), day.getMonth(), day.getDate() + 1).toISOString();
-    const r = await listSchedule({ from, to });
+    const r = await listSchedule({
+      from: new Date(fromIstDay(range.from)).toISOString(),
+      to: new Date(fromIstDay(range.to) + DAY_MS).toISOString(),
+    });
     const list = r.appointments.map(appointmentFromApi);
     setAppointments(list);
     setSelected((cur) => list.find((a) => a.id === cur?.id) ?? list[0] ?? null);
-  }, []);
+  }, [range.from, range.to]);
 
   /** Every write goes through here so the grid and the rail can never drift. */
   async function mutate(fn: () => Promise<unknown>) {
@@ -96,19 +147,21 @@ export default function AppointmentsPage() {
     }
   }
 
-  // Inlined rather than calling `reload()` here: every setState must sit behind
-  // an await, or react-hooks/set-state-in-effect (an error in this repo) fires.
+  // Re-fetches whenever the view or the anchor day moves. Inlined rather than
+  // calling `reload()`: every setState must sit behind an await, or
+  // react-hooks/set-state-in-effect (an error in this repo) fires.
   useEffect(() => {
-    const day = new Date();
-    const from = new Date(day.getFullYear(), day.getMonth(), day.getDate()).toISOString();
-    const to = new Date(day.getFullYear(), day.getMonth(), day.getDate() + 1).toISOString();
     let cancelled = false;
-    void listSchedule({ from, to })
+    void listSchedule({
+      from: new Date(fromIstDay(range.from)).toISOString(),
+      to: new Date(fromIstDay(range.to) + DAY_MS).toISOString(),
+    })
       .then((r) => {
         if (cancelled) return;
         const list = r.appointments.map(appointmentFromApi);
         setAppointments(list);
-        setSelected(list[0] ?? null);
+        setSelected((cur) => list.find((a) => a.id === cur?.id) ?? list[0] ?? null);
+        setLoadError(null);
       })
       .catch((e: unknown) => {
         if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Could not load the schedule');
@@ -119,15 +172,55 @@ export default function AppointmentsPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
-  const [view, setView] = useState<'Day' | 'Week' | 'Month'>('Day');
+  }, [range.from, range.to]);
+
   const [provider, setProvider] = useState('all');
   const [type, setType] = useState('all');
   const [status, setStatus] = useState('all');
 
   const matches = (a: Appointment) =>
     (provider === 'all') && (type === 'all' || a.type === type) && (status === 'all' || a.status === status);
-  const visibleCount = appointments.filter(matches).length;
+  const visible = appointments.filter(matches);
+  const visibleCount = visible.length;
+
+  /** Appointments of the anchor day only — what the Day grid renders. */
+  const dayAppointments = appointments.filter((a) => a.dayKey === anchor);
+
+  /** Monday-first columns of the anchor's week, with real dates. */
+  const weekDays = useMemo(() => {
+    const start = weekStart(anchor);
+    return Array.from({ length: 7 }, (_, i) => {
+      const key = addDays(start, i);
+      return { key, label: IST_SHORT.format(new Date(fromIstDay(key))) };
+    });
+  }, [anchor]);
+
+  /** Six weeks of cells covering the anchor's month, leading/trailing included. */
+  const monthCells = useMemo(() => {
+    const month = anchor.slice(0, 7);
+    const gridStart = weekStart(`${month}-01`);
+    return Array.from({ length: 42 }, (_, i) => {
+      const key = addDays(gridStart, i);
+      return { key, day: Number(key.slice(8)), inMonth: key.slice(0, 7) === month };
+    });
+  }, [anchor]);
+
+  /** How many visible appointments fall on each IST day. */
+  const countByDay = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const a of visible) m.set(a.dayKey, (m.get(a.dayKey) ?? 0) + 1);
+    return m;
+  }, [visible]);
+
+  const todayKey = istDayKey(new Date());
+  const step = (dir: 1 | -1) =>
+    setAnchor((cur) => (view === 'Month' ? addMonths(cur, dir) : addDays(cur, view === 'Week' ? 7 * dir : dir)));
+
+  const headerLabel = view === 'Month'
+    ? IST_MONTH.format(new Date(fromIstDay(anchor)))
+    : view === 'Week'
+      ? `${IST_SHORT.format(new Date(fromIstDay(weekStart(anchor))))} – ${IST_SHORT.format(new Date(fromIstDay(addDays(weekStart(anchor), 6))))}`
+      : labelOf(anchor);
 
   const selectPill = 'h-11 rounded-[10px] border border-[#E2E6F0] bg-white pl-3.5 pr-9 text-[13.5px] font-semibold text-[#334155] appearance-none focus:border-[#3B4FE0] focus:outline-none';
 
@@ -175,15 +268,23 @@ export default function AppointmentsPage() {
         <div className={CARD}>
           {/* Toolbar */}
           <div className="flex flex-wrap items-center gap-3 border-b border-[#ECEEF4] p-4">
-            <button type="button" aria-label="Previous day" className="grid h-10 w-10 place-items-center rounded-[10px] border border-[#E2E6F0] bg-white text-[#334155] hover:bg-[#F7F8FC]">
+            <button type="button" aria-label={`Previous ${view.toLowerCase()}`} onClick={() => step(-1)}
+              className="grid h-10 w-10 place-items-center rounded-[10px] border border-[#E2E6F0] bg-white text-[#334155] hover:bg-[#F7F8FC]">
               <ChevronLeft className="h-[18px] w-[18px]" />
             </button>
             <div className="flex h-11 items-center gap-[11px] rounded-[10px] border border-[#E2E6F0] bg-white px-4">
-              <Calendar className="h-[17px] w-[17px] text-[#3B4FE0]" />
-              <span className="text-sm font-bold text-[#0F172A]">{todayLabel}</span>
-              <button type="button" aria-label="Next day"><ChevronRight className="h-[18px] w-[18px] text-[#334155]" /></button>
+              <Calendar aria-hidden="true" className="h-[17px] w-[17px] text-[#3B4FE0]" />
+              <span className="text-sm font-bold text-[#0F172A]">{headerLabel}</span>
+              {/* Jump straight to a date rather than clicking the arrow N times. */}
+              <label htmlFor="cal-jump" className="sr-only">Jump to date</label>
+              <input id="cal-jump" type="date" value={anchor} onChange={(e) => e.target.value && setAnchor(e.target.value)}
+                className="w-[26px] cursor-pointer border-0 bg-transparent p-0 text-transparent outline-none [&::-webkit-calendar-picker-indicator]:opacity-60" />
+              <button type="button" aria-label={`Next ${view.toLowerCase()}`} onClick={() => step(1)}>
+                <ChevronRight className="h-[18px] w-[18px] text-[#334155]" />
+              </button>
             </div>
-            <button type="button" className="h-11 rounded-[10px] border border-[#E2E6F0] bg-white px-[18px] text-[13.5px] font-bold text-[#1E2A5A] hover:bg-[#F7F8FC]">Today</button>
+            <button type="button" onClick={() => setAnchor(todayKey)}
+              className="h-11 rounded-[10px] border border-[#E2E6F0] bg-white px-[18px] text-[13.5px] font-bold text-[#1E2A5A] hover:bg-[#F7F8FC]">Today</button>
 
             <div className="relative">
               <label htmlFor="f-provider" className="sr-only">Provider</label>
@@ -240,7 +341,9 @@ export default function AppointmentsPage() {
               {/* Grid */}
               <div role="grid" aria-label="Day schedule">
                 {HOURS.map((h) => {
-                  const appt = appointments.find((a) => a.hour === h);
+                  // Scoped to the anchor day so a stale week/month fetch can never leak a
+                  // booking from another date into today's grid.
+                  const appt = dayAppointments.find((a) => a.hour === h);
                   const dimmed = appt ? !matches(appt) : false;
                   return (
                     <div key={h} role="row" aria-label={h === LUNCH_HOUR ? '1 PM, Lunch break, no appointments' : undefined} className="flex min-h-[66px] border-b border-[#F1F3F9] last:border-b-0">
@@ -289,21 +392,30 @@ export default function AppointmentsPage() {
             <div className="overflow-x-auto p-4">
               <div className="grid min-w-[840px] grid-cols-[80px_repeat(7,1fr)] gap-px bg-[#F1F3F9]">
                 <div className="bg-[#F7F8FC] p-2 text-[10.5px] font-bold uppercase tracking-[0.06em] text-[#64748B]">Time</div>
-                {['Mon 12', 'Tue 13', 'Wed 14', 'Thu 15', 'Fri 16', 'Sat 17', 'Sun 18'].map((d) => (
-                  <div key={d} className="bg-[#F7F8FC] p-2 text-center text-[11.5px] font-bold text-[#334155]">{d}</div>
+                {weekDays.map((d) => (
+                  <button key={d.key} type="button" onClick={() => { setAnchor(d.key); setView('Day'); }}
+                    className={cn('p-2 text-center text-[11.5px] font-bold transition-colors hover:bg-[#EEF1FE]',
+                      d.key === todayKey ? 'bg-[#EEF1FE] text-[#3B4FE0]' : 'bg-[#F7F8FC] text-[#334155]')}>
+                    {d.label}
+                  </button>
                 ))}
                 {HOURS.map((h) => (
                   <div key={h} className="contents">
                     <div className="bg-white p-2 text-right text-[11.5px] font-medium text-[#64748B]">{h}</div>
-                    {[0, 1, 2, 3, 4, 5, 6].map((d) => {
-                      const a = d === 0 ? appointments.find((x) => x.hour === h) : undefined;
+                    {weekDays.map((d) => {
+                      // Real placement: this day AND this hour, not "column 0".
+                      const cell = visible.filter((x) => x.dayKey === d.key && x.hour === h);
                       return (
-                        <div key={d} className="min-h-[46px] bg-white p-1">
-                          {a && (
-                            <button type="button" onClick={() => setSelected(a)} style={{ background: TONE_STYLE[a.tone].bg, borderLeft: `3px solid ${TONE_STYLE[a.tone].bar}` }} className="h-full w-full rounded-[6px] px-2 py-1 text-left text-[11px] font-semibold text-[#0F172A]">
-                              {a.patient}
+                        <div key={d.key} className="min-h-[46px] space-y-1 bg-white p-1">
+                          {cell.map((a) => (
+                            <button key={a.id} type="button" onClick={() => setSelected(a)}
+                              aria-label={`${a.start}, ${a.patient}, ${a.type}`}
+                              style={{ background: TONE_STYLE[a.tone].bg, borderLeft: `3px solid ${TONE_STYLE[a.tone].bar}` }}
+                              className="w-full rounded-[6px] px-2 py-1 text-left text-[11px] font-semibold text-[#0F172A]">
+                              <span className="block truncate">{a.patient}</span>
+                              <span className="block truncate text-[10px] font-medium text-[#64748B]">{a.start}</span>
                             </button>
-                          )}
+                          ))}
                         </div>
                       );
                     })}
@@ -317,22 +429,24 @@ export default function AppointmentsPage() {
                 {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => (
                   <div key={d} className="bg-[#F7F8FC] p-2 text-center text-[11px] font-bold uppercase tracking-[0.06em] text-[#64748B]">{d}</div>
                 ))}
-                {Array.from({ length: 35 }, (_, i) => {
-                  const day = i - 3;
-                  const isMay12 = day === 12;
+                {monthCells.map((c) => {
+                  const n = countByDay.get(c.key) ?? 0;
                   return (
-                    <div key={i} className={cn('min-h-[92px] bg-white p-2', (day < 1 || day > 31) && 'bg-[#FAFBFD]')}>
-                      {day >= 1 && day <= 31 && (
-                        <>
-                          <span className={cn('text-[12px] font-semibold', isMay12 ? 'text-[#3B4FE0]' : 'text-[#334155]')}>{day}</span>
-                          {isMay12 && (
-                            <span className="mt-1.5 block rounded-[6px] bg-[#EAF2FE] px-2 py-1 text-[11px] font-bold text-[#2B6FF0]">
-                              {appointments.length} appts
-                            </span>
-                          )}
-                        </>
+                    <button key={c.key} type="button" onClick={() => { setAnchor(c.key); setView('Day'); }}
+                      aria-label={`${c.key}, ${n} appointment${n === 1 ? '' : 's'}`}
+                      className={cn('min-h-[92px] p-2 text-left align-top transition-colors hover:bg-[#F5F7FF]',
+                        c.inMonth ? 'bg-white' : 'bg-[#FAFBFD]')}>
+                      <span className={cn('text-[12px] font-semibold',
+                        c.key === todayKey ? 'rounded-full bg-[#4F46E5] px-[7px] py-[2px] text-white'
+                          : c.inMonth ? 'text-[#334155]' : 'text-[#C0C8D6]')}>
+                        {c.day}
+                      </span>
+                      {n > 0 && (
+                        <span className="mt-1.5 block rounded-[6px] bg-[#EAF2FE] px-2 py-1 text-[11px] font-bold text-[#2B6FF0]">
+                          {n} appt{n === 1 ? '' : 's'}
+                        </span>
                       )}
-                    </div>
+                    </button>
                   );
                 })}
               </div>

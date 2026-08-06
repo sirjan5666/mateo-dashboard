@@ -1,8 +1,8 @@
-import { useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router';
-import { createPatient, listTemplates } from '../../api/doctorPatients';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router';
+import { createPatient, getPatient, listTemplates, updatePatient } from '../../api/doctorPatients';
 import { useActiveLocation } from '../../lib/doctorLocation';
-import { ArrowLeft, Building2, Calendar, ChevronDown, Info, ShieldCheck, UploadCloud, X } from 'lucide-react';
+import { ArrowLeft, Building2, Calendar, ChevronDown, Info, Loader2, ShieldCheck, UploadCloud, X } from 'lucide-react';
 import { BLOOD_GROUPS, DELIVERY_TYPES, MARITAL_STATUSES, RELATIONSHIPS, STATES } from '../../data/geo';
 import { FieldError, INPUT, INPUT_ERR, Label, PhoneNumberInput } from '../../components/doctor/v2/subuser/fields';
 import { cn } from '../../lib/cn';
@@ -45,8 +45,20 @@ function Checkbox({ id, checked, onChange, children }: { id: string; checked: bo
 
 interface Errors { [k: string]: string | undefined }
 
+const GENDER_OF = { male: 'Male', female: 'Female', other: 'Other', unspecified: 'Male' } as Record<string, string>;
+const SEX_OF = { Male: 'male', Female: 'female', Other: 'other' } as Record<string, string>;
+
+/**
+ * Registers a NEW patient, and — with `?edit=<id>` — re-opens the same form
+ * filled in so it can be corrected. Deliberately the same form: a separate
+ * "edit patient" screen would be a second place for these fields to drift.
+ */
 export default function RegisterNewPatient() {
   const navigate = useNavigate();
+  const [search] = useSearchParams();
+  const editId = search.get('edit');
+  const [loading, setLoading] = useState(!!editId);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -69,6 +81,50 @@ export default function RegisterNewPatient() {
   const [files, setFiles] = useState<File[]>([]);
   const [dragging, setDragging] = useState(false);
 
+  // Load the existing record into the shape the form already uses.
+  useEffect(() => {
+    if (!editId) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const { patient } = await getPatient(editId);
+        if (cancelled) return;
+        setF((prev) => ({
+          ...prev,
+          fullName: patient.displayName ?? '',
+          dob: patient.dob ?? '',
+          gender: GENDER_OF[patient.sex] ?? 'Male',
+          bloodGroup: patient.bloodGroup ?? '',
+          birthWeight: patient.birthWeightKg != null ? String(patient.birthWeightKg) : '',
+          birthHeight: patient.birthHeightCm != null ? String(patient.birthHeightCm) : '',
+          deliveryType: patient.deliveryType ?? '',
+          gestationalAge: patient.gestationalAgeWeeks != null ? String(patient.gestationalAgeWeeks) : '',
+          guardianName: patient.guardianName ?? '',
+          guardianRelationship: patient.guardianRelationship ?? '',
+          guardianPhone: patient.guardianPhone ?? '',
+          guardianEmail: patient.guardianEmail ?? '',
+          phone: patient.phone ?? '',
+          email: patient.email ?? '',
+          address1: patient.address ?? '',
+          address2: patient.addressLine2 ?? '',
+          city: patient.city ?? '',
+          state: patient.state ?? '',
+          pincode: patient.pincode ?? '',
+          emergencyName: patient.emergencyName ?? '',
+          emergencyRelationship: patient.emergencyRelationship ?? '',
+          emergencyPhone: patient.emergencyPhone ?? '',
+        }));
+        if (patient.locationId) setPickedLocation(patient.locationId);
+      } catch (e: unknown) {
+        if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Could not load this patient');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [editId]);
   const set = <K extends keyof typeof f>(k: K, v: (typeof f)[K]) => setF((p) => ({ ...p, [k]: v }));
   const cities = useMemo(() => STATES.find((s) => s.name === f.state)?.cities ?? [], [f.state]);
 
@@ -110,6 +166,45 @@ export default function RegisterNewPatient() {
       setSaving(true);
       setSubmitError(null);
       try {
+        const num = (v: string) => (v.trim() ? Number(v) : undefined);
+        // EVERY field the form asks for is sent. Previously twenty-odd were
+        // collected and five stored, so re-opening a patient showed blanks.
+        const demographics = {
+          bloodGroup: f.bloodGroup || undefined,
+          birthWeightKg: num(f.birthWeight),
+          birthHeightCm: num(f.birthHeight),
+          deliveryType: f.deliveryType || undefined,
+          gestationalAgeWeeks: num(f.gestationalAge),
+          guardianName: f.guardianName.trim() || undefined,
+          guardianRelationship: f.guardianRelationship || undefined,
+          guardianPhone: f.guardianPhone.trim() || undefined,
+          guardianEmail: f.guardianEmail.trim() || undefined,
+          email: f.email.trim() || undefined,
+          address: f.address1.trim() || undefined,
+          addressLine2: f.address2.trim() || undefined,
+          city: f.city || undefined,
+          state: f.state || undefined,
+          pincode: f.pincode.trim() || undefined,
+          emergencyName: f.emergencyName.trim() || undefined,
+          emergencyRelationship: f.emergencyRelationship || undefined,
+          emergencyPhone: f.emergencyPhone.trim() || undefined,
+        };
+        const core = {
+          displayName: f.fullName.trim(),
+          dob: f.dob,
+          sex: SEX_OF[f.gender] ?? 'unspecified',
+          phone: f.phone.trim() || undefined,
+          // Attributes the patient to the clinic they walked into, which is what
+          // makes the per-location counts on the Locations page real.
+          locationId: locationId || undefined,
+        };
+
+        if (editId) {
+          await updatePatient(editId, { ...core, ...demographics });
+          navigate(`/doctor/patients/${editId}`);
+          return;
+        }
+
         const { templates } = await listTemplates();
         const template = templates[0];
         if (!template) {
@@ -117,21 +212,13 @@ export default function RegisterNewPatient() {
           setSaving(false);
           return;
         }
-        await createPatient({
-          templateId: template.id,
-          displayName: f.fullName.trim(),
-          dob: f.dob,
-          sex: f.gender === 'Male' ? 'male' : f.gender === 'Female' ? 'female' : 'unspecified',
-          phone: f.phone.trim() || undefined,
-          // Attributes the patient to the clinic they walked into, which is what
-          // makes the per-location counts on the Locations page real.
-          locationId: locationId || undefined,
-        });
-        // Uploaded documents are held client-side only — there is no patient
-        // document endpoint yet, so they are deliberately not claimed as saved.
+        await createPatient({ templateId: template.id, ...core, ...demographics });
+        // Uploaded documents are held client-side only — the workspace Documents
+        // tab is where they belong, so they are not claimed as saved here.
         navigate('/doctor/patients');
       } catch (err) {
-        setSubmitError(err instanceof Error ? err.message : 'Could not register this patient');
+        const fallback = editId ? 'Could not save this patient' : 'Could not register this patient';
+        setSubmitError(err instanceof Error ? err.message : fallback);
         setSaving(false);
       }
     })();
@@ -141,6 +228,30 @@ export default function RegisterNewPatient() {
     if (!list) return;
     setFiles((p) => [...p, ...[...list].filter((x) => x.size <= 5 * 1024 * 1024)]);
   };
+
+  if (loading) {
+    return (
+      <p className="flex items-center gap-2 py-16 text-sm text-[#64748B]">
+        <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+        Loading patient…
+      </p>
+    );
+  }
+
+  // An edit that could not load must not fall through to a blank form — saving
+  // it would wipe the record it was meant to correct.
+  if (loadError) {
+    return (
+      <div className="mx-auto max-w-md py-16 text-center">
+        <h1 className="font-display text-lg font-bold text-[#0F172A]">Patient not found</h1>
+        <p className="mt-2 text-sm text-[#64748B]">{loadError}</p>
+        <button type="button" onClick={() => navigate('/doctor/patients')}
+          className="mx-auto mt-5 h-11 rounded-[10px] border border-[#E2E6F0] bg-white px-5 text-[13.5px] font-bold text-[#1E2A5A]">
+          Back to Patients
+        </button>
+      </div>
+    );
+  }
 
   return (
     <form id="register-patient" ref={formRef} onSubmit={onSubmit} noValidate>
@@ -157,9 +268,9 @@ export default function RegisterNewPatient() {
             <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[11px]" style={{ background: 'linear-gradient(135deg, #4F63F5 0%, #3B3FE0 100%)' }}>
               <Building2 className="h-[21px] w-[21px] text-white" />
             </span>
-            <h1 className="font-display text-[26px] font-extrabold leading-tight tracking-[-0.02em] text-[#0F172A]">Register New Patient</h1>
+            <h1 className="font-display text-[26px] font-extrabold leading-tight tracking-[-0.02em] text-[#0F172A]">{editId ? 'Edit Patient' : 'Register New Patient'}</h1>
           </div>
-          <p className="mt-[7px] text-sm text-[#64748B] sm:pl-[55px]">Enter patient details to create a new patient record.</p>
+          <p className="mt-[7px] text-sm text-[#64748B] sm:pl-[55px]">{editId ? 'Update this patient\u2019s details.' : 'Enter patient details to create a new patient record.'}</p>
         </div>
         <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto">
           <button type="button" onClick={() => navigate('/doctor/patients')} className="h-12 flex-1 rounded-[11px] border border-[#E2E6F0] bg-white px-[34px] text-[14.5px] font-bold text-[#1E2A5A] transition-colors hover:bg-[#F7F8FC] sm:flex-none">
@@ -175,7 +286,7 @@ export default function RegisterNewPatient() {
             </span>
           )}
           <button type="submit" disabled={saving} className="h-12 flex-1 rounded-[11px] px-7 text-[14.5px] font-bold text-white shadow-[0_8px_18px_-8px_rgba(59,79,224,.65)] transition-[filter] hover:brightness-105 disabled:opacity-60 sm:flex-none" style={{ background: 'linear-gradient(135deg, #5B5BF0 0%, #3B3FD8 100%)' }}>
-            {saving ? 'Saving…' : 'Save & Continue'}
+            {saving ? 'Saving…' : editId ? 'Save changes' : 'Save & Continue'}
           </button>
         </div>
       </div>

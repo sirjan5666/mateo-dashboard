@@ -172,8 +172,9 @@ function OverviewTab({
                 </a>
               </div>
             )}
+            {/* Opens THIS patient's record for editing — not a blank register form. */}
             {!phone && !parentAccess?.email && !portal?.email && (
-              <button type="button" onClick={() => navigate('/doctor/patients/new')} className="mt-5 flex items-center gap-2 text-[13px] font-semibold text-[#3B4FE0] hover:underline">
+              <button type="button" onClick={() => navigate(`/doctor/patients/new?edit=${patientId}`)} className="mt-5 flex items-center gap-2 text-[13px] font-semibold text-[#3B4FE0] hover:underline">
                 <Plus className="h-[15px] w-[15px]" />Add contact details
               </button>
             )}

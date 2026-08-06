@@ -59,6 +59,24 @@ function publicPatient(p: HydratedDocument<IPatient>) {
     dob: decryptOptional(p.dob),
     sex: p.sex,
     phone: decryptOptional(p.phone),
+    address: decryptOptional(p.address) ?? null,
+    addressLine2: decryptOptional(p.addressLine2) ?? null,
+    city: decryptOptional(p.city) ?? null,
+    state: decryptOptional(p.state) ?? null,
+    pincode: decryptOptional(p.pincode) ?? null,
+    email: decryptOptional(p.email) ?? null,
+    bloodGroup: p.bloodGroup ?? null,
+    guardianName: decryptOptional(p.guardianName) ?? null,
+    guardianRelationship: p.guardianRelationship ?? null,
+    guardianPhone: decryptOptional(p.guardianPhone) ?? null,
+    guardianEmail: decryptOptional(p.guardianEmail) ?? null,
+    emergencyName: decryptOptional(p.emergencyName) ?? null,
+    emergencyRelationship: p.emergencyRelationship ?? null,
+    emergencyPhone: decryptOptional(p.emergencyPhone) ?? null,
+    birthWeightKg: p.birthWeightKg ?? null,
+    birthHeightCm: p.birthHeightCm ?? null,
+    deliveryType: p.deliveryType ?? null,
+    gestationalAgeWeeks: p.gestationalAgeWeeks ?? null,
     status: p.status,
     specialtyTemplateId: p.specialtyTemplateId,
     locationId: p.locationId ?? null,
@@ -105,6 +123,60 @@ router.get('/templates', async (req, res) => {
   res.json({ templates: templates.map(publicTemplate) });
 });
 
+
+/**
+ * Core demographics accepted on create + update and returned by the shaper.
+ * Kept as one list so a field cannot be accepted, stored, and then silently
+ * dropped from the response — which is exactly how the registration form ended
+ * up collecting twenty fields and persisting five.
+ */
+const DEMOGRAPHIC_TEXT = [
+  'address', 'addressLine2', 'city', 'state', 'pincode', 'email', 'bloodGroup',
+  'guardianName', 'guardianRelationship', 'guardianPhone', 'guardianEmail',
+  'emergencyName', 'emergencyRelationship', 'emergencyPhone', 'deliveryType',
+] as const;
+const DEMOGRAPHIC_NUM = ['birthWeightKg', 'birthHeightCm', 'gestationalAgeWeeks'] as const;
+
+const demographicSchema = {
+  address: z.string().max(300).optional(),
+  addressLine2: z.string().max(300).optional(),
+  city: z.string().max(80).optional(),
+  state: z.string().max(80).optional(),
+  pincode: z.string().max(12).optional(),
+  email: z.string().max(160).optional(),
+  bloodGroup: z.string().max(8).optional(),
+  guardianName: z.string().max(200).optional(),
+  guardianRelationship: z.string().max(40).optional(),
+  guardianPhone: z.string().max(40).optional(),
+  guardianEmail: z.string().max(160).optional(),
+  emergencyName: z.string().max(200).optional(),
+  emergencyRelationship: z.string().max(40).optional(),
+  emergencyPhone: z.string().max(40).optional(),
+  birthWeightKg: z.number().min(0).max(12).optional(),
+  birthHeightCm: z.number().min(0).max(80).optional(),
+  deliveryType: z.string().max(40).optional(),
+  gestationalAgeWeeks: z.number().min(20).max(45).optional(),
+};
+
+/** Applies whichever demographics the request actually sent. */
+function applyDemographics(
+  patient: HydratedDocument<IPatient>,
+  body: Record<string, unknown>,
+  changed?: string[],
+) {
+  for (const k of DEMOGRAPHIC_TEXT) {
+    if (body[k] === undefined) continue;
+    const v = String(body[k]).trim();
+    (patient as unknown as Record<string, unknown>)[k] = v || undefined;
+    changed?.push(k);
+  }
+  for (const k of DEMOGRAPHIC_NUM) {
+    if (body[k] === undefined) continue;
+    (patient as unknown as Record<string, unknown>)[k] = body[k];
+    changed?.push(k);
+  }
+}
+
 // ---- patients --------------------------------------------------------------
 const createPatientSchema = z.object({
   templateId: z.string(),
@@ -115,6 +187,7 @@ const createPatientSchema = z.object({
   status: z.string().optional(),
   /** Which clinic the patient walked into — powers the per-location counts. */
   locationId: z.string().optional(),
+  ...demographicSchema,
 });
 
 router.post('/patients', async (req, res) => {
@@ -152,7 +225,8 @@ router.post('/patients', async (req, res) => {
     phone: body.phone,
     status,
   });
-  await patient.save(); // pre-save hook encrypts displayName/dob/phone
+  applyDemographics(patient, body);
+  await patient.save(); // pre-save hook encrypts the PHI fields
 
   // In-clinic consent captured at intake so PHI processing is lawful from the start.
   await ConsentRecord.create([
@@ -379,8 +453,12 @@ const updatePatientSchema = z.object({
   displayName: z.string().min(1).max(200).optional(),
   dob: z.string().min(1).max(40).optional(),
   sex: z.enum(PATIENT_SEXES).optional(),
-  phone: z.string().min(1).max(40).optional(),
+  // Not `.min(1)`: clearing a phone number is a legitimate edit.
+  phone: z.string().max(40).optional(),
   status: z.string().optional(),
+  /** Editing may also move the patient between the doctor's own clinics. */
+  locationId: z.string().optional(),
+  ...demographicSchema,
 });
 
 router.patch('/patients/:id', loadOwnedPatient, async (req, res) => {
@@ -410,9 +488,23 @@ router.patch('/patients/:id', loadOwnedPatient, async (req, res) => {
     changed.push('sex');
   }
   if (body.phone !== undefined) {
-    patient.phone = body.phone;
+    patient.phone = body.phone || undefined;
     changed.push('phone');
   }
+  // Moving a patient between clinics is an edit like any other — but the target
+  // must be one of this doctor's own, never trusted from the client.
+  if (body.locationId !== undefined) {
+    const loc = body.locationId && isValidObjectId(body.locationId)
+      ? await ClinicLocation.findOne(scopeToDoctor(req, { _id: body.locationId }))
+      : null;
+    if (body.locationId && !loc) {
+      res.status(400).json({ error: 'Choose a location from your own practice' });
+      return;
+    }
+    patient.locationId = loc?._id;
+    changed.push('locationId');
+  }
+  applyDemographics(patient, body, changed);
   await patient.save(); // re-encrypts any changed PHI; unchanged ciphertext is skipped
   await recordAudit(req, {
     action: 'update',

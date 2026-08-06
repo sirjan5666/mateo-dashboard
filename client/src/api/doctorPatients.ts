@@ -43,7 +43,39 @@ export interface Template {
   isGlobal: boolean;
 }
 
-export interface Patient {
+/**
+ * Core demographics the registration form collects. They live on the patient,
+ * not in a specialty template — every clinic needs a guardian, an address and
+ * an emergency contact — and they are what makes "Edit Patient" able to show
+ * the form as it was filled in.
+ */
+export interface PatientDemographics {
+  address?: string | null;
+  addressLine2?: string | null;
+  city?: string | null;
+  state?: string | null;
+  pincode?: string | null;
+  email?: string | null;
+  bloodGroup?: string | null;
+  guardianName?: string | null;
+  guardianRelationship?: string | null;
+  guardianPhone?: string | null;
+  guardianEmail?: string | null;
+  emergencyName?: string | null;
+  emergencyRelationship?: string | null;
+  emergencyPhone?: string | null;
+  birthWeightKg?: number | null;
+  birthHeightCm?: number | null;
+  deliveryType?: string | null;
+  gestationalAgeWeeks?: number | null;
+}
+
+/** The same fields on the way IN — no nulls, undefined means "leave alone". */
+export type PatientDemographicsInput = {
+  [K in keyof PatientDemographics]: NonNullable<PatientDemographics[K]> | undefined;
+};
+
+export interface Patient extends PatientDemographics {
   id: string;
   displayName: string;
   dob?: string | null;
@@ -69,22 +101,24 @@ export interface RecordData {
   updatedAt: string;
 }
 
-export interface CreatePatientInput {
+export interface CreatePatientInput extends PatientDemographicsInput {
   templateId: string;
   displayName: string;
   dob?: string;
   sex?: string;
   phone?: string;
-  status?: string;  /** Which of the doctor's clinics the patient registered at. */
+  status?: string;
+  /** Which of the doctor's clinics the patient registered at. */
   locationId?: string;
 }
 
-export interface UpdatePatientInput {
+export interface UpdatePatientInput extends PatientDemographicsInput {
   displayName?: string;
   dob?: string;
   sex?: string;
   phone?: string;
   status?: string;
+  locationId?: string;
 }
 
 export function listTemplates() {
