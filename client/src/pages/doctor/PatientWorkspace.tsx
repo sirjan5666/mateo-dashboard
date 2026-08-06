@@ -1,12 +1,15 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { Area, AreaChart, CartesianGrid, LabelList, ResponsiveContainer, XAxis, YAxis } from 'recharts';
 import {
-  ArrowLeft, CalendarDays, CalendarPlus, Camera, ChevronDown, ChevronRight, FileText, Mail,
-  MessageSquare, Pencil, Phone, Pill, Plus, ShieldCheck, Stethoscope, Syringe, UploadCloud, Users,
+  ArrowLeft,
+  Loader2, CalendarDays, CalendarPlus, Camera, ChevronDown, ChevronRight, FileText, Mail,
+  MessageSquare, Pencil, Phone, Pill, Plus, ShieldCheck, Stethoscope, Syringe, UploadCloud,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { PATIENTS } from '../../data/patients';
+import { getPatient } from '../../api/doctorPatients';
+import type { Patient as ApiPatient } from '../../api/doctorPatients';
+import { ageParts, formatDate } from '../../data/patients';
 import { MedicalHistoryPanel } from '../../components/doctor/v2/workspace/MedicalHistoryPanel';
 import { DocumentsPanel, InvoicesPanel, NotesPanel, VisitsPanel } from '../../components/doctor/v2/workspace/TablePanels';
 import { GrowthChartsPanel, PrescriptionsPanel } from '../../components/doctor/v2/workspace/GrowthPrescriptionPanels';
@@ -98,8 +101,56 @@ export default function PatientWorkspace() {
   const [tab, setTab] = useState('Overview');
   const [metric, setMetric] = useState<keyof typeof SERIES>('Weight');
   const s = SERIES[metric];
-  const patient = PATIENTS.find((p) => p.id === id) ?? PATIENTS[1];
+  const [patient, setPatient] = useState<ApiPatient | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    void getPatient(id)
+      .then((r) => {
+        if (!cancelled) setPatient(r.patient);
+      })
+      .catch((e: unknown) => {
+        if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Could not load this patient');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
   const Panel = PANELS[tab];
+
+  if (loading) {
+    return (
+      <p className="flex items-center gap-2 py-16 text-sm text-[#64748B]">
+        <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+        Loading patient…
+      </p>
+    );
+  }
+
+  if (!patient) {
+    return (
+      <div className="mx-auto max-w-md py-16 text-center">
+        <h1 className="font-display text-lg font-bold text-[#0F172A]">Patient not found</h1>
+        <p className="mt-2 text-sm text-[#64748B]">{loadError ?? 'This patient may have been removed.'}</p>
+        <button type="button" onClick={() => navigate('/doctor/patients')}
+          className="mx-auto mt-5 h-11 rounded-[10px] border border-[#E2E6F0] bg-white px-5 text-[13.5px] font-bold text-[#1E2A5A]">
+          Back to Patients
+        </button>
+      </div>
+    );
+  }
+
+  const name = patient.displayName;
+  const initials = name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase()).join('');
+  const age = patient.dob ? ageParts(patient.dob) : null;
+  const ageLabel = age ? `${age.years}y ${age.months}m` : '—';
+  const sexLabel = patient.sex === 'male' ? 'Male' : patient.sex === 'female' ? 'Female' : 'Unspecified';
 
   return (
     <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[1fr_336px]">
@@ -112,8 +163,8 @@ export default function PatientWorkspace() {
         {/* Patient header */}
         <div className="mb-5 flex flex-wrap items-start gap-[22px]">
           <div className="relative shrink-0">
-            <span role="img" aria-label={patient.name} className="grid h-24 w-24 place-items-center rounded-full text-[30px] font-bold shadow-[0_2px_12px_-4px_rgba(15,23,42,.25)] ring-[3px] ring-white" style={{ background: patient.tint, color: patient.fg }}>
-              {patient.name.split(' ').map((w) => w[0]).join('')}
+            <span role="img" aria-label={name} className="grid h-24 w-24 place-items-center rounded-full text-[30px] font-bold shadow-[0_2px_12px_-4px_rgba(15,23,42,.25)] ring-[3px] ring-white" style={{ background: '#EDE9FE', color: '#6D5AE0' }}>
+              {initials}
             </span>
             <button type="button" aria-label="Change patient photo" onClick={() => console.log('[Clinic OS] Change photo')}
               className="absolute -bottom-0.5 -right-0.5 grid h-[26px] w-[26px] place-items-center rounded-full border border-[#E2E6F0] bg-white">
@@ -122,27 +173,27 @@ export default function PatientWorkspace() {
           </div>
 
           <div className="min-w-0 flex-1">
-            <h1 className="font-display text-[27px] font-extrabold leading-tight tracking-[-0.02em] text-[#0F172A]">{patient.name}</h1>
+            <h1 className="font-display text-[27px] font-extrabold leading-tight tracking-[-0.02em] text-[#0F172A]">{name}</h1>
             <p className="mt-2 flex flex-wrap items-center gap-x-[11px] gap-y-2 text-[13.5px]">
-              <span className="font-bold text-[#334155]">{patient.id}</span>
+              <span className="font-medium text-[#475569]">{sexLabel}</span>
               <span aria-hidden="true" className="text-[#CBD5E1]">•</span>
-              <span className="font-medium text-[#475569]">Female</span>
+              <span className="font-medium text-[#475569]">{ageLabel}</span>
               <span aria-hidden="true" className="text-[#CBD5E1]">•</span>
-              <span className="font-medium text-[#475569]">2y 11m</span>
-              <span aria-hidden="true" className="text-[#CBD5E1]">•</span>
-              <span className="font-medium text-[#475569]">12 Jan 2023</span>
-              <span className="rounded-[7px] bg-[#DCF7E6] px-3 py-1 text-[11.5px] font-bold text-[#12A150]">Active</span>
+              <span className="font-medium text-[#475569]">{patient.dob ? formatDate(patient.dob) : '—'}</span>
+              <span className="rounded-[7px] bg-[#DCF7E6] px-3 py-1 text-[11.5px] font-bold text-[#12A150]">
+                {patient.archivedAt ? 'Archived' : 'Active'}
+              </span>
             </p>
             <p className="mt-3 flex flex-wrap items-center gap-x-[30px] gap-y-2 text-[13px] font-medium text-[#334155]">
-              <a href={`tel:${patient.phone.replace(/\s/g, '')}`} className="flex items-center gap-2 hover:text-[#3B4FE0]">
-                <Phone aria-hidden="true" className="h-[15px] w-[15px] text-[#64748B]" />+91 91234 56789
-              </a>
-              <a href="mailto:myra.kapoor@email.com" className="flex items-center gap-2 hover:text-[#3B4FE0]">
-                <Mail aria-hidden="true" className="h-[15px] w-[15px] text-[#64748B]" />myra.kapoor@email.com
-              </a>
-              <span className="flex items-center gap-2">
-                <Users aria-hidden="true" className="h-[15px] w-[15px] text-[#64748B]" />Parent: Rohan Kapoor
-              </span>
+              {patient.phone ? (
+                <a href={`tel:${patient.phone.replace(/\s/g, '')}`} className="flex items-center gap-2 hover:text-[#3B4FE0]">
+                  <Phone aria-hidden="true" className="h-[15px] w-[15px] text-[#64748B]" />{patient.phone}
+                </a>
+              ) : (
+                <span className="flex items-center gap-2 text-[#94A3B8]">
+                  <Phone aria-hidden="true" className="h-[15px] w-[15px]" />No phone on record
+                </span>
+              )}
             </p>
           </div>
 
@@ -287,7 +338,7 @@ export default function PatientWorkspace() {
                 </div>
 
                 <p className="mt-4 text-[11px] font-medium text-[#64748B]">{s.unit || 'BMI'}</p>
-                <div role="img" aria-label={`${metric} over time for ${patient.name}`} style={{ height: 200 }}>
+                <div role="img" aria-label={`${metric} over time for ${name}`} style={{ height: 200 }}>
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={s.data} margin={{ top: 18, right: 12, bottom: 0, left: -20 }}>
                       <defs>

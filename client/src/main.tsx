@@ -26,6 +26,8 @@ import '@fontsource/bricolage-grotesque/500.css';
 import '@fontsource/bricolage-grotesque/600.css';
 import '@fontsource/bricolage-grotesque/700.css';
 import '@fontsource/bricolage-grotesque/800.css';
+import '@fontsource/plus-jakarta-sans/700.css';
+import '@fontsource/plus-jakarta-sans/800.css';
 import '@fontsource/inter-tight/600.css';
 import '@fontsource/inter-tight/700.css';
 import '@fontsource/inter-tight/800.css';

@@ -33,7 +33,7 @@ import LocationsManagement from './pages/doctor/LocationsManagement';
 import TeamAndRoles from './pages/doctor/TeamAndRoles';
 import CreateSubUser from './pages/doctor/CreateSubUser';
 import PatientsList from './pages/doctor/PatientsList';
-import PatientDetail from './pages/doctor/PatientDetail';
+import PatientWorkspace from './pages/doctor/PatientWorkspace';
 import RegisterNewPatient from './pages/doctor/RegisterNewPatient';
 import SettingsPage from './pages/doctor/SettingsPage';
 import AuditLogs from './pages/doctor/AuditLogs';
@@ -126,13 +126,7 @@ function AppRoutes() {
           <Route path="/doctor" element={<DoctorDashboard />} />
           <Route path="/doctor/patients" element={<PatientsList />} />
           <Route path="/doctor/patients/new" element={<RegisterNewPatient />} />
-          {/*
-            Patient chart: PatientDetail is the LIVE screen (real encounters,
-            prescriptions, records). The Clinic OS v2 PatientWorkspace looked a
-            real Mongo id up in a mock array and fell back to a fabricated child,
-            so it is withheld until its tabs read the API.
-          */}
-          <Route path="/doctor/patients/:id" element={<PatientDetail />} />
+          <Route path="/doctor/patients/:id" element={<PatientWorkspace />} />
           <Route path="/doctor/appointments" element={<Schedule />} />
           <Route path="/doctor/messages" element={<DoctorMessages />} />
           <Route path="/doctor/analytics" element={<AnalyticsPage />} />

@@ -683,3 +683,46 @@ html.lenis body {
   font-variant-numeric: tabular-nums lining-nums;
   font-feature-settings: 'tnum' 1, 'lnum' 1;
 }
+
+/* ============================================================
+   CLINIC OS (doctor panel rebuild)
+   Additive only. The display face moves to Plus Jakarta Sans inside the doctor
+   subtree; Admin and the Patient portal never set data-panel="doctor", so their
+   type stays exactly as it was.
+   ============================================================ */
+[data-theme='pro'][data-panel='doctor'] {
+  --font-display: 'Plus Jakarta Sans', 'Inter Tight', 'Inter', ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Horizontal bar grow-in (Top 5 Visit Reasons). Paired with origin-left so the
+   inline width stays the target and the keyframe only scales into it. */
+@keyframes dashbar {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+/* Switch Location modal — scrim fade + panel entry. Both are wrapped in
+   motion-safe: at the call site, so reduced-motion users get neither. */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes modalIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
