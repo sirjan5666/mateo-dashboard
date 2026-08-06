@@ -33,6 +33,8 @@ export interface PrescriptionSheetData {
   items: PrescriptionLine[];
   patient: {
     id: string;
+    /** Five-digit patient number, printed under "Patient ID". */
+    code: string | null;
     displayName: string;
     dob: string | null;
     sex: string;

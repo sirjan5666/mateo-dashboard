@@ -63,7 +63,7 @@ export function PrescriptionSheet({ data }: { data: PrescriptionSheetData }) {
   const age = patient?.dob ? ageParts(patient.dob) : null;
   const ageLabel = age ? `${age.years} Years ${age.months} Months` : null;
   const sexLabel = patient?.sex === 'male' ? 'Male' : patient?.sex === 'female' ? 'Female' : 'Unspecified';
-  const patientCode = patient ? `PID-${patient.id.slice(-4).toUpperCase()}` : '—';
+  const patientCode = patient?.code ?? '—';
 
   return (
     <article

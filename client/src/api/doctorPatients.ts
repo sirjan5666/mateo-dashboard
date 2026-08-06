@@ -77,6 +77,8 @@ export type PatientDemographicsInput = {
 
 export interface Patient extends PatientDemographics {
   id: string;
+  /** Five-digit patient number, sequential per doctor. Null on legacy rows. */
+  code: string | null;
   displayName: string;
   dob?: string | null;
   sex: string;
@@ -120,6 +122,15 @@ export interface UpdatePatientInput extends PatientDemographicsInput {
   status?: string;
   locationId?: string;
 }
+
+/**
+ * The patient number as it is shown and printed — five digits.
+ *
+ * ONE definition, used by every screen. Previously the workspace printed
+ * `PT-` plus six characters of the ObjectId and the prescription printed
+ * `PID-` plus four, so the same child carried two different "patient IDs".
+ */
+export const patientNumber = (code: string | null | undefined) => code ?? '—';
 
 export function listTemplates() {
   return api<{ templates: Template[] }>('/doctor/templates');

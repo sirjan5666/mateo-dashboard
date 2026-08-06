@@ -158,6 +158,7 @@ router.get('/prescription-documents/:docId', auditAccess('prescription'), async 
     patient: patient
       ? {
         id: patient._id,
+        code: patient.code != null ? String(patient.code).padStart(5, '0') : null,
         displayName: decryptField(patient.displayName),
         dob: decryptOptional(patient.dob) ?? null,
         sex: patient.sex,

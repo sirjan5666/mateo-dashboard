@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import { createApp } from './app.js';
 import { env } from './config/env.js';
 import { seedGlobalTemplates } from './records/seedGlobalTemplates.js';
+import { backfillPatientCodes } from './records/backfillPatientCodes.js';
 
 async function main() {
   await mongoose.connect(env.MONGODB_URI);
@@ -22,6 +23,18 @@ async function main() {
     if (created > 0) console.log(`Seeded ${created} global specialty template(s)`);
   } catch (err) {
     console.error('[boot] could not seed specialty templates:', err instanceof Error ? err.message : err);
+  }
+
+  /**
+   * Patients registered before patient numbers existed have none, and the
+   * number is printed on prescriptions. Idempotent, so it is a no-op on every
+   * boot after the first; a failure is logged rather than blocking startup.
+   */
+  try {
+    const filled = await backfillPatientCodes();
+    if (filled > 0) console.log(`Assigned patient numbers to ${filled} existing patient(s)`);
+  } catch (err) {
+    console.error('[boot] could not backfill patient numbers:', err instanceof Error ? err.message : err);
   }
 
   createApp().listen(env.PORT, () => {

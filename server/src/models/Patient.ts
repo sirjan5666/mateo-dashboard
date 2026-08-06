@@ -19,6 +19,14 @@ export interface IPatient {
   // data through these ids. Used for idempotent re-invites + erasure unlinking.
   parentUserId?: Types.ObjectId;
   babyId?: Types.ObjectId;
+  /**
+   * The 5-digit patient number shown on screen and printed on prescriptions.
+   * Sequential PER DOCTOR, not derived from the ObjectId: five hex characters
+   * off an id collide with ~85% probability once a clinic passes 2,000
+   * patients (birthday paradox over 16^5), and two children sharing a printed
+   * patient ID is not an acceptable failure on a prescription.
+   */
+  code?: number;
   specialtyTemplateId: Types.ObjectId;
   /** Which of the doctor's clinics this patient was registered at. */
   locationId?: Types.ObjectId;
@@ -66,6 +74,7 @@ const patientSchema = new Schema<IPatient>(
     patientUserId: { type: Schema.Types.ObjectId, ref: 'User', index: true, sparse: true },
     parentUserId: { type: Schema.Types.ObjectId, ref: 'User', index: true, sparse: true },
     babyId: { type: Schema.Types.ObjectId, ref: 'Baby', index: true, sparse: true },
+    code: { type: Number },
     specialtyTemplateId: { type: Schema.Types.ObjectId, ref: 'SpecialtyTemplate', required: true },
     // Plain (not PHI) so per-clinic counts can aggregate in the DB.
     locationId: { type: Schema.Types.ObjectId, ref: 'ClinicLocation', index: true },
@@ -99,6 +108,9 @@ const patientSchema = new Schema<IPatient>(
 
 // Tenant-scoped list/query indexes (doctorUserId always leads).
 patientSchema.index({ doctorUserId: 1, archivedAt: 1 });
+// Unique per doctor, so a concurrent create is a duplicate-key error to retry
+// rather than two patients quietly sharing a printed number.
+patientSchema.index({ doctorUserId: 1, code: 1 }, { unique: true, sparse: true });
 patientSchema.index({ doctorUserId: 1, status: 1 });
 
 // Encrypt PHI demographics at rest (idempotent; decrypt in the response shaper).

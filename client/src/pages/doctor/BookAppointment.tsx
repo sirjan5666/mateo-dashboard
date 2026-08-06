@@ -7,7 +7,7 @@ import {
 import { useAuth } from '../../auth/context';
 import { createAppointment, getAppointment, listSchedule, updateAppointment } from '../../api/doctorAppointments';
 import type { AppointmentMode } from '../../api/doctorAppointments';
-import { createPatient, listPatients, listTemplates } from '../../api/doctorPatients';
+import { createPatient, listPatients, listTemplates, patientNumber } from '../../api/doctorPatients';
 import type { Patient } from '../../api/doctorPatients';
 import { useActiveLocation } from '../../lib/doctorLocation';
 import { formatTimeIST, todayInputValueIST } from '../../lib/age';
@@ -68,7 +68,6 @@ const longDate = (dayISO: string) =>
     timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', year: 'numeric', weekday: 'long',
   });
 const initialsOf = (name: string) => name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase()).join('');
-const patientCode = (id: string) => `PT-${id.slice(-6).toUpperCase()}`;
 
 function StepRail({ step, onJump }: { step: number; onJump: (i: number) => void }) {
   return (
@@ -297,7 +296,7 @@ export default function BookAppointment() {
     const q = query.trim().toLowerCase();
     if (!q) return patients.slice(0, 6);
     return patients
-      .filter((p) => p.displayName.toLowerCase().includes(q) || (p.phone ?? '').includes(q) || patientCode(p.id).toLowerCase().includes(q))
+      .filter((p) => p.displayName.toLowerCase().includes(q) || (p.phone ?? '').includes(q) || (p.code ?? '').includes(q))
       .slice(0, 6);
   }, [patients, query]);
 
@@ -451,7 +450,7 @@ export default function BookAppointment() {
                               </span>
                               <span className="min-w-0">
                                 <span className="block truncate text-[13px] font-bold text-[#0F172A]">{p.displayName}</span>
-                                <span className="block text-[11.5px] text-[#64748B]">{patientCode(p.id)}{p.phone ? ` • ${p.phone}` : ''}</span>
+                                <span className="block text-[11.5px] text-[#64748B]">{patientNumber(p.code)}{p.phone ? ` • ${p.phone}` : ''}</span>
                               </span>
                             </button>
                           </li>
@@ -469,7 +468,7 @@ export default function BookAppointment() {
                         </span>
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-[13px] font-bold text-[#0F172A]">
-                            {selectedPatient.displayName} <span className="font-medium text-[#64748B]">({patientCode(selectedPatient.id)})</span>
+                            {selectedPatient.displayName} <span className="font-medium text-[#64748B]">({patientNumber(selectedPatient.code)})</span>
                           </span>
                           <span className="block text-[11.5px] text-[#64748B]">
                             {selectedPatient.dob ? `${ageParts(selectedPatient.dob).years}Y ${ageParts(selectedPatient.dob).months}M • ` : ''}
@@ -748,7 +747,7 @@ export default function BookAppointment() {
                   <p className="text-[13.5px] font-bold text-[#0F172A]">{summaryName}</p>
                   <p className="text-[12px] text-[#64748B]">{[summaryAge, sexLabel].filter(Boolean).join(' • ')}</p>
                   {tab === 'existing' && selectedPatient && (
-                    <p className="text-[12px] text-[#94A3B8]">{patientCode(selectedPatient.id)}</p>
+                    <p className="text-[12px] text-[#94A3B8]">{patientNumber(selectedPatient.code)}</p>
                   )}
                 </>
               ) : <p className="text-[12.5px] text-[#94A3B8]">Not selected</p>}

@@ -7,7 +7,7 @@ import {
   MessageSquare, Pencil, Phone, Pill, Plus, ShieldCheck, Stethoscope, Syringe,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { getPatient } from '../../api/doctorPatients';
+import { getPatient, patientNumber } from '../../api/doctorPatients';
 import type { Patient as ApiPatient, PortalStatus, Template } from '../../api/doctorPatients';
 import { listEncounters } from '../../api/doctorEncounters';
 import { listPatientAppointments } from '../../api/doctorAppointments';
@@ -38,12 +38,6 @@ const PANELS: Record<string, React.ComponentType<WorkspacePanelProps>> = {
   Notes: NotesPanel,
 };
 
-/**
- * A human-readable patient number. DERIVED from the record's own id — the EHR
- * has no separate MRN column, and inventing one would put a fake identifier on
- * a clinical screen.
- */
-const patientCode = (id: string) => `PT-${id.slice(-6).toUpperCase()}`;
 
 type OverviewMetric = 'Weight' | 'Height' | 'BMI';
 const OVERVIEW_UNIT: Record<OverviewMetric, string> = { Weight: 'kg', Height: 'cm', BMI: '' };
@@ -51,8 +45,8 @@ const overviewValue = (r: GrowthRecord, m: OverviewMetric) =>
   (m === 'Weight' ? r.weightKg : m === 'Height' ? r.heightCm : r.bmi);
 
 function OverviewTab({
-  patientId, patientName, dob, sex, templateFields, fields, phone, portal, parentAccess,
-}: WorkspacePanelProps & { phone?: string | null; portal?: PortalStatus; parentAccess?: PortalStatus }) {
+  patientId, patientName, dob, sex, templateFields, fields, phone, patientCode, portal, parentAccess,
+}: WorkspacePanelProps & { phone?: string | null; patientCode?: string | null; portal?: PortalStatus; parentAccess?: PortalStatus }) {
   const navigate = useNavigate();
   const [metric, setMetric] = useState<OverviewMetric>('Weight');
 
@@ -95,7 +89,7 @@ function OverviewTab({
   const latest = series.length ? series[series.length - 1] : null;
 
   const basic: [string, React.ReactNode][] = [
-    ['Patient ID', patientCode(patientId)],
+    ['Patient ID', patientNumber(patientCode)],
     ['Gender', sex === 'male' ? 'Male' : sex === 'female' ? 'Female' : 'Unspecified'],
     ['Date of Birth', dob ? formatDate(dob) : '—'],
     ['Age', dob ? `${ageParts(dob).years}y ${ageParts(dob).months}m` : '—'],
@@ -494,7 +488,7 @@ export default function PatientWorkspace() {
                 <Phone aria-hidden="true" className="h-[15px] w-[15px]" />No phone on record
               </span>
             )}
-            <span className="text-[#94A3B8]">{patientCode(patient.id)}</span>
+            <span className="text-[#94A3B8]">Patient ID {patientNumber(patient.code)}</span>
           </p>
         </div>
 
@@ -532,7 +526,7 @@ export default function PatientWorkspace() {
       <div role="tabpanel" aria-label={tab}>
         {Panel
           ? <Panel key={tab} {...panelProps} />
-          : <OverviewTab {...panelProps} phone={patient.phone} portal={portal} parentAccess={parentAccess} />}
+          : <OverviewTab {...panelProps} phone={patient.phone} patientCode={patient.code} portal={portal} parentAccess={parentAccess} />}
       </div>
     </div>
   );

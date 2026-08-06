@@ -55,6 +55,8 @@ function publicTemplate(t: HydratedDocument<ISpecialtyTemplate>) {
 function publicPatient(p: HydratedDocument<IPatient>) {
   return {
     id: p._id,
+    /** Five digits, zero-padded. Blank only for records created before codes. */
+    code: p.code != null ? String(p.code).padStart(5, '0') : null,
     displayName: decryptField(p.displayName),
     dob: decryptOptional(p.dob),
     sex: p.sex,
@@ -226,7 +228,27 @@ router.post('/patients', async (req, res) => {
     status,
   });
   applyDemographics(patient, body);
-  await patient.save(); // pre-save hook encrypts the PHI fields
+
+  // Sequential per-doctor number. Same guard as invoices: a unique index
+  // turns a concurrent create into a duplicate-key error we retry, rather
+  // than two patients sharing a printed ID.
+  const highest = await Patient.findOne(scopeToDoctor(req, { code: { $ne: null } })).sort({ code: -1 }).select('code');
+  const seed = (highest?.code ?? 0) + 1;
+  let saved = false;
+  for (let attempt = 0; attempt < 5 && !saved; attempt += 1) {
+    patient.code = seed + attempt;
+    try {
+      await patient.save(); // pre-save hook encrypts the PHI fields
+      saved = true;
+    } catch (e: unknown) {
+      const dup = typeof e === 'object' && e !== null && 'code' in e && (e as { code?: number }).code === 11000;
+      if (!dup) throw e;
+    }
+  }
+  if (!saved) {
+    res.status(409).json({ error: 'Could not allocate a patient number — please retry' });
+    return;
+  }
 
   // In-clinic consent captured at intake so PHI processing is lawful from the start.
   await ConsentRecord.create([
