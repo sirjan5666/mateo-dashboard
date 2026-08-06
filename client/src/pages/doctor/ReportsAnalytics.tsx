@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router';
 import { Area, AreaChart, Bar, BarChart, Cell, Pie, PieChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from 'recharts';
 import {
   ArrowUp, Loader2, BarChart3, Calendar, CalendarDays, ChevronDown, ChevronRight, Copy,
   Download, FileClock, FileText, IndianRupee, Receipt, Stethoscope, UserRound, Users,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { QUICK_REPORTS, analyticsFromReport } from '../../data/analytics';
+import { analyticsFromReport } from '../../data/analytics';
 import { getReport } from '../../api/doctorAnalytics';
 import type { DoctorReport } from '../../api/doctorAnalytics';
 import { cn } from '../../lib/cn';
@@ -76,21 +75,10 @@ function DonutCard({ title, id, total, totalLabel, data }: {
   );
 }
 
-/** Each quick report is a shortcut to the screen that actually holds those numbers. */
-const QUICK_REPORT_LINK: Record<string, string> = {
-  'Appointments Report': '/doctor/appointments',
-  'Consultations Report': '/doctor/patients',
-  'Revenue Report': '/doctor/revenue',
-  'Patient Demographics': '/doctor/patients',
-  'Billing & Collection Report': '/doctor/revenue',
-  'Outstanding Report': '/doctor/revenue',
-};
-
 /** RFC-4180 enough for Excel: quote everything, double the inner quotes. */
 const csvCell = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
 
 export default function ReportsAnalytics() {
-  const navigate = useNavigate();
   const [report, setReport] = useState<DoctorReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -164,8 +152,9 @@ export default function ReportsAnalytics() {
   const RECENT_REPORTS: { name: string; type: string; range: string; on: string; by: string }[] = [];
   const RECENT_ACTIVITY: { tint: string; fg: string; icon: string; title: string; subtitle: string; elapsed: string; datetime: string }[] = [];
   return (
-    <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[1fr_300px]">
-      {/* ── Left ── */}
+    // One column, full width. The 300px rail was squeezing both charts into
+    // half of what was left, which is what crushed the axis labels together.
+    <div className="flex flex-col gap-[18px]">
       <div className="flex min-w-0 flex-col gap-[18px]">
         {/* Header */}
         <div className="flex flex-wrap items-start gap-4">
@@ -217,7 +206,7 @@ export default function ReportsAnalytics() {
               <h2 className={H2}>Appointments Overview</h2>
               <PeriodPill id="appt-period" options={['Daily', 'Weekly', 'Monthly']} />
             </div>
-            <ul className="mt-3 flex gap-[22px]">
+            <ul className="mb-1 mt-3 flex flex-wrap gap-x-[22px] gap-y-1">
               {[['#4F46E5', 'Appointments'], ['#16A34A', 'Consultations']].map(([c, l]) => (
                 <li key={l} className="flex items-center gap-2 text-xs font-medium text-[#475569]">
                   <span aria-hidden="true" className="h-[2.5px] w-[18px] rounded-full" style={{ background: c }} />
@@ -225,7 +214,7 @@ export default function ReportsAnalytics() {
                 </li>
               ))}
             </ul>
-            <div role="img" aria-label="Appointments and consultations per day, 1 to 12 May 2025" style={{ height: 178 }} className="mt-2">
+            <div role="img" aria-label="Appointments and consultations per day, 1 to 12 May 2025" style={{ height: 230 }} className="mt-2">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={APPT_SERIES} margin={{ top: 6, right: 8, bottom: 0, left: -18 }}>
                   <defs>
@@ -233,7 +222,7 @@ export default function ReportsAnalytics() {
                     <linearGradient id="gC" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#16A34A" stopOpacity={0.14} /><stop offset="100%" stopColor="#16A34A" stopOpacity={0} /></linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#EEF1F6" vertical={false} />
-                  <XAxis dataKey="day" tick={{ fontSize: 10.5, fill: '#94A3B8' }} tickLine={false} axisLine={false} interval={0} />
+                  <XAxis dataKey="day" tick={{ fontSize: 10.5, fill: '#94A3B8' }} tickLine={false} axisLine={false} interval="preserveStartEnd" minTickGap={22} />
                   <YAxis domain={[0, 200]} ticks={[0, 50, 100, 150, 200]} tick={{ fontSize: 11, fill: '#94A3B8' }} tickLine={false} axisLine={false} />
                   <Tooltip
                     content={({ active, payload, label }) => active && payload?.length ? (
@@ -272,7 +261,7 @@ export default function ReportsAnalytics() {
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={REVENUE_BARS} margin={{ top: 6, right: 8, bottom: 0, left: -22 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#EEF1F6" vertical={false} />
-                  <XAxis dataKey="period" tick={{ fontSize: 10.5, fill: '#94A3B8' }} tickLine={false} axisLine={false} interval={0} />
+                  <XAxis dataKey="period" tick={{ fontSize: 10.5, fill: '#94A3B8' }} tickLine={false} axisLine={false} interval="preserveStartEnd" minTickGap={22} />
                   <YAxis domain={[0, 20]} ticks={[0, 5, 10, 15, 20]} tickFormatter={(v) => (v === 0 ? '0' : `${v}L`)} tick={{ fontSize: 11, fill: '#94A3B8' }} tickLine={false} axisLine={false} />
                   <ReferenceLine y={REVENUE_AVG} stroke="#94A3B8" strokeDasharray="4 4" label={{ value: `Avg: ₹${REVENUE_AVG}L`, position: 'right', fontSize: 10.5, fill: '#64748B' }} />
                   <Bar dataKey="value" barSize={30} radius={[6, 6, 0, 0]} isAnimationActive={false}>
@@ -352,28 +341,10 @@ export default function ReportsAnalytics() {
         </section>
       </div>
 
-      {/* ── Right rail ── */}
-      <div className="flex min-w-0 flex-col gap-[18px]">
-        <section className={`${CARD} pb-3 pt-[18px]`}>
-          <h2 className={cn(H2, 'px-[18px]')}>Quick Reports</h2>
-          <ul className="mt-3">
-            {QUICK_REPORTS.map((q, i) => {
-              const Icon = ICONS[q.icon] ?? FileText;
-              return (
-                <li key={q.label}>
-                  <button type="button" onClick={() => navigate(QUICK_REPORT_LINK[q.label] ?? '/doctor/charts')}
-                    className={cn('flex h-11 w-full items-center gap-3 px-[18px] text-left transition-colors hover:bg-[#FAFBFF]', i > 0 && 'border-t border-[#F1F3F9]')}>
-                    <Icon className="h-[17px] w-[17px] shrink-0 text-[#64748B]" />
-                    <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-[#334155]">{q.label}</span>
-                    <ChevronRight className="h-[17px] w-[17px] shrink-0 text-[#CBD5E1]" />
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-
-
+      {/* Recent Activity + Top Providers sit at the BOTTOM now, side by side —
+          they are reference reading, not something to keep in the corner of the
+          eye while the charts are being read. */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <section className={`${CARD} px-[18px] pb-4 pt-[18px]`}>
           <div className="flex items-center">
             <h2 className={H2}>Recent Activity</h2>
