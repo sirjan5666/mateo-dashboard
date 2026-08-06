@@ -8,6 +8,7 @@ import { auditAccess, recordAudit } from '../middleware/audit.js';
 import { requireConsent } from '../middleware/requireConsent.js';
 import { DoctorAppointment, APPOINTMENT_MODES, APPOINTMENT_STATUSES } from '../models/DoctorAppointment.js';
 import type { IDoctorAppointment } from '../models/DoctorAppointment.js';
+import { ClinicLocation } from '../models/ClinicLocation.js';
 import { Patient } from '../models/Patient.js';
 import type { IPatient } from '../models/Patient.js';
 import { decryptField, decryptOptional } from '../lib/crypto/fieldCipher.js';
@@ -27,6 +28,9 @@ function publicAppointment(a: HydratedDocument<IDoctorAppointment>, patientName?
     mode: a.mode,
     status: a.status,
     reason: decryptOptional(a.reason || undefined) ?? null,
+    symptoms: decryptOptional(a.symptoms || undefined) ?? null,
+    notes: decryptOptional(a.notes || undefined) ?? null,
+    locationId: a.locationId ?? null,
     createdAt: a.createdAt,
     updatedAt: a.updatedAt,
   };
@@ -45,15 +49,13 @@ const apptShape = {
   durationMin: z.number().int().min(5).max(480).optional(),
   mode: z.enum(APPOINTMENT_MODES).optional(),
   reason: z.string().max(500).optional(),
+  // Booking-time clinical context. PHI, encrypted at rest like `reason`.
+  symptoms: z.string().max(1000).optional(),
+  notes: z.string().max(1000).optional(),
+  locationId: z.string().optional(),
 };
 const createSchema = z.object(apptShape);
-const updateSchema = z.object({
-  start: z.string().min(1).optional(),
-  durationMin: z.number().int().min(5).max(480).optional(),
-  mode: z.enum(APPOINTMENT_MODES).optional(),
-  status: z.enum(APPOINTMENT_STATUSES).optional(),
-  reason: z.string().max(500).optional(),
-});
+const updateSchema = z.object({ ...apptShape, start: z.string().min(1).optional(), status: z.enum(APPOINTMENT_STATUSES).optional() });
 
 // GET /api/doctor/appointments?from=&to=&status= — the doctor's schedule.
 router.get('/appointments', auditAccess('appointment'), async (req, res) => {
@@ -81,6 +83,9 @@ router.get('/patients/:id/appointments', auditAccess('appointment'), loadOwnedPa
 router.post('/patients/:id/appointments', loadOwnedPatient, requireConsent('treatment'), async (req, res) => {
   const patient = req.patient as HydratedDocument<IPatient>;
   const body = createSchema.parse(req.body);
+  const locationId = body.locationId && isValidObjectId(body.locationId)
+    ? (await ClinicLocation.findOne(scopeToDoctor(req, { _id: body.locationId })))?._id ?? null
+    : null;
   const appt = new DoctorAppointment({
     doctorUserId: req.userId,
     patientId: patient._id,
@@ -88,6 +93,10 @@ router.post('/patients/:id/appointments', loadOwnedPatient, requireConsent('trea
     durationMin: body.durationMin ?? 30,
     mode: body.mode ?? 'in_person',
     reason: body.reason || undefined,
+    symptoms: body.symptoms || undefined,
+    notes: body.notes || undefined,
+    // Validated against the doctor's own clinics — never trusted from the client.
+    locationId: locationId ?? undefined,
   });
   await appt.save();
   await recordAudit(req, {
@@ -132,6 +141,14 @@ router.patch('/appointments/:appointmentId', async (req, res) => {
   if (body.reason !== undefined) {
     appt.reason = body.reason || undefined;
     changed.push('reason');
+  }
+  if (body.symptoms !== undefined) {
+    appt.symptoms = body.symptoms || undefined;
+    changed.push('symptoms');
+  }
+  if (body.notes !== undefined) {
+    appt.notes = body.notes || undefined;
+    changed.push('notes');
   }
   await appt.save();
   await recordAudit(req, {

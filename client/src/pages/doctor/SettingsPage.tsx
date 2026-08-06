@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronDown, CircleCheck, ExternalLink, Settings as Gear, ShieldCheck, UploadCloud } from 'lucide-react';
+import { ChevronDown, ExternalLink, Settings as Gear, ShieldCheck } from 'lucide-react';
 import { PhoneNumberInput } from '../../components/doctor/v2/subuser/fields';
 import { cn } from '../../lib/cn';
 
@@ -253,10 +253,6 @@ export default function SettingsPage() {
                   <text x="60" y="80" textAnchor="middle" fontSize="9" fontWeight="600" fill="#12805A" fontFamily="Georgia, serif">CHILDREN CLINIC</text>
                 </svg>
               </div>
-              <div className="mt-3.5 grid grid-cols-2 gap-3">
-                <button type="button" onClick={() => console.log('[Clinic OS] Change Logo')} className="h-[42px] rounded-[10px] border border-[#DDE3F5] bg-white text-[13px] font-bold text-[#3B4FE0] hover:bg-[#F5F7FF]">Change Logo</button>
-                <button type="button" aria-label="Remove clinic logo" onClick={() => console.log('[Clinic OS] Remove Logo')} className="h-[42px] rounded-[10px] border border-[#FBD5D5] bg-white text-[13px] font-bold text-[#E03131] hover:bg-[#FEF2F2]">Remove</button>
-              </div>
             </section>
 
             <section className={`${CARD} px-5 pb-5 pt-[18px]`}>
@@ -274,29 +270,6 @@ export default function SettingsPage() {
               </dl>
             </section>
 
-            <section className={`${CARD} px-5 pb-5 pt-[18px]`}>
-              <h2 className="font-display text-[15.5px] font-bold text-[#0F172A]">Data &amp; Storage</h2>
-              <div className="mt-3.5 flex items-center justify-between gap-3">
-                <span className="text-[12.5px] font-semibold text-[#334155]">Storage Used</span>
-                <span className="text-[12.5px] font-medium text-[#64748B]">2.45 GB of 50 GB</span>
-              </div>
-              <div role="progressbar" aria-label="Storage used" aria-valuenow={4.9} aria-valuemin={0} aria-valuemax={100} className="mt-[9px] h-[7px] w-full overflow-hidden rounded-full bg-[#EEF0F8]">
-                <span className="block h-full rounded-full bg-[#4F46E5]" style={{ width: '4.9%' }} />
-              </div>
-              <p className="mt-1.5 text-right text-[11.5px] font-semibold text-[#64748B]">4.9%</p>
-              <div className="my-3.5 h-px bg-[#F1F3F9]" />
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-[12.5px] font-semibold text-[#334155]">Last Backup</span>
-                <span className="flex items-center gap-2 text-[12.5px] font-medium text-[#64748B]">
-                  12 May 2025, 02:00 AM
-                  <CircleCheck aria-hidden="true" className="h-[15px] w-[15px] text-[#12A150]" />
-                </span>
-              </div>
-              <button type="button" onClick={() => console.log('[Clinic OS] Backup Now')} className="mt-4 flex h-11 w-full items-center justify-center gap-2.5 rounded-[10px] border border-[#DDE3F5] bg-white text-[13.5px] font-bold text-[#3B4FE0] hover:bg-[#F5F7FF]">
-                <UploadCloud className="h-[17px] w-[17px]" />
-                Backup Now
-              </button>
-            </section>
           </div>
         </div>
       )}

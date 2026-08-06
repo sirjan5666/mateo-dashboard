@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router';
 import {
   Loader2,
   AlertCircle, Banknote, Calendar, ChevronDown, ChevronLeft, ChevronRight, CircleCheck,
@@ -8,7 +8,8 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { STATUS_STYLE, billingKpisFrom, invoiceFromApi, money } from '../../data/invoices';
-import { getBillingSummary, listInvoices } from '../../api/doctorBilling';
+import { getBillingSummary, listInvoices, updateInvoice } from '../../api/doctorBilling';
+import { InvoiceFormModal } from '../../components/doctor/v2/InvoiceFormModal';
 import type { BillingSummary } from '../../api/doctorBilling';
 import type { Invoice, PaymentMode } from '../../data/invoices';
 import { RowMenu } from '../../components/doctor/v2/RowMenu';
@@ -46,11 +47,40 @@ function ModeCell({ mode }: { mode: PaymentMode }) {
 
 export default function BillingInvoices() {
   const navigate = useNavigate();
+  const [search] = useSearchParams();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [summary, setSummary] = useState<BillingSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Invoice | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  /** Re-reads the table AND the KPI summary, so the two can never disagree. */
+  const reload = useCallback(async () => {
+    const [r, sum] = await Promise.all([listInvoices(), getBillingSummary()]);
+    const list = r.invoices.map(invoiceFromApi);
+    setInvoices(list);
+    setSummary(sum);
+    setSelected((cur) => list.find((i) => i.id === cur?.id) ?? list[0] ?? null);
+  }, []);
+
+  /** Every status write goes through here. */
+  async function mutate(ids: string[], status: 'paid' | 'unpaid' | 'cancelled') {
+    const real = ids.filter(Boolean);
+    if (!real.length) return;
+    setBusy(true);
+    setLoadError(null);
+    try {
+      await Promise.all(real.map((id) => updateInvoice(id, status)));
+      await reload();
+      setChecked([]);
+    } catch (e: unknown) {
+      setLoadError(e instanceof Error ? e.message : 'Could not update the invoice');
+    } finally {
+      setBusy(false);
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -125,7 +155,7 @@ export default function BillingInvoices() {
             <FileText className="h-[17px] w-[17px] text-[#334155]" />
             <span className="text-sm font-bold text-[#1E2A5A]">Reports</span>
           </button>
-          <button type="button" aria-label="Create invoice" onClick={() => console.log('[Clinic OS] Create Invoice')} className="flex h-[46px] items-center gap-2 rounded-[11px] px-[22px] text-white shadow-[0_8px_18px_-8px_rgba(59,79,224,.65)] hover:brightness-105" style={{ background: 'linear-gradient(135deg, #5B5BF0 0%, #3B3FD8 100%)' }}>
+          <button type="button" aria-label="Create invoice" onClick={() => setCreating(true)} className="flex h-[46px] items-center gap-2 rounded-[11px] px-[22px] text-white shadow-[0_8px_18px_-8px_rgba(59,79,224,.65)] hover:brightness-105" style={{ background: 'linear-gradient(135deg, #5B5BF0 0%, #3B3FD8 100%)' }}>
             <Plus className="h-[18px] w-[18px]" />
             <span className="text-sm font-bold">Create Invoice</span>
           </button>
@@ -157,8 +187,10 @@ export default function BillingInvoices() {
           {checked.length > 0 ? (
             <div className="flex flex-wrap items-center gap-3 border-b border-[#ECEEF4] bg-[#F5F7FF] p-4">
               <span className="text-[13px] font-bold text-[#3B4FE0]">{checked.length} selected</span>
-              {['Download', 'Send', 'Mark as Paid', 'Cancel'].map((a) => (
-                <button key={a} type="button" onClick={() => console.log('[Clinic OS] Bulk', a, checked)} className="h-9 rounded-[8px] border border-[#DDE3F5] bg-white px-3 text-[12.5px] font-bold text-[#3B4FE0]">{a}</button>
+              {([['Mark as Paid', 'paid'], ['Cancel', 'cancelled']] as const).map(([a, next]) => (
+                <button key={a} type="button" disabled={busy}
+                  onClick={() => void mutate(rows.filter((r) => checked.includes(r.no)).map((r) => r.id), next)}
+                  className="h-9 rounded-[8px] border border-[#DDE3F5] bg-white px-3 text-[12.5px] font-bold text-[#3B4FE0] disabled:opacity-50">{a}</button>
               ))}
               <button type="button" onClick={() => setChecked([])} className="ml-auto text-[12.5px] font-bold text-[#64748B] hover:underline">Clear</button>
             </div>
@@ -256,9 +288,12 @@ export default function BillingInvoices() {
                     <td className="border-b border-[#F1F3F9] pr-3"><ModeCell mode={inv.mode} /></td>
                     <td className="border-b border-[#F1F3F9] pr-4" onClick={(e) => e.stopPropagation()}>
                       <RowMenu label={`Actions for ${inv.no}`} size={32}
-                        items={['View Invoice', 'Download PDF', 'Send to Guardian', 'Record Payment', 'Cancel Invoice'].map((l) => ({
-                          label: l, danger: l === 'Cancel Invoice', onSelect: () => console.log('[Clinic OS]', l, inv.no),
-                        }))} />
+                        items={[
+                          { label: 'View Invoice', onSelect: () => setSelected(inv) },
+                          { label: 'Open patient', onSelect: () => navigate(`/doctor/patients/${inv.patientId}`) },
+                          ...(inv.status !== 'Paid' ? [{ label: 'Mark as Paid', onSelect: () => void mutate([inv.id], 'paid') }] : []),
+                          ...(inv.status !== 'Cancelled' ? [{ label: 'Cancel Invoice', danger: true, onSelect: () => void mutate([inv.id], 'cancelled') }] : []),
+                        ]} />
                     </td>
                   </tr>
                 ))}
@@ -377,17 +412,29 @@ export default function BillingInvoices() {
             </div>
 
             <div className="grid grid-cols-2 gap-3 px-[18px] pb-5 pt-4">
-              {([[Download, 'Download Invoice'], [Send, 'Send Invoice']] as const).map(([Icon, label]) => (
-                <button key={label} type="button" aria-label={label} onClick={() => console.log('[Clinic OS]', label, selected.no)}
-                  className="flex h-11 items-center justify-center gap-2 rounded-[10px] border border-[#DDE3F5] bg-white text-[12.5px] font-bold text-[#3B4FE0] hover:bg-[#F5F7FF]">
-                  <Icon className="h-4 w-4" />
-                  {label}
-                </button>
-              ))}
+              <button type="button" aria-label="Print invoice" onClick={() => window.print()}
+                className="flex h-11 items-center justify-center gap-2 rounded-[10px] border border-[#DDE3F5] bg-white text-[12.5px] font-bold text-[#3B4FE0] hover:bg-[#F5F7FF]">
+                <Download className="h-4 w-4" />
+                Print
+              </button>
+              <button type="button" aria-label="Mark invoice as paid" disabled={busy || selected.status === 'Paid'}
+                onClick={() => void mutate([selected.id], 'paid')}
+                className="flex h-11 items-center justify-center gap-2 rounded-[10px] border border-[#DDE3F5] bg-white text-[12.5px] font-bold text-[#3B4FE0] hover:bg-[#F5F7FF] disabled:opacity-50">
+                <Send className="h-4 w-4" />
+                Mark Paid
+              </button>
             </div>
           </aside>
         )}
       </div>
+
+      {creating && (
+        <InvoiceFormModal
+          presetPatientId={search.get('patient') ?? undefined}
+          onClose={() => setCreating(false)}
+          onSaved={reload}
+        />
+      )}
     </div>
   );
 }

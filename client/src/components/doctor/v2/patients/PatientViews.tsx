@@ -30,8 +30,6 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 interface ViewProps {
   patients: Patient[];
-  onOpenVaccination?: (p: Patient) => void;
-  onOpenGrowth?: (p: Patient) => void;
 }
 
 /** The grid toggle — a real second view, not a stub. */
@@ -41,7 +39,7 @@ function useLocationName() {
   return (id: string | null | undefined) => locations.find((l) => l.id === id)?.name ?? '—';
 }
 
-export function PatientGridView({ patients, onOpenVaccination, onOpenGrowth }: ViewProps) {
+export function PatientGridView({ patients }: ViewProps) {
   const locationName = useLocationName();
   return (
     <ul className="grid grid-cols-1 gap-4 p-[22px] sm:grid-cols-2 xl:grid-cols-4">
@@ -55,7 +53,7 @@ export function PatientGridView({ patients, onOpenVaccination, onOpenGrowth }: V
               </Link>
               <span className="mt-0.5 block truncate text-xs text-[#64748B]">Guardian: {p.guardian}</span>
             </div>
-            <PatientRowMenu patient={p} onOpenVaccination={() => onOpenVaccination?.(p)} onOpenGrowth={() => onOpenGrowth?.(p)} />
+            <PatientRowMenu patient={p} />
           </div>
 
           <Link to={`/doctor/patients/${p.id}`} className="mt-3 inline-block text-[13px] font-semibold text-[#3B4FE0] hover:underline">
@@ -94,7 +92,7 @@ export function PatientGridView({ patients, onOpenVaccination, onOpenGrowth }: V
 }
 
 /** Below md the table becomes one card per patient. */
-export function PatientCardList({ patients, onOpenVaccination, onOpenGrowth }: ViewProps) {
+export function PatientCardList({ patients }: ViewProps) {
   const locationName = useLocationName();
   return (
     <ul className="flex flex-col gap-3 p-4">
@@ -108,7 +106,7 @@ export function PatientCardList({ patients, onOpenVaccination, onOpenGrowth }: V
               </Link>
               <span className="mt-0.5 block truncate text-xs text-[#64748B]">Guardian: {p.guardian}</span>
             </div>
-            <PatientRowMenu patient={p} sheetOnMobile onOpenVaccination={() => onOpenVaccination?.(p)} onOpenGrowth={() => onOpenGrowth?.(p)} />
+            <PatientRowMenu patient={p} sheetOnMobile />
           </div>
 
           <dl className="mt-3 grid grid-cols-3 gap-3">

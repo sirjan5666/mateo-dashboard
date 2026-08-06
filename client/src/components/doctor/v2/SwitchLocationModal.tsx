@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router';
 import { Building2, Check, Plus, Settings, X } from 'lucide-react';
 import { useActiveLocation } from '../../../lib/doctorLocation';
 import type { ClinicLocation, LocationId } from '../../../lib/doctorLocation';
@@ -102,6 +103,7 @@ export function SwitchLocationModal({
   railCollapsed: boolean;
   triggerRef: React.RefObject<HTMLButtonElement | null>;
 }) {
+  const navigate = useNavigate();
   const { activeId, setActiveId, locations } = useActiveLocation();
   // Preview selection: the detail pane follows the highlighted row immediately.
   const [previewId, setPreviewId] = useState<LocationId>(activeId);
@@ -211,7 +213,7 @@ export function SwitchLocationModal({
             <button
               type="button"
               aria-label="Manage locations"
-              onClick={() => console.log('[Clinic OS] Manage Locations')}
+              onClick={() => { onClose(); navigate('/doctor/locations'); }}
               className="hidden h-11 shrink-0 items-center gap-2.5 rounded-[10px] border border-[#E2E6F0] bg-white px-[18px] shadow-[0_1px_2px_rgba(16,24,40,.04)] transition-colors hover:border-[#CBD5E1] hover:bg-[#F7F8FC] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4F63F5] focus-visible:ring-offset-2 sm:flex"
             >
               <Settings className="h-[17px] w-[17px] text-[#3B4FE0]" />
@@ -268,7 +270,7 @@ export function SwitchLocationModal({
                 <button
                   type="button"
                   aria-label="Add a new location"
-                  onClick={() => console.log('[Clinic OS] Add New Location')}
+                  onClick={() => { onClose(); navigate('/doctor/locations?add=1'); }}
                   className="flex h-[46px] w-full items-center justify-center gap-2.5 rounded-[10px] border-[1.5px] border-dashed border-[#C7CEDB] bg-transparent transition-colors hover:border-[#3B4FE0] hover:bg-[#F5F7FF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4F63F5] focus-visible:ring-offset-2"
                 >
                   <Plus className="h-[18px] w-[18px] text-[#3B4FE0]" />
@@ -279,7 +281,7 @@ export function SwitchLocationModal({
 
             {/* Right pane */}
             <div className="scrollbar-thin min-h-0 min-w-0 overflow-y-auto">
-              <LocationDetail location={preview} />
+              <LocationDetail location={preview} onEditDetails={() => { onClose(); navigate(`/doctor/locations?edit=${preview.id}`); }} />
             </div>
           </div>
         </div>

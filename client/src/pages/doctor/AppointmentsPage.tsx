@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router';
 import {
   Loader2,
   BadgeCheck, Bookmark, Calendar, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight,
@@ -6,7 +7,8 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { APPT_STATUS, EMPTY_HOUR, HOURS, LUNCH_HOUR, TONE_STYLE, appointmentFromApi } from '../../data/appointments';
-import { listSchedule } from '../../api/doctorAppointments';
+import { listSchedule, updateAppointment } from '../../api/doctorAppointments';
+import { createEncounter } from '../../api/doctorEncounters';
 import type { Appointment, ApptStatus } from '../../data/appointments';
 import { useAuth } from '../../auth/context';
 import { cn } from '../../lib/cn';
@@ -45,12 +47,57 @@ export default function AppointmentsPage() {
   const doctorName = user?.name ?? 'Doctor';
   const todayLabel = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', weekday: 'long' });
 
+  const navigate = useNavigate();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Appointment | null>(null);
+  const [busy, setBusy] = useState(false);
 
-  // Today's bookings. The grid is a day view, so the range is today only.
+  /** Today only — the grid is a day view. Re-run after every write. */
+  const reload = useCallback(async () => {
+    const day = new Date();
+    const from = new Date(day.getFullYear(), day.getMonth(), day.getDate()).toISOString();
+    const to = new Date(day.getFullYear(), day.getMonth(), day.getDate() + 1).toISOString();
+    const r = await listSchedule({ from, to });
+    const list = r.appointments.map(appointmentFromApi);
+    setAppointments(list);
+    setSelected((cur) => list.find((a) => a.id === cur?.id) ?? list[0] ?? null);
+  }, []);
+
+  /** Every write goes through here so the grid and the rail can never drift. */
+  async function mutate(fn: () => Promise<unknown>) {
+    setBusy(true);
+    setLoadError(null);
+    try {
+      await fn();
+      await reload();
+    } catch (e: unknown) {
+      setLoadError(e instanceof Error ? e.message : 'Action failed');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /**
+   * "Start Consultation" opens the visit note this appointment becomes: it
+   * creates the encounter, marks the slot completed, and lands on the note.
+   */
+  async function startConsultation(a: Appointment) {
+    setBusy(true);
+    setLoadError(null);
+    try {
+      const { encounter } = await createEncounter(a.patientId, { kind: 'visit', subjective: a.notes || a.type });
+      await updateAppointment(a.id, { status: 'completed' }).catch(() => undefined);
+      navigate('/doctor/consultations/' + encounter.id);
+    } catch (e: unknown) {
+      setLoadError(e instanceof Error ? e.message : 'Could not start the consultation');
+      setBusy(false);
+    }
+  }
+
+  // Inlined rather than calling `reload()` here: every setState must sit behind
+  // an await, or react-hooks/set-state-in-effect (an error in this repo) fires.
   useEffect(() => {
     const day = new Date();
     const from = new Date(day.getFullYear(), day.getMonth(), day.getDate()).toISOString();
@@ -114,15 +161,11 @@ export default function AppointmentsPage() {
             <p className="mt-1.5 text-sm text-[#64748B] sm:pl-[57px]">Schedule, manage and track all appointments.</p>
           </div>
           <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto">
-            <button type="button" aria-label="Register a walk-in" onClick={() => console.log('[Clinic OS] Walk-in')} className="flex h-[46px] items-center gap-2 rounded-[11px] border border-[#E2E6F0] bg-white px-5 hover:bg-[#F7F8FC]">
+            <button type="button" aria-label="Register a walk-in" onClick={() => navigate('/doctor/appointments/new')} className="flex h-[46px] items-center gap-2 rounded-[11px] border border-[#E2E6F0] bg-white px-5 hover:bg-[#F7F8FC]">
               <UserRound className="h-[17px] w-[17px] text-[#334155]" />
               <span className="text-sm font-bold text-[#1E2A5A]">Walk-in</span>
             </button>
-            <button type="button" aria-label="More actions" onClick={() => console.log('[Clinic OS] More Actions')} className="flex h-[46px] items-center gap-2 rounded-[11px] border border-[#E2E6F0] bg-white px-[18px] hover:bg-[#F7F8FC]">
-              <span className="text-sm font-bold text-[#1E2A5A]">More Actions</span>
-              <ChevronDown className="h-[17px] w-[17px] text-[#94A3B8]" />
-            </button>
-            <button type="button" aria-label="New appointment" onClick={() => console.log('[Clinic OS] New Appointment')} className="flex h-[46px] items-center gap-2 rounded-[11px] px-[22px] text-white shadow-[0_8px_18px_-8px_rgba(59,79,224,.65)] hover:brightness-105" style={{ background: 'linear-gradient(135deg, #5B5BF0 0%, #3B3FD8 100%)' }}>
+            <button type="button" aria-label="New appointment" onClick={() => navigate('/doctor/appointments/new')} className="flex h-[46px] items-center gap-2 rounded-[11px] px-[22px] text-white shadow-[0_8px_18px_-8px_rgba(59,79,224,.65)] hover:brightness-105" style={{ background: 'linear-gradient(135deg, #5B5BF0 0%, #3B3FD8 100%)' }}>
               <Plus className="h-[18px] w-[18px]" />
               <span className="text-sm font-bold">New Appointment</span>
             </button>
@@ -206,7 +249,7 @@ export default function AppointmentsPage() {
                         {h === LUNCH_HOUR ? (
                           <p className="flex h-[50px] items-center justify-center text-[13px] font-medium text-[#64748B]">Lunch Break</p>
                         ) : h === EMPTY_HOUR ? (
-                          <button type="button" onClick={() => console.log('[Clinic OS] Add Appointment', h)}
+                          <button type="button" onClick={() => navigate('/doctor/appointments/new')}
                             className="flex h-[50px] w-full items-center justify-center gap-2 rounded-[10px] border-[1.5px] border-dashed border-[#DDE3F5] transition-colors hover:border-[#3B4FE0] hover:bg-[#F5F7FF]">
                             <Plus className="h-4 w-4 text-[#3B4FE0]" />
                             <span className="text-[13.5px] font-semibold text-[#3B4FE0]">Add Appointment</span>
@@ -356,17 +399,21 @@ export default function AppointmentsPage() {
           </dl>
 
           <div className="mt-7 grid grid-cols-3 gap-2.5">
-            {([[Calendar, 'Reschedule', false], [Pencil, 'Edit', false], [Trash2, 'Cancel', true]] as const).map(([Icon, label, danger]) => (
-              <button key={label} type="button" aria-label={danger ? 'Cancel appointment' : label}
-                onClick={() => console.log('[Clinic OS]', label, selected.id)}
-                className={cn('flex h-11 items-center justify-center gap-2 rounded-[10px] border border-[#E2E6F0] bg-white text-[13px] font-bold transition-colors',
+            {([
+              [Calendar, 'Reschedule', false, () => navigate('/doctor/appointments/new?edit=' + selected.id)],
+              [Pencil, 'Patient', false, () => navigate('/doctor/patients/' + selected.patientId)],
+              [Trash2, 'Cancel', true, () => void mutate(() => updateAppointment(selected.id, { status: 'cancelled' }))],
+            ] as const).map(([Icon, label, danger, act]) => (
+              <button key={label} type="button" aria-label={danger ? 'Cancel appointment' : label} disabled={busy}
+                onClick={act}
+                className={cn('flex h-11 items-center justify-center gap-2 rounded-[10px] border border-[#E2E6F0] bg-white text-[13px] font-bold transition-colors disabled:opacity-50',
                   danger ? 'text-[#EF4444] hover:bg-[#FEF2F2]' : 'text-[#1E2A5A] hover:bg-[#F7F8FC]')}>
                 <Icon className={cn('h-4 w-4', danger ? 'text-[#EF4444]' : 'text-[#334155]')} />
                 {label}
               </button>
             ))}
           </div>
-          <button type="button" onClick={() => console.log('[Clinic OS] Start Consultation', selected.id)}
+          <button type="button" disabled={busy} onClick={() => void startConsultation(selected)}
             className="mt-3 h-[50px] w-full rounded-[11px] text-[14.5px] font-bold text-white shadow-[0_8px_18px_-8px_rgba(59,79,224,.65)] hover:brightness-105"
             style={{ background: 'linear-gradient(135deg, #5B5BF0 0%, #3B3FD8 100%)' }}>
             Start Consultation

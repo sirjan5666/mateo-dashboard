@@ -10,9 +10,7 @@ import {
   Loader2,
   Plus,
   Search,
-  SlidersHorizontal,
   UserRound,
-  UserRoundPlus,
 } from 'lucide-react';
 import { AGE_GROUPS, GENDERS, SORTS, ageParts, formatDate, fromApi } from '../../data/patients';
 import { listPatients } from '../../api/doctorPatients';
@@ -197,15 +195,6 @@ export default function PatientsList() {
         </div>
 
         <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto">
-          <button
-            type="button"
-            aria-label="Import patients"
-            onClick={() => console.log('[Clinic OS] Import Patients')}
-            className="flex h-[46px] flex-1 items-center justify-center gap-2.5 rounded-[11px] border border-[#E2E6F0] bg-white px-5 shadow-[0_1px_2px_rgba(16,24,40,.04)] transition-colors hover:bg-[#F7F8FC] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4F63F5] focus-visible:ring-offset-2 sm:flex-none"
-          >
-            <UserRoundPlus className="h-[18px] w-[18px] text-[#3B4FE0]" />
-            <span className="text-[14.5px] font-bold text-[#1E2A5A]">Import Patients</span>
-          </button>
           <Link
             to="/doctor/patients/new"
             aria-label="Register a new patient"
@@ -240,16 +229,6 @@ export default function PatientsList() {
         <SelectPill label="Gender" width="148px" value={genderFilter} onChange={(v) => { setGenderFilter(v); setPage(1); }} options={GENDERS} />
 
         <div className="ml-auto flex items-center gap-3">
-          <button
-            type="button"
-            aria-label="More filters"
-            onClick={() => console.log('[Clinic OS] More Filters')}
-            className="flex h-[46px] items-center gap-2 rounded-[10px] border border-[#E4E8F1] bg-white px-4 transition-colors hover:bg-[#F7F8FC] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4F63F5] focus-visible:ring-offset-2"
-          >
-            <SlidersHorizontal className="h-[17px] w-[17px] text-[#3B4FE0]" />
-            <span className="text-[13.5px] font-semibold text-[#334155]">More Filters</span>
-            <ChevronDown className="h-[17px] w-[17px] text-[#94A3B8]" />
-          </button>
           <button
             type="button"
             aria-label="Export filtered patients as CSV"

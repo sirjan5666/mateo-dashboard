@@ -8,6 +8,8 @@ import { mailerConfigured, sendMail } from './mailer.js';
 
 export interface ParentInviteInput {
   to: string;
+  /** The doctor this invite belongs to — without it the row is invisible in their Email Logs. */
+  doctorUserId?: string;
   parentName: string;
   babyName: string;
   doctorName: string;
@@ -41,6 +43,7 @@ export async function sendParentInviteEmail(input: ParentInviteInput): Promise<b
     to: input.to,
     subject: `Your Mateo dashboard for ${input.babyName} is ready`,
     text: lines.join('\n'),
+    doctorUserId: input.doctorUserId,
   });
   return true;
 }

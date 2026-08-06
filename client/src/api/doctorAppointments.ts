@@ -13,6 +13,10 @@ export interface Appointment {
   mode: AppointmentMode;
   status: AppointmentStatus;
   reason: string | null;
+  /** Booking-time clinical context, encrypted at rest server-side. */
+  symptoms: string | null;
+  notes: string | null;
+  locationId: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -22,13 +26,12 @@ export interface CreateAppointmentInput {
   durationMin?: number;
   mode?: AppointmentMode;
   reason?: string;
+  symptoms?: string;
+  notes?: string;
+  locationId?: string;
 }
-export interface UpdateAppointmentInput {
-  start?: string;
-  durationMin?: number;
-  mode?: AppointmentMode;
+export interface UpdateAppointmentInput extends Partial<CreateAppointmentInput> {
   status?: AppointmentStatus;
-  reason?: string;
 }
 
 export function listSchedule(params: { from?: string; to?: string; status?: AppointmentStatus } = {}) {

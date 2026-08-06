@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { BarChart3, ExternalLink, IdCard, Monitor, MoreVertical, Pencil, Syringe, Trash2 } from 'lucide-react';
+import { BarChart3, ExternalLink, Monitor, MoreVertical, Pencil, Syringe } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { Patient } from '../../../../data/patients';
 import { cn } from '../../../../lib/cn';
@@ -14,29 +14,23 @@ interface MenuEntry {
 }
 
 /**
- * Item 6 reads "More Options" but carries a destructive icon and colour in the
- * reference. Reproduced as specified; `tone` is a prop so the label or the
- * styling can be corrected later without touching this component.
+ * Every entry goes somewhere real. Immunisations and growth records live in the
+ * Patient Workspace tabs, so those two deep-link into the workspace rather than
+ * opening a second, separate view of the same records.
  */
 const ENTRIES: MenuEntry[] = [
   { label: 'View Patient Workspace', icon: Monitor },
-  { label: 'Vaccination Records', icon: Syringe, external: true },
-  { label: 'Growth Chart', icon: BarChart3, external: true },
+  { label: 'Medical History', icon: Syringe },
+  { label: 'Growth Charts', icon: BarChart3 },
   { label: 'Edit Patient', icon: Pencil, dividerBefore: true },
-  { label: 'Download ID Card', icon: IdCard },
-  { label: 'More Options', icon: Trash2, tone: 'danger', dividerBefore: true },
 ];
 
 export function PatientRowMenu({
   patient,
   sheetOnMobile = false,
-  onOpenVaccination,
-  onOpenGrowth,
 }: {
   patient: Patient;
   sheetOnMobile?: boolean;
-  onOpenVaccination?: () => void;
-  onOpenGrowth?: () => void;
 }) {
   const patientName = patient.name;
   const navigate = useNavigate();
@@ -129,11 +123,8 @@ export function PatientRowMenu({
                   role="menuitem"
                   autoFocus={i === 0}
                   onClick={() => {
-                    if (e.label === 'Vaccination Records' && onOpenVaccination) onOpenVaccination();
-                    else if (e.label === 'Growth Chart' && onOpenGrowth) onOpenGrowth();
-                    else if (e.label === 'View Patient Workspace') navigate(`/doctor/patients/${patient.id}`);
-                    else if (e.label === 'Edit Patient') navigate('/doctor/patients/new');
-                    else console.log('[Clinic OS]', e.label, patientName);
+                    if (e.label === 'Edit Patient') navigate(`/doctor/patients/new?edit=${patient.id}`);
+                    else navigate(`/doctor/patients/${patient.id}`);
                     setOpen(false);
                     triggerRef.current?.focus();
                   }}

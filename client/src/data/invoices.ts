@@ -10,6 +10,8 @@ export type InvoiceStatus = 'Paid' | 'Pending' | 'Partially Paid' | 'Overdue' | 
 export type PaymentMode = 'UPI' | 'Card' | 'Cash' | 'Net Banking' | null;
 
 export interface Invoice {
+  /** Server id. Empty on the mock rows below, which are layout fixtures only. */
+  id: string;
   no: string;
   patient: string;
   patientId: string;
@@ -26,16 +28,16 @@ export interface Invoice {
 }
 
 export const INVOICES: Invoice[] = [
-  { no: 'INV-2025-1248', patient: 'Aarav Mehta', patientId: 'PT-0002486', age: '4y 2m', phone: '+91 98765 43210', date: '12 May 2025', amount: 2450, paid: 2450, due: 0, status: 'Paid', mode: 'UPI', tint: '#EEF2FF', fg: '#3B4FE0' },
-  { no: 'INV-2025-1247', patient: 'Myra Kapoor', patientId: 'PT-0002485', age: '2y 11m', phone: '+91 91234 56789', date: '12 May 2025', amount: 1850, paid: 1850, due: 0, status: 'Paid', mode: 'Card', tint: '#F5F0FF', fg: '#8B5CF6' },
-  { no: 'INV-2025-1246', patient: 'Kabir Singh', patientId: 'PT-0002484', age: '6y 5m', phone: '+91 99887 77665', date: '12 May 2025', amount: 1200, paid: 0, due: 1200, status: 'Pending', mode: null, tint: '#ECFDF5', fg: '#16A34A' },
-  { no: 'INV-2025-1245', patient: 'Siya Verma', patientId: 'PT-0002483', age: '3y 4m', phone: '+91 90123 44556', date: '12 May 2025', amount: 950, paid: 950, due: 0, status: 'Paid', mode: 'Cash', tint: '#FFF7ED', fg: '#B45309' },
-  { no: 'INV-2025-1244', patient: 'Ishaan Gupta', patientId: 'PT-0002482', age: '5y 0m', phone: '+91 98712 33445', date: '11 May 2025', amount: 2300, paid: 1800, due: 500, status: 'Partially Paid', mode: 'UPI', tint: '#EFF6FF', fg: '#2563EB' },
-  { no: 'INV-2025-1243', patient: 'Anaya Reddy', patientId: 'PT-0002481', age: '1y 8m', phone: '+91 88990 11223', date: '11 May 2025', amount: 1600, paid: 0, due: 1600, status: 'Overdue', mode: null, tint: '#FCDCE4', fg: '#BE123C' },
-  { no: 'INV-2025-1242', patient: 'Vivaan Patel', patientId: 'PT-0002480', age: '7y 3m', phone: '+91 93211 55667', date: '10 May 2025', amount: 2750, paid: 2750, due: 0, status: 'Paid', mode: 'Card', tint: '#D7F5EE', fg: '#0E9F8F' },
-  { no: 'INV-2025-1241', patient: 'Avni Sharma', patientId: 'PT-0002479', age: '4y 3m', phone: '+91 98123 77889', date: '10 May 2025', amount: 1050, paid: 0, due: 1050, status: 'Pending', mode: 'Net Banking', tint: '#EDE9FE', fg: '#6D5AE0' },
-  { no: 'INV-2025-1240', patient: 'Rohan Malhotra', patientId: 'PT-0002478', age: '3y 1m', phone: '+91 97654 32101', date: '09 May 2025', amount: 850, paid: 850, due: 0, status: 'Paid', mode: 'UPI', tint: '#E0F5EA', fg: '#12A150' },
-  { no: 'INV-2025-1239', patient: 'Meera Iyer', patientId: 'PT-0002477', age: '6y 6m', phone: '+91 96543 21098', date: '09 May 2025', amount: 1400, paid: 0, due: 1400, status: 'Overdue', mode: null, tint: '#FDE8CF', fg: '#F59E0B' },
+  { id: '', no: 'INV-2025-1248', patient: 'Aarav Mehta', patientId: 'PT-0002486', age: '4y 2m', phone: '+91 98765 43210', date: '12 May 2025', amount: 2450, paid: 2450, due: 0, status: 'Paid', mode: 'UPI', tint: '#EEF2FF', fg: '#3B4FE0' },
+  { id: '', no: 'INV-2025-1247', patient: 'Myra Kapoor', patientId: 'PT-0002485', age: '2y 11m', phone: '+91 91234 56789', date: '12 May 2025', amount: 1850, paid: 1850, due: 0, status: 'Paid', mode: 'Card', tint: '#F5F0FF', fg: '#8B5CF6' },
+  { id: '', no: 'INV-2025-1246', patient: 'Kabir Singh', patientId: 'PT-0002484', age: '6y 5m', phone: '+91 99887 77665', date: '12 May 2025', amount: 1200, paid: 0, due: 1200, status: 'Pending', mode: null, tint: '#ECFDF5', fg: '#16A34A' },
+  { id: '', no: 'INV-2025-1245', patient: 'Siya Verma', patientId: 'PT-0002483', age: '3y 4m', phone: '+91 90123 44556', date: '12 May 2025', amount: 950, paid: 950, due: 0, status: 'Paid', mode: 'Cash', tint: '#FFF7ED', fg: '#B45309' },
+  { id: '', no: 'INV-2025-1244', patient: 'Ishaan Gupta', patientId: 'PT-0002482', age: '5y 0m', phone: '+91 98712 33445', date: '11 May 2025', amount: 2300, paid: 1800, due: 500, status: 'Partially Paid', mode: 'UPI', tint: '#EFF6FF', fg: '#2563EB' },
+  { id: '', no: 'INV-2025-1243', patient: 'Anaya Reddy', patientId: 'PT-0002481', age: '1y 8m', phone: '+91 88990 11223', date: '11 May 2025', amount: 1600, paid: 0, due: 1600, status: 'Overdue', mode: null, tint: '#FCDCE4', fg: '#BE123C' },
+  { id: '', no: 'INV-2025-1242', patient: 'Vivaan Patel', patientId: 'PT-0002480', age: '7y 3m', phone: '+91 93211 55667', date: '10 May 2025', amount: 2750, paid: 2750, due: 0, status: 'Paid', mode: 'Card', tint: '#D7F5EE', fg: '#0E9F8F' },
+  { id: '', no: 'INV-2025-1241', patient: 'Avni Sharma', patientId: 'PT-0002479', age: '4y 3m', phone: '+91 98123 77889', date: '10 May 2025', amount: 1050, paid: 0, due: 1050, status: 'Pending', mode: 'Net Banking', tint: '#EDE9FE', fg: '#6D5AE0' },
+  { id: '', no: 'INV-2025-1240', patient: 'Rohan Malhotra', patientId: 'PT-0002478', age: '3y 1m', phone: '+91 97654 32101', date: '09 May 2025', amount: 850, paid: 850, due: 0, status: 'Paid', mode: 'UPI', tint: '#E0F5EA', fg: '#12A150' },
+  { id: '', no: 'INV-2025-1239', patient: 'Meera Iyer', patientId: 'PT-0002477', age: '6y 6m', phone: '+91 96543 21098', date: '09 May 2025', amount: 1400, paid: 0, due: 1400, status: 'Overdue', mode: null, tint: '#FDE8CF', fg: '#F59E0B' },
 ];
 
 export const BILLING_KPIS = [
@@ -114,6 +116,7 @@ export function invoiceFromApi(i: InvoiceListItem, idx = 0): Invoice {
     : overdue ? 'Overdue'
     : 'Pending';
   return {
+    id: i.id,
     no: i.number,
     patient: i.patientName,
     patientId: i.patientId,

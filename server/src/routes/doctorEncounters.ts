@@ -8,7 +8,8 @@ import { auditAccess, recordAudit } from '../middleware/audit.js';
 import { requireConsent } from '../middleware/requireConsent.js';
 import { Encounter, ENCOUNTER_KINDS } from '../models/Encounter.js';
 import type { IEncounter } from '../models/Encounter.js';
-import { decryptOptional } from '../lib/crypto/fieldCipher.js';
+import { decryptField, decryptOptional } from '../lib/crypto/fieldCipher.js';
+import { Patient } from '../models/Patient.js';
 import type { IPatient } from '../models/Patient.js';
 
 // Clinical encounters (SOAP visit notes). Doctor-role-gated + tenant-scoped. SOAP
@@ -78,6 +79,33 @@ router.post('/patients/:id/encounters', loadOwnedPatient, requireConsent('treatm
     outcome: 'allow',
   });
   res.status(201).json({ encounter: publicEncounter(encounter) });
+});
+
+// GET /api/doctor/encounters/:encounterId — one visit note plus enough patient
+// identity to render its header. Tenant-scoped, so an id from another doctor's
+// clinic simply 404s.
+router.get('/encounters/:encounterId', auditAccess('encounter'), async (req, res) => {
+  const { encounterId } = req.params;
+  const encounter = isValidObjectId(encounterId)
+    ? await Encounter.findOne(scopeToDoctor(req, { _id: encounterId }))
+    : null;
+  if (!encounter) {
+    res.status(404).json({ error: 'Encounter not found' });
+    return;
+  }
+  const patient = await Patient.findOne(scopeToDoctor(req, { _id: encounter.patientId }));
+  res.json({
+    encounter: publicEncounter(encounter),
+    patient: patient
+      ? {
+        id: patient._id,
+        displayName: decryptField(patient.displayName),
+        dob: decryptOptional(patient.dob) ?? null,
+        sex: patient.sex,
+        phone: decryptOptional(patient.phone) ?? null,
+      }
+      : null,
+  });
 });
 
 // PATCH /api/doctor/encounters/:encounterId — amend a note (tenant-scoped load, .save()).

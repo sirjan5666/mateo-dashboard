@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router';
 import { Area, AreaChart, Bar, BarChart, Cell, Pie, PieChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from 'recharts';
 import {
-  ArrowUp, Loader2, BarChart3, Calendar, CalendarDays, ChevronDown, ChevronRight, ClipboardList, Copy,
+  ArrowUp, Loader2, BarChart3, Calendar, CalendarDays, ChevronDown, ChevronRight, Copy,
   Download, FileClock, FileText, IndianRupee, Receipt, Stethoscope, UserRound, Users,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -75,10 +76,45 @@ function DonutCard({ title, id, total, totalLabel, data }: {
   );
 }
 
+/** Each quick report is a shortcut to the screen that actually holds those numbers. */
+const QUICK_REPORT_LINK: Record<string, string> = {
+  'Appointments Report': '/doctor/appointments',
+  'Consultations Report': '/doctor/patients',
+  'Revenue Report': '/doctor/revenue',
+  'Patient Demographics': '/doctor/patients',
+  'Billing & Collection Report': '/doctor/revenue',
+  'Outstanding Report': '/doctor/revenue',
+};
+
+/** RFC-4180 enough for Excel: quote everything, double the inner quotes. */
+const csvCell = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+
 export default function ReportsAnalytics() {
+  const navigate = useNavigate();
   const [report, setReport] = useState<DoctorReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  /**
+   * Exports exactly the figures on screen, client-side. No server report
+   * generator exists, and a button that silently does nothing is worse than
+   * one that hands the doctor the same numbers they are looking at.
+   */
+  function exportCsv() {
+    if (!report) return;
+    const a = analyticsFromReport(report);
+    const rows: string[][] = [['Metric', 'Value']];
+    for (const k of a.kpis) rows.push([k.label, String(k.value)]);
+    rows.push([], ['Period', 'Revenue (INR)']);
+    for (const m of a.revenueBars) rows.push([m.period, String(m.value)]);
+    const blob = new Blob([rows.map((r) => r.map(csvCell).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `mateo-report-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -148,7 +184,7 @@ export default function ReportsAnalytics() {
               <span className="text-[13.5px] font-bold text-[#0F172A]">{a.comparison}</span>
               <ChevronDown className="ml-auto h-[17px] w-[17px] text-[#94A3B8]" />
             </button>
-            <button type="button" aria-label="Export report" onClick={() => console.log('[Clinic OS] Export Report')} className="flex h-[46px] items-center gap-2 rounded-[11px] border border-[#E2E6F0] bg-white px-5 hover:bg-[#F7F8FC]">
+            <button type="button" aria-label="Export report" onClick={exportCsv} className="flex h-[46px] items-center gap-2 rounded-[11px] border border-[#E2E6F0] bg-white px-5 hover:bg-[#F7F8FC]">
               <Download className="h-[17px] w-[17px] text-[#334155]" />
               <span className="text-[13.5px] font-bold text-[#1E2A5A]">Export Report</span>
             </button>
@@ -325,7 +361,7 @@ export default function ReportsAnalytics() {
               const Icon = ICONS[q.icon] ?? FileText;
               return (
                 <li key={q.label}>
-                  <button type="button" onClick={() => console.log('[Clinic OS]', q.label)}
+                  <button type="button" onClick={() => navigate(QUICK_REPORT_LINK[q.label] ?? '/doctor/charts')}
                     className={cn('flex h-11 w-full items-center gap-3 px-[18px] text-left transition-colors hover:bg-[#FAFBFF]', i > 0 && 'border-t border-[#F1F3F9]')}>
                     <Icon className="h-[17px] w-[17px] shrink-0 text-[#64748B]" />
                     <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-[#334155]">{q.label}</span>
@@ -337,14 +373,6 @@ export default function ReportsAnalytics() {
           </ul>
         </section>
 
-        <section className={`${CARD} px-[18px] pb-5 pt-[18px]`}>
-          <h2 className={H2}>Custom Report</h2>
-          <p className="mt-[5px] text-[12.5px] text-[#64748B]">Generate report with custom filters</p>
-          <button type="button" onClick={() => console.log('[Clinic OS] Create Custom Report')} className="mt-3.5 flex h-[46px] w-full items-center justify-center gap-2.5 rounded-[10px] border border-[#DDE3F5] bg-white text-[13.5px] font-bold text-[#3B4FE0] hover:bg-[#F5F7FF]">
-            <ClipboardList className="h-[17px] w-[17px]" />
-            Create Custom Report
-          </button>
-        </section>
 
         <section className={`${CARD} px-[18px] pb-4 pt-[18px]`}>
           <div className="flex items-center">

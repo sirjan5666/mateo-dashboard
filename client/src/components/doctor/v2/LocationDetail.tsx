@@ -95,7 +95,8 @@ export function LocationTimings({ location }: { location: ClinicLocation }) {
 
 // ── detail pane ──────────────────────────────────────────────────────────────
 
-export function LocationDetail({ location }: { location: ClinicLocation }) {
+/** `onEditDetails` is owned by whoever renders the form; without it the button is hidden. */
+export function LocationDetail({ location, onEditDetails }: { location: ClinicLocation; onEditDetails?: () => void }) {
   const { clinics } = useActiveLocation();
   const clinicCount = clinics.length;
   const isOverall = location.id === 'overall';
@@ -134,11 +135,11 @@ export function LocationDetail({ location }: { location: ClinicLocation }) {
             {isOverall && (
               <span className="rounded-[8px] bg-[#EEF2FF] px-[11px] py-1 text-[11px] font-bold text-[#3B4FE0]">Overall</span>
             )}
-            {!isOverall && (
+            {!isOverall && onEditDetails && (
               <button
                 type="button"
                 aria-label={`Edit details for ${location.name}`}
-                onClick={() => console.log('[Clinic OS] Edit Details', location.id)}
+                onClick={onEditDetails}
                 className="flex h-[38px] items-center gap-2 rounded-[9px] border border-[#E2E6F0] bg-white px-4 transition-colors hover:bg-[#F7F8FC] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4F63F5] focus-visible:ring-offset-2 sm:ml-auto"
               >
                 <Pencil className="h-[15px] w-[15px] text-[#334155]" />

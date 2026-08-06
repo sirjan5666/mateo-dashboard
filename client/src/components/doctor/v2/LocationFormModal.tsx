@@ -31,7 +31,7 @@ function validate(v: LocationInput): Errors {
 
 const BLANK: LocationInput = {
   name: '', code: '', addressLine: '', city: '', state: '', pincode: '',
-  phone: '', email: '', services: [], openingHours: '',
+  phone: '', email: '', services: [], openingHours: '', drugLicenceNo: '', gstin: '',
 };
 
 /** Add New Location, and the same form in edit mode from the row menu. */
@@ -58,6 +58,7 @@ function LocationForm({
           city: editing.city, state: editing.state, pincode: editing.pincode,
           phone: editing.phone ?? '', email: editing.email ?? '',
           services: editing.services, openingHours: editing.openingHours ?? '',
+          drugLicenceNo: editing.drugLicenceNo ?? '', gstin: editing.gstin ?? '',
         }
       : BLANK,
   );
@@ -206,6 +207,20 @@ function LocationForm({
             <label htmlFor="lf-hours" className={LABEL}>Opening Hours</label>
             <input id="lf-hours" value={form.openingHours} onChange={(e) => set('openingHours', e.target.value)}
               placeholder="Mon–Sat, 09:00 AM – 09:00 PM" {...inputProps('openingHours')} />
+          </div>
+
+          {/* Printed verbatim on pharmacy invoices — left blank, nothing is printed. */}
+          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label htmlFor="lf-licence" className={LABEL}>Drug Licence No.</label>
+              <input id="lf-licence" value={form.drugLicenceNo} onChange={(e) => set('drugLicenceNo', e.target.value)}
+                placeholder="As issued by the state authority" {...inputProps('drugLicenceNo')} />
+            </div>
+            <div>
+              <label htmlFor="lf-gstin" className={LABEL}>GSTIN</label>
+              <input id="lf-gstin" value={form.gstin} onChange={(e) => set('gstin', e.target.value.toUpperCase())}
+                placeholder="15-character GSTIN" {...inputProps('gstin')} />
+            </div>
           </div>
 
           <fieldset className="mt-4">

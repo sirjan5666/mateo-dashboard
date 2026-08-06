@@ -140,3 +140,23 @@ export function WhatsAppIcon({ size = 16, color = '#25D366' }: { size?: number; 
     </svg>
   );
 }
+
+import { useActiveLocation } from '../../../../lib/doctorLocation';
+
+/**
+ * The clinic whose details head a printed pharmacy document.
+ *
+ * Reads the doctor's OWN clinic record. Licence number and GSTIN are printed
+ * only when the doctor has entered them (Locations → Edit) — a pharmacy invoice
+ * must never carry an invented statutory identifier.
+ */
+export function useBillingClinic() {
+  const { clinics, active } = useActiveLocation();
+  const clinic = active && active.id !== 'overall' ? active : clinics.find((c) => c.primary) ?? clinics[0] ?? null;
+  return {
+    name: clinic?.name ?? 'Your clinic',
+    address: clinic ? [clinic.addressLine, clinic.cityLine].filter(Boolean).join(', ') : 'Add a clinic in Locations',
+    licence: clinic?.drugLicenceNo ?? '',
+    gstin: clinic?.gstin ?? '',
+  };
+}

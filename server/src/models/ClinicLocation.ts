@@ -19,6 +19,10 @@ export interface IClinicLocation {
   phone?: string;
   email?: string;
   services: string[];
+  /** Statutory identifiers printed on pharmacy invoices. Optional — a clinic
+   *  without them prints nothing rather than a placeholder. */
+  drugLicenceNo?: string;
+  gstin?: string;
   openingHours?: string;
   /** Exactly one location per doctor carries this — enforced in the route. */
   isPrimary: boolean;
@@ -41,6 +45,8 @@ const clinicLocationSchema = new Schema<IClinicLocation>(
     phone: { type: String, trim: true, maxlength: 24 },
     email: { type: String, trim: true, lowercase: true, maxlength: 160 },
     services: { type: [String], default: [] },
+    drugLicenceNo: { type: String, trim: true, maxlength: 40 },
+    gstin: { type: String, trim: true, uppercase: true, maxlength: 20 },
     openingHours: { type: String, trim: true, maxlength: 120 },
     isPrimary: { type: Boolean, default: false },
     active: { type: Boolean, default: true },

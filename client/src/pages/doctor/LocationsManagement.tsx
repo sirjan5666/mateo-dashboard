@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router';
 import { Building2, IndianRupee, Loader2, Plus, SquareChartGantt, Users, X } from 'lucide-react';
 import { useActiveLocation, inr, OVERALL } from '../../lib/doctorLocation';
 import type { LocationId } from '../../lib/doctorLocation';
@@ -68,6 +69,7 @@ function AnalyticsPanel({ data, onClose }: { data: LocationAnalytics | null; onC
 }
 
 export default function LocationsManagement() {
+  const [search, setSearch] = useSearchParams();
   const { clinics, refresh, activeId, setActiveId } = useActiveLocation();
   const [raw, setRaw] = useState<ClinicLocationDto[]>([]);
   const [selectedId, setSelectedId] = useState<LocationId | null>(null);
@@ -116,6 +118,24 @@ export default function LocationsManagement() {
     if (!analyticsOpen || analytics) return;
     void getLocationAnalytics().then(setAnalytics).catch(() => setAnalytics(null));
   }, [analyticsOpen, analytics]);
+
+  /**
+   * Deep links from the location switcher: `?add=1` opens a blank form and
+   * `?edit=<id>` opens that clinic's. Both are DERIVED during render — an effect
+   * that calls setState here would cascade a render on every navigation.
+   * Closing the dialog clears the param, which is what actually dismisses it.
+   */
+  const addParam = search.get('add');
+  const editParam = search.get('edit');
+  const linkedEdit = editParam ? raw.find((l) => l.id === editParam) ?? null : null;
+  const dialogOpen = formOpen || !!addParam || !!editParam;
+  const dialogEditing = formOpen ? editing : linkedEdit;
+
+  const closeDialog = useCallback(() => {
+    setFormOpen(false);
+    setEditing(null);
+    if (addParam || editParam) setSearch({}, { replace: true });
+  }, [addParam, editParam, setSearch]);
 
   const selected = useMemo(
     () => clinics.find((c) => c.id === selectedId) ?? clinics[0] ?? null,
@@ -231,7 +251,16 @@ export default function LocationsManagement() {
           {/* min-w-0 lets the 1fr column shrink below its content width. */}
           {selected && (
             <div className="flex min-w-0 flex-col gap-5">
-              <LocationDetailCard location={selected} />
+              <LocationDetailCard
+                location={selected}
+                onEdit={selectedRaw ? () => { setEditing(selectedRaw); setFormOpen(true); } : undefined}
+                onSetPrimary={selectedRaw && !selectedRaw.isPrimary && selectedRaw.active
+                  ? () => void act(selectedRaw.id, () => setPrimaryLocation(selectedRaw.id))
+                  : undefined}
+                onDeactivate={selectedRaw && selectedRaw.active
+                  ? () => void act(selectedRaw.id, () => setLocationActive(selectedRaw.id, false))
+                  : undefined}
+              />
               <div className="grid grid-cols-1 gap-5 lg:grid-cols-[0.52fr_0.75fr]">
                 <LocationTimingsCard location={selected} />
                 <LocationServicesCard location={selected} />
@@ -260,9 +289,9 @@ export default function LocationsManagement() {
       )}
 
       <LocationFormModal
-        open={formOpen}
-        editing={editing}
-        onClose={() => setFormOpen(false)}
+        open={dialogOpen}
+        editing={dialogEditing}
+        onClose={closeDialog}
         onSaved={async () => {
           await reloadAll();
           // A brand-new practice has nothing scoped yet — land on Overall.

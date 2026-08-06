@@ -7,12 +7,7 @@ export class ApiError extends Error {
   }
 }
 
-export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const res = await fetch(`/api${path}`, {
-    ...options,
-    headers: { 'Content-Type': 'application/json', ...options.headers },
-    credentials: 'same-origin',
-  });
+async function unwrap<T>(res: Response): Promise<T> {
   if (!res.ok) {
     let message = `Request failed (${res.status})`;
     try {
@@ -34,4 +29,22 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
     throw new ApiError(res.status, message);
   }
   return res.json() as Promise<T>;
+}
+
+export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const res = await fetch(`/api${path}`, {
+    ...options,
+    headers: { 'Content-Type': 'application/json', ...options.headers },
+    credentials: 'same-origin',
+  });
+  return unwrap<T>(res);
+}
+
+/**
+ * Multipart POST. Deliberately sets NO Content-Type — the browser has to add the
+ * multipart boundary itself, and forcing application/json would break the parse.
+ */
+export async function apiForm<T>(path: string, form: FormData): Promise<T> {
+  const res = await fetch(`/api${path}`, { method: 'POST', body: form, credentials: 'same-origin' });
+  return unwrap<T>(res);
 }

@@ -57,7 +57,19 @@ function LocationStatTile({ tile }: { tile: StatTile }) {
 
 // ── detail card ──────────────────────────────────────────────────────────────
 
-export function LocationDetailCard({ location }: { location: ClinicLocation }) {
+/**
+ * The actions live on LocationsManagement (it owns the form modal and the
+ * optimistic refresh), so this card takes them as callbacks. An action without
+ * a handler is simply not offered rather than rendered inert.
+ */
+export function LocationDetailCard({
+  location, onEdit, onSetPrimary, onDeactivate,
+}: {
+  location: ClinicLocation;
+  onEdit?: () => void;
+  onSetPrimary?: () => void;
+  onDeactivate?: () => void;
+}) {
   const isOverall = location.id === 'overall';
 
   return (
@@ -134,27 +146,31 @@ export function LocationDetailCard({ location }: { location: ClinicLocation }) {
         {/* Actions — pinned to the card's top-right on wide screens so they never
             widen the identity row; they flow inline below lg. */}
         <div className="flex shrink-0 items-center gap-2.5 lg:absolute lg:right-7 lg:top-6">
-          {!isOverall && (
+          {!isOverall && onEdit && (
             <button
               type="button"
               aria-label={`Edit ${location.name}`}
-              onClick={() => console.log('[Clinic OS] Edit Location', location.id)}
+              onClick={onEdit}
               className="flex h-10 items-center gap-2 rounded-[10px] border border-[#E2E6F0] bg-white px-[17px] transition-colors hover:bg-[#F7F8FC] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4F63F5] focus-visible:ring-offset-2"
             >
               <Pencil className="h-[15px] w-[15px] text-[#334155]" />
               <span className="text-[13.5px] font-bold text-[#1E2A5A]">Edit Location</span>
             </button>
           )}
-          <RowMenu
-            label={`More actions for ${location.name}`}
-            size={40}
-            bordered
-            items={[
-              { label: 'Edit Location', icon: Pencil, onSelect: () => console.log('[Clinic OS] Edit Location', location.id) },
-              { label: 'Set as Primary', icon: Star, onSelect: () => console.log('[Clinic OS] Set as Primary', location.id) },
-              { label: 'Deactivate', icon: PowerOff, danger: true, onSelect: () => console.log('[Clinic OS] Deactivate', location.id) },
-            ]}
-          />
+          {!isOverall && (onEdit || onSetPrimary || onDeactivate) && (
+            <RowMenu
+              label={`More actions for ${location.name}`}
+              size={40}
+              bordered
+              items={[
+                ...(onEdit ? [{ label: 'Edit Location', icon: Pencil, onSelect: onEdit }] : []),
+                ...(onSetPrimary && !location.primary ? [{ label: 'Set as Primary', icon: Star, onSelect: onSetPrimary }] : []),
+                ...(onDeactivate && location.status === 'active'
+                  ? [{ label: 'Deactivate', icon: PowerOff, danger: true, onSelect: onDeactivate }]
+                  : []),
+              ]}
+            />
+          )}
         </div>
       </div>
 

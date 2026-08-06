@@ -45,6 +45,9 @@ export interface ClinicLocation {
   city: string;
   state: string;
   pincode: string;
+  /** Statutory identifiers for printed pharmacy invoices. Empty = print nothing. */
+  drugLicenceNo: string;
+  gstin: string;
   teamMembers: number;
   patients: number | null;
   revenueMtd: number | null;
@@ -102,6 +105,8 @@ export function fromDto(dto: ClinicLocationDto): ClinicLocation {
     city: dto.city,
     state: dto.state,
     pincode: dto.pincode,
+    drugLicenceNo: dto.drugLicenceNo ?? '',
+    gstin: dto.gstin ?? '',
     teamMembers: dto.teamMembers ?? 0,
     patients: dto.patients ?? 0,
     revenueMtd: dto.revenueMtd ?? 0,
@@ -135,6 +140,9 @@ export function aggregateOf(clinics: ClinicLocation[]): ClinicLocation {
     city: '',
     state: '',
     pincode: '',
+    // Statutory ids belong to ONE clinic — the combined row has none.
+    drugLicenceNo: '',
+    gstin: '',
     teamMembers: clinics.reduce((t, c) => t + c.teamMembers, 0),
     patients: clinics.reduce((t, c) => t + (c.patients ?? 0), 0),
     revenueMtd: clinics.reduce((t, c) => t + (c.revenueMtd ?? 0), 0),

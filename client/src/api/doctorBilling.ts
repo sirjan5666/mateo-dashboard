@@ -46,6 +46,13 @@ export function listInvoices(status?: InvoiceStatus) {
   return api<{ invoices: InvoiceListItem[] }>(`/doctor/billing/invoices${status ? `?status=${status}` : ''}`);
 }
 
+/** One patient's invoice history. Only this variant carries `summary`. */
+export function listPatientInvoices(patientId: string) {
+  return api<{ invoices: (InvoiceListItem & { summary: string | null })[] }>(
+    `/doctor/billing/invoices?patientId=${encodeURIComponent(patientId)}`,
+  );
+}
+
 export function getInvoice(id: string) {
   return api<{ invoice: InvoiceFull }>(`/doctor/billing/invoices/${id}`);
 }

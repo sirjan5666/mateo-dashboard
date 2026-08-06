@@ -19,6 +19,7 @@ import {
   Mail,
   Menu,
   MessageSquare,
+  Pill,
   Receipt,
   Search,
   Settings,
@@ -76,6 +77,7 @@ const NAV: NavGroup[] = [
     section: 'Patients',
     items: [
       { to: '/doctor/patients', label: 'Patients', icon: Users },
+      { to: '/doctor/prescriptions', label: 'Prescriptions', icon: Pill },
       { to: '/doctor/charts', label: 'Analytics', icon: Activity },
       { to: '/doctor/reports', label: 'Reports', icon: FileText },
       { to: '/doctor/messages', label: 'Messages', icon: MessageSquare },
@@ -563,7 +565,6 @@ export function DoctorShell({ unread = 0, globals }: { unread?: number; globals?
       refresh: refreshLocations,
     };
     // setActiveId is stable in behaviour (writes to state + localStorage only).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeId, clinics, locLoading, refreshLocations]);
 
   return (

@@ -32,6 +32,13 @@ export function listPrescriptions(patientId: string) {
   return api<{ prescriptions: Prescription[] }>(`/doctor/patients/${patientId}/prescriptions`);
 }
 
+/** Clinic-wide: every medication this doctor has prescribed, with patient names. */
+export function listAllPrescriptions(status?: RxStatus) {
+  return api<{ prescriptions: (Prescription & { patientName: string })[] }>(
+    `/doctor/prescriptions${status ? `?status=${status}` : ''}`,
+  );
+}
+
 export function createPrescription(patientId: string, body: PrescriptionInput & { drug: string }) {
   return api<{ prescription: Prescription }>(`/doctor/patients/${patientId}/prescriptions`, { method: 'POST', body: JSON.stringify(body) });
 }

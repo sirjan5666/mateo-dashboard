@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { ArrowLeft, Check, CircleCheck, Download, Loader2, Mail, Maximize2, Plus, Printer, X } from 'lucide-react';
-import { PHARMACY_LOCATION, amt } from '../../data/pharmacy';
+import { amt } from '../../data/pharmacy';
 import { getBill } from '../../api/pharmacy';
 import type { BillResult } from '../../api/pharmacy';
 import {
   CARD, ChangeStrip, GHOST_BTN, H2, MateoMark, MetaRow, OUTLINE_BTN, PRIMARY_BG, PRIMARY_BTN,
-  Tile, WhatsAppIcon,
+  Tile, WhatsAppIcon, useBillingClinic,
 } from '../../components/doctor/v2/pharmacy/shared';
 import { cn } from '../../lib/cn';
 
@@ -46,6 +46,7 @@ function SummaryRow({ label, value, symbol = true, valueClass = 'text-[#0F172A]'
 
 /** Shared by the inline preview and the fullscreen dialog. */
 function ReceiptDocument({ bill }: { bill: Bill }) {
+  const clinic = useBillingClinic();
   const date = fmtDate(bill.createdAt);
   const time = fmtTime(bill.createdAt);
   return (
@@ -53,10 +54,10 @@ function ReceiptDocument({ bill }: { bill: Bill }) {
       <div className="flex flex-wrap items-start gap-5">
         <MateoMark />
         <div className="min-w-0">
-          <p className="text-[12.5px] font-bold text-[#0F172A]">{PHARMACY_LOCATION.name}</p>
-          <p className="text-[11px] text-[#64748B]">{PHARMACY_LOCATION.address}</p>
-          <p className="text-[11px] text-[#64748B]">Pharmacy Licence No.: {PHARMACY_LOCATION.licenceCompact}</p>
-          <p className="text-[11px] text-[#64748B]">GSTIN: {PHARMACY_LOCATION.gstin}</p>
+          <p className="text-[12.5px] font-bold text-[#0F172A]">{clinic.name}</p>
+          <p className="text-[11px] text-[#64748B]">{clinic.address}</p>
+          {clinic.licence && <p className="text-[11px] text-[#64748B]">Pharmacy Licence No.: {clinic.licence}</p>}
+          {clinic.gstin && <p className="text-[11px] text-[#64748B]">GSTIN: {clinic.gstin}</p>}
         </div>
       </div>
 
@@ -167,6 +168,27 @@ export default function BillSuccess() {
   const [error, setError] = useState<string | null>(null);
   const [full, setFull] = useState(false);
   const closeRef = useRef<HTMLButtonElement>(null);
+
+  /**
+   * Sharing goes through the device's own WhatsApp / mail client. There is no
+   * server-side send, so nothing is claimed to have been delivered — the doctor
+   * completes the send themselves, and the receipt total is never fabricated.
+   */
+  function shareLink(via: 'whatsapp' | 'email'): string {
+    if (!bill) return '#';
+    const lines = [
+      `Receipt ${bill.number}`,
+      `Date: ${fmtDate(bill.createdAt)} ${fmtTime(bill.createdAt)}`,
+      `Amount paid: INR ${amt(bill.payable)}`,
+      `Payment: ${bill.paymentMode.toUpperCase()}`,
+    ];
+    const text = lines.join('\n');
+    if (via === 'whatsapp') {
+      const to = (bill.patient?.phone ?? '').replace(/\D/g, '');
+      return `https://wa.me/${to}?text=${encodeURIComponent(text)}`;
+    }
+    return `mailto:?subject=${encodeURIComponent(`Receipt ${bill.number}`)}&body=${encodeURIComponent(text)}`;
+  }
 
   // A missing id is decided during render, not in the effect, so nothing is set
   // synchronously from inside it.
@@ -391,8 +413,8 @@ export default function BillSuccess() {
             <div className="mt-3.5 flex flex-col gap-2.5">
               {[
                 { icon: <Printer className="h-4 w-4 text-[#334155]" />, label: 'Print Receipt', act: () => window.print() },
-                { icon: <WhatsAppIcon />, label: 'Send on WhatsApp', act: () => console.log('[Clinic OS] WhatsApp', bill.number) },
-                { icon: <Mail className="h-4 w-4 text-[#334155]" />, label: 'Email Receipt', act: () => console.log('[Clinic OS] Email', bill.number) },
+                { icon: <WhatsAppIcon />, label: 'Send on WhatsApp', act: () => window.open(shareLink('whatsapp'), '_blank', 'noopener') },
+                { icon: <Mail className="h-4 w-4 text-[#334155]" />, label: 'Email Receipt', act: () => { window.location.href = shareLink('email'); } },
               ].map((b) => (
                 <button key={b.label} type="button" onClick={b.act}
                   aria-label={`${b.label} for invoice ${bill.number}`}

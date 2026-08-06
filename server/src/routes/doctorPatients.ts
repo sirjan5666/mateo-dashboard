@@ -305,6 +305,7 @@ router.post('/patients/:id/invite-parent', loadOwnedPatient, async (req, res) =>
         parentName: user.name,
         babyName: decryptField(patient.displayName),
         doctorName: req.authUser?.name ?? 'your doctor',
+        doctorUserId: req.userId,
         tempPassword,
       });
       await recordAudit(req, { action: 'update', resourceType: 'parent_access', resourceId: user._id, patientId: patient._id, changedFields: ['password'], outcome: 'allow' });
@@ -368,6 +369,7 @@ router.post('/patients/:id/invite-parent', loadOwnedPatient, async (req, res) =>
     parentName: user.name,
     babyName,
     doctorName: req.authUser?.name ?? 'your doctor',
+        doctorUserId: req.userId,
     tempPassword,
   });
   res.status(201).json({ invite: { email: user.email, emailSent, ...(emailSent ? {} : { tempPassword }) } });

@@ -18,6 +18,9 @@ export interface IDoctorAppointment {
   mode: AppointmentMode;
   status: AppointmentStatus;
   reason?: string; // PHI — encrypted at rest
+  symptoms?: string; // PHI — encrypted at rest
+  notes?: string; // PHI — encrypted at rest
+  locationId?: Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -31,12 +34,15 @@ const appointmentSchema = new Schema<IDoctorAppointment>(
     mode: { type: String, enum: APPOINTMENT_MODES, default: 'in_person' },
     status: { type: String, enum: APPOINTMENT_STATUSES, default: 'scheduled' },
     reason: { type: String },
+    symptoms: { type: String },
+    notes: { type: String },
+    locationId: { type: Schema.Types.ObjectId, ref: 'ClinicLocation', index: true },
   },
   { timestamps: true },
 );
 // Tenant-scoped schedule queries (by time).
 appointmentSchema.index({ doctorUserId: 1, start: 1 });
 
-encryptedFields(appointmentSchema, ['reason']);
+encryptedFields(appointmentSchema, ['reason', 'symptoms', 'notes']);
 
 export const DoctorAppointment = model<IDoctorAppointment>('DoctorAppointment', appointmentSchema);

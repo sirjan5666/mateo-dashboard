@@ -71,15 +71,11 @@ export function PatientsTable({
   sortKey,
   sortDir,
   onSort,
-  onOpenVaccination,
-  onOpenGrowth,
 }: {
   patients: Patient[];
   sortKey: SortKey | null;
   sortDir: SortDir;
   onSort: (k: SortKey) => void;
-  onOpenVaccination?: (p: Patient) => void;
-  onOpenGrowth?: (p: Patient) => void;
 }) {
   const { locations } = useActiveLocation();
   // Clinic name from the live list; an unknown/removed id shows an em dash.
@@ -183,7 +179,7 @@ export function PatientsTable({
               </td>
 
               <td className="border-b border-[#F1F3F9] pr-[22px] group-hover:bg-[#FAFBFF]">
-                <PatientRowMenu patient={p} onOpenVaccination={() => onOpenVaccination?.(p)} onOpenGrowth={() => onOpenGrowth?.(p)} />
+                <PatientRowMenu patient={p} />
               </td>
             </tr>
           ))}

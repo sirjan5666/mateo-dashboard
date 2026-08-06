@@ -34,6 +34,8 @@ import TeamAndRoles from './pages/doctor/TeamAndRoles';
 import CreateSubUser from './pages/doctor/CreateSubUser';
 import PatientsList from './pages/doctor/PatientsList';
 import PatientWorkspace from './pages/doctor/PatientWorkspace';
+import PrescriptionsPage from './pages/doctor/PrescriptionsPage';
+import ConsultationDetails from './pages/doctor/ConsultationDetails';
 import RegisterNewPatient from './pages/doctor/RegisterNewPatient';
 import SettingsPage from './pages/doctor/SettingsPage';
 import AuditLogs from './pages/doctor/AuditLogs';
@@ -46,6 +48,7 @@ import DoctorProfileForm from './pages/doctor/DoctorProfileForm';
 import ReportsAnalytics from './pages/doctor/ReportsAnalytics';
 import BillingInvoices from './pages/doctor/BillingInvoices';
 import AppointmentsPage from './pages/doctor/AppointmentsPage';
+import BookAppointment from './pages/doctor/BookAppointment';
 import DoctorMessages from './pages/doctor/Messages';
 import MyHealth from './pages/portal/MyHealth';
 import MyMessages from './pages/portal/MyMessages';
@@ -69,7 +72,7 @@ import { CartDrawer } from './components/shop/CartDrawer';
 import { CartToast } from './components/shop/CartToast';
 import { SmoothScroll } from './components/SmoothScroll';
 import { CommandPalette } from './components/doctor/CommandPalette';
-import { DoctorScreenStub, DoctorShell } from './components/doctor/v2/DoctorShell';
+import { DoctorShell } from './components/doctor/v2/DoctorShell';
 // Growth pulls in recharts (~350 kB) — code-split so it stays out of the initial bundle.
 const Growth = lazy(() => import('./pages/Growth'));
 
@@ -127,19 +130,22 @@ function AppRoutes() {
           <Route path="/doctor/patients/new" element={<RegisterNewPatient />} />
           <Route path="/doctor/patients/:id" element={<PatientWorkspace />} />
           <Route path="/doctor/appointments" element={<AppointmentsPage />} />
+          <Route path="/doctor/appointments/new" element={<BookAppointment />} />
           <Route path="/doctor/messages" element={<DoctorMessages />} />
           <Route path="/doctor/analytics" element={<ReportsAnalytics />} />
           <Route path="/doctor/reports" element={<ReportsAnalytics />} />
           <Route path="/doctor/profile" element={<DoctorProfileForm />} />
           <Route path="/doctor/settings" element={<SettingsPage />} />
-          <Route path="/doctor/prescriptions" element={<DoctorScreenStub title="Prescriptions" />} />
+          <Route path="/doctor/prescriptions" element={<PrescriptionsPage />} />
+          <Route path="/doctor/consultations/:id" element={<ConsultationDetails />} />
           <Route path="/doctor/charts" element={<ReportsAnalytics />} />
           <Route path="/doctor/pharmacy" element={<PharmacyInventory />} />
           <Route path="/doctor/pharmacy/purchase" element={<NewPurchaseEntry />} />
           <Route path="/doctor/pharmacy/billing" element={<NewBill />} />
           <Route path="/doctor/pharmacy/billing/success" element={<BillSuccess />} />
           <Route path="/doctor/revenue" element={<BillingInvoices />} />
-          <Route path="/doctor/staff" element={<DoctorScreenStub title="Staff" />} />
+          {/* Staff IS Team & Roles — one page, not two. */}
+          <Route path="/doctor/staff" element={<Navigate to="/doctor/team" replace />} />
           <Route path="/doctor/locations" element={<LocationsManagement />} />
           <Route path="/doctor/team" element={<TeamAndRoles />} />
           <Route path="/doctor/team/new" element={<CreateSubUser />} />

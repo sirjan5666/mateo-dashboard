@@ -81,15 +81,35 @@ const createSchema = z.object({
 });
 const patchSchema = z.object({ status: z.enum(['paid', 'unpaid', 'cancelled']) });
 
-// GET /api/doctor/billing/invoices?status= — all of the doctor's invoices.
+// GET /api/doctor/billing/invoices?status=&patientId= — the doctor's invoices.
+//
+// When patientId is given the result set is one patient's history (the Patient
+// Workspace's Invoices tab), so it is small enough to decrypt the first line
+// item of each as a `summary`. The unfiltered list can be 200 rows and stays
+// summary-free — that column is only rendered in the per-patient view.
 router.get('/billing/invoices', auditAccess('invoice'), async (req, res) => {
   const q = req.query.status;
   const status = typeof q === 'string' && (INVOICE_STATUSES as string[]).includes(q) ? (q as InvoiceStatus) : undefined;
-  const invoices = await Invoice.find(scopeToDoctor(req, status ? { status } : {}))
+  const pid = req.query.patientId;
+  const filter: Record<string, unknown> = status ? { status } : {};
+  if (typeof pid === 'string' && pid) {
+    if (!isValidObjectId(pid)) {
+      res.json({ invoices: [] });
+      return;
+    }
+    filter.patientId = pid;
+  }
+  const invoices = await Invoice.find(scopeToDoctor(req, filter))
     .sort({ date: -1, createdAt: -1 })
     .limit(200);
   const names = await namesFor(req, invoices);
-  res.json({ invoices: invoices.map((i) => listShape(i, names.get(i.patientId.toString()) ?? 'Patient')) });
+  const perPatient = typeof pid === 'string' && !!pid;
+  res.json({
+    invoices: invoices.map((i) => {
+      const base = listShape(i, names.get(i.patientId.toString()) ?? 'Patient');
+      return perPatient ? { ...base, summary: parseItems(i.itemsEnc)[0]?.description ?? null } : base;
+    }),
+  });
 });
 
 // GET /api/doctor/billing/invoices/:id — full invoice (decrypts line items).

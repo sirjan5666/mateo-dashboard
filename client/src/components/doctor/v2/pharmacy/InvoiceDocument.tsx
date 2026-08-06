@@ -1,6 +1,6 @@
-import { PHARMACY_LOCATION, amt } from '../../../../data/pharmacy';
+import { amt } from '../../../../data/pharmacy';
 import { rupeesToWords } from '../../../../lib/rupeesToWords';
-import { ChangeStrip, MateoMark, MetaRow } from './shared';
+import { ChangeStrip, MateoMark, MetaRow, useBillingClinic } from './shared';
 
 /** One printed line. Amount is derived here so the preview and the saved bill agree. */
 export interface InvoiceLine {
@@ -54,15 +54,17 @@ export function InvoiceDocument({
   /** Absent while the bill is still a draft — the server issues these on save. */
   meta?: { invoiceNo: string; date: string; time: string; cashier: string; pid?: string; phone?: string };
 }) {
+  const clinic = useBillingClinic();
   return (
     <div className="rounded-[12px] border border-[#ECEEF4] bg-white px-[22px] pb-[22px] pt-5">
       {/* Letterhead */}
       <div className="flex flex-wrap items-start gap-5">
         <MateoMark />
         <div className="min-w-0">
-          <p className="text-[12.5px] font-bold text-[#0F172A]">{PHARMACY_LOCATION.name}</p>
-          <p className="text-[11px] text-[#64748B]">{PHARMACY_LOCATION.address}</p>
-          <p className="text-[11px] text-[#64748B]">Pharmacy Licence No.: {PHARMACY_LOCATION.licence}</p>
+          <p className="text-[12.5px] font-bold text-[#0F172A]">{clinic.name}</p>
+          <p className="text-[11px] text-[#64748B]">{clinic.address}</p>
+          {clinic.licence && <p className="text-[11px] text-[#64748B]">Pharmacy Licence No.: {clinic.licence}</p>}
+          {clinic.gstin && <p className="text-[11px] text-[#64748B]">GSTIN: {clinic.gstin}</p>}
         </div>
         <p className="ml-auto shrink-0 text-[13px] font-extrabold uppercase tracking-[0.04em] text-[#3B4FE0]">Tax Invoice</p>
       </div>
