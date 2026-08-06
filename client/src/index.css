@@ -732,57 +732,114 @@ html.lenis body {
    PDF", so one layout serves both. A separate PDF generator would be a second
    layout free to drift from what the doctor actually saw on screen.
 
-   The sheet is lifted out of the app shell and printed alone at A4. Colours are
-   forced with print-color-adjust so the navy table header and the footer band
-   survive browsers that strip backgrounds by default. */
+   Getting a clinical document onto ONE A4 page took three things, each of which
+   was visibly broken before:
+
+   1. `@page { margin: 0 }`. A non-zero page margin is what makes Chrome stamp
+      its own header and footer — the date, the tab title and the localhost URL
+      — onto a prescription. With zero margin it has nowhere to put them, so the
+      sheet supplies its own padding instead.
+   2. The shell's layout wrappers keep a 234px sidebar gutter, page padding and
+      the impersonation bar's top offset even after the chrome itself is hidden.
+      Left alone they squeeze the sheet into a narrow column on the right.
+   3. The medications table lives in a horizontal scroll box with a min-width.
+      On paper there is nothing to scroll, so the last column was simply cut off. */
 @media print {
   @page {
     size: A4;
-    margin: 10mm;
+    /* Zero — see (1). The sheet pads itself below. */
+    margin: 0;
   }
 
   html,
   body {
+    margin: 0 !important;
+    padding: 0 !important;
     background: #fff !important;
   }
 
-  /* App chrome — sidebar, topbar, toolbars, cart drawer — never prints. */
+  /* App chrome — sidebar, topbar, toolbars, impersonation bar, cart drawer. */
   .no-print,
   [data-doctor-shell-chrome],
   #cart-drawer {
     display: none !important;
   }
 
-  /* Escape the shell's scroll containers and fixed widths so the sheet can
-     paginate normally instead of being clipped to a viewport-sized box. */
+  /* (2) Neutralise the shell's gutters so the sheet gets the full page width. */
+  [data-doctor-shell-layout],
   .rx-print-page,
   .consultation-print {
-    position: static !important;
-    overflow: visible !important;
-    max-width: none !important;
     margin: 0 !important;
     padding: 0 !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    background: #fff !important;
   }
 
   #rx-sheet {
+    width: 100% !important;
     max-width: none !important;
+    margin: 0 !important;
+    /* The page margin the browser is no longer adding. */
+    padding: 9mm 8mm !important;
     border: none !important;
     border-radius: 0 !important;
     box-shadow: none !important;
   }
 
+  /* The navy table header and footer band are the document's identity — keep
+     them in browsers that drop backgrounds by default. */
   #rx-sheet,
   #rx-sheet * {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
 
-  /* Keep a medication row, and each side card, off a page fold. */
-  #rx-sheet tr,
-  #rx-sheet section {
+  /* (3) No scroll box on paper: the table lays out to the page width instead of
+     being clipped at its on-screen min-width. */
+  #rx-sheet .overflow-x-auto {
+    overflow: visible !important;
+  }
+
+  #rx-sheet table {
+    min-width: 0 !important;
+    width: 100% !important;
+    table-layout: fixed;
+  }
+
+  #rx-sheet th,
+  #rx-sheet td {
+    /* Long medicine names wrap rather than forcing the table wider than A4. */
+    overflow-wrap: anywhere;
+  }
+
+  /* Tightened rhythm so a real prescription — three or four medicines, a few
+     investigations and some advice — clears ONE page. Measured, not guessed:
+     the screen layout came to 1232px against 1123px of A4, and the excess was
+     almost entirely whitespace (block gaps, card padding, table row padding)
+     rather than text. Type sizes are untouched: a pharmacist reads this. */
+  #rx-sheet .mt-6 { margin-top: 0.6rem !important; }
+  #rx-sheet .mt-5 { margin-top: 0.55rem !important; }
+  #rx-sheet .pt-7 { padding-top: 0.9rem !important; }
+  /* Patient / doctor card and the investigations + advice cards. */
+  #rx-sheet .py-5 { padding-top: 0.7rem !important; padding-bottom: 0.7rem !important; }
+  #rx-sheet .py-4 { padding-top: 0.55rem !important; padding-bottom: 0.55rem !important; }
+  #rx-sheet .pt-5 { padding-top: 0.7rem !important; }
+  /* Medication rows. */
+  #rx-sheet tbody th,
+  #rx-sheet tbody td { padding-top: 0.4rem !important; padding-bottom: 0.4rem !important; }
+  #rx-sheet .mt-3.5 { margin-top: 0.5rem !important; }
+  #rx-sheet section,
+  #rx-sheet header,
+  #rx-sheet footer {
     break-inside: avoid;
   }
 
+  #rx-sheet tr {
+    break-inside: avoid;
+  }
+
+  /* A prescription long enough to span pages repeats its column headers. */
   #rx-sheet thead {
     display: table-header-group;
   }

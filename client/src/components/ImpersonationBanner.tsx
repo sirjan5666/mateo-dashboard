@@ -34,7 +34,7 @@ export function ImpersonationBanner() {
 
   return (
     <div
-      className="fixed inset-x-0 top-0 z-[100] flex h-11 items-center gap-3 bg-gradient-to-r from-amber-500 to-orange-500 px-4 text-sm font-medium text-white shadow-md lg:px-6"
+      className="no-print fixed inset-x-0 top-0 z-[100] flex h-11 items-center gap-3 bg-gradient-to-r from-amber-500 to-orange-500 px-4 text-sm font-medium text-white shadow-md lg:px-6"
       role="status"
     >
       <Eye className="h-4 w-4 shrink-0" />

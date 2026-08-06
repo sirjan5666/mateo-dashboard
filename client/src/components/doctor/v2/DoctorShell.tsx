@@ -573,6 +573,7 @@ export function DoctorShell({ unread = 0, globals }: { unread?: number; globals?
         data-theme="pro"
         data-mode="light"
         data-panel="doctor"
+        data-doctor-shell-layout
         className="min-h-screen bg-[#F6F7FB] pt-[var(--imp-bar-h)]"
       >
         {/* Desktop rail */}
@@ -609,9 +610,9 @@ export function DoctorShell({ unread = 0, globals }: { unread?: number; globals?
           </div>
         )}
 
-        <div className={cn('transition-[padding] duration-200', collapsed ? 'lg:pl-[76px]' : 'lg:pl-[234px]')}>
+        <div data-doctor-shell-layout className={cn('transition-[padding] duration-200', collapsed ? 'lg:pl-[76px]' : 'lg:pl-[234px]')}>
           <TopBar unread={unread} onOpenNav={() => setNavOpen(true)} railCollapsed={collapsed} />
-          <main className="px-4 pb-8 pt-5 sm:px-6 lg:px-8 lg:pb-8 lg:pt-7">
+          <main data-doctor-shell-layout className="px-4 pb-8 pt-5 sm:px-6 lg:px-8 lg:pb-8 lg:pt-7">
             <Suspense fallback={<p className="text-sm text-[#64748B]">Loading…</p>}>
               <Outlet />
             </Suspense>
