@@ -57,6 +57,63 @@ const apptShape = {
 const createSchema = z.object(apptShape);
 const updateSchema = z.object({ ...apptShape, start: z.string().min(1).optional(), status: z.enum(APPOINTMENT_STATUSES).optional() });
 
+/**
+ * A doctor cannot be in two places at once, so an appointment may not overlap
+ * another SCHEDULED one. Cancelled/completed/no-show slots are free again.
+ *
+ * The client greys out taken slots, but that is cosmetic — a stale tab, two
+ * browser windows or a direct API call would all double-book without this.
+ * `ignoreId` lets a reschedule move an appointment without colliding with itself.
+ */
+async function findClash(
+  req: Parameters<typeof scopeToDoctor>[0],
+  start: Date,
+  durationMin: number,
+  ignoreId?: string,
+) {
+  const end = new Date(start.getTime() + durationMin * 60_000);
+  const filter = scopeToDoctor(req, {
+    status: 'scheduled',
+    // Any appointment starting before this one ends; the overlap test below
+    // then rules out those that finish before it starts.
+    start: { $lt: end },
+  });
+  if (ignoreId) filter._id = { $ne: ignoreId };
+  const near = await DoctorAppointment.find(filter).sort({ start: -1 }).limit(50);
+  return near.find((a) => new Date(a.start.getTime() + a.durationMin * 60_000) > start) ?? null;
+}
+
+/** Doctor-facing, so the clashing time is IST wall-clock, not a raw ISO string. */
+const IST_TIME = new Intl.DateTimeFormat('en-IN', {
+  timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true,
+});
+const clashMessage = (a: HydratedDocument<IDoctorAppointment>) =>
+  `That slot overlaps an appointment already booked for ${IST_TIME.format(a.start)}`;
+
+/** Bookings are for the future. A small grace window covers walk-ins being
+ *  entered a few minutes after the patient actually arrived. */
+const BACKDATE_GRACE_MS = 60 * 60_000;
+
+function tooFarInThePast(start: Date): boolean {
+  return start.getTime() < Date.now() - BACKDATE_GRACE_MS;
+}
+
+// GET /api/doctor/appointments/:appointmentId — one appointment.
+// The reschedule form loads from here; scanning a date window instead would
+// silently show a blank form for anything outside it.
+router.get('/appointments/:appointmentId', auditAccess('appointment'), async (req, res) => {
+  const { appointmentId } = req.params;
+  const appt = isValidObjectId(appointmentId)
+    ? await DoctorAppointment.findOne(scopeToDoctor(req, { _id: appointmentId }))
+    : null;
+  if (!appt) {
+    res.status(404).json({ error: 'Appointment not found' });
+    return;
+  }
+  const [shaped] = await withPatients(req, [appt]);
+  res.json({ appointment: shaped });
+});
+
 // GET /api/doctor/appointments?from=&to=&status= — the doctor's schedule.
 router.get('/appointments', auditAccess('appointment'), async (req, res) => {
   const q = z
@@ -86,11 +143,28 @@ router.post('/patients/:id/appointments', loadOwnedPatient, requireConsent('trea
   const locationId = body.locationId && isValidObjectId(body.locationId)
     ? (await ClinicLocation.findOne(scopeToDoctor(req, { _id: body.locationId })))?._id ?? null
     : null;
+
+  const start = new Date(body.start);
+  const durationMin = body.durationMin ?? 30;
+  if (Number.isNaN(start.getTime())) {
+    res.status(400).json({ error: 'That date and time could not be read' });
+    return;
+  }
+  if (tooFarInThePast(start)) {
+    res.status(400).json({ error: 'Appointments cannot be booked in the past' });
+    return;
+  }
+  const clash = await findClash(req, start, durationMin);
+  if (clash) {
+    res.status(409).json({ error: clashMessage(clash) });
+    return;
+  }
+
   const appt = new DoctorAppointment({
     doctorUserId: req.userId,
     patientId: patient._id,
-    start: new Date(body.start),
-    durationMin: body.durationMin ?? 30,
+    start,
+    durationMin,
     mode: body.mode ?? 'in_person',
     reason: body.reason || undefined,
     symptoms: body.symptoms || undefined,
@@ -122,8 +196,35 @@ router.patch('/appointments/:appointmentId', async (req, res) => {
   }
   const body = updateSchema.parse(req.body);
   const changed: string[] = [];
+
+  // A move has to clear the same guards as a fresh booking — otherwise the
+  // reschedule path is a hole straight through them. Checked BEFORE anything is
+  // mutated, so a rejected move leaves the appointment exactly as it was.
+  const movingTo = body.start !== undefined ? new Date(body.start) : appt.start;
+  const movingDuration = body.durationMin ?? appt.durationMin;
+  if (Number.isNaN(movingTo.getTime())) {
+    res.status(400).json({ error: 'That date and time could not be read' });
+    return;
+  }
+  const rescheduling = body.start !== undefined || body.durationMin !== undefined;
+  // Status-only writes (cancel, mark completed) must never be blocked by these.
+  if (rescheduling) {
+    if (tooFarInThePast(movingTo)) {
+      res.status(400).json({ error: 'Appointments cannot be moved into the past' });
+      return;
+    }
+    // A cancelled appointment being revived still must not land on a taken slot.
+    if ((body.status ?? appt.status) === 'scheduled') {
+      const clash = await findClash(req, movingTo, movingDuration, appt.id as string);
+      if (clash) {
+        res.status(409).json({ error: clashMessage(clash) });
+        return;
+      }
+    }
+  }
+
   if (body.start !== undefined) {
-    appt.start = new Date(body.start);
+    appt.start = movingTo;
     changed.push('start');
   }
   if (body.durationMin !== undefined) {

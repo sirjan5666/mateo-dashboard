@@ -43,6 +43,14 @@ export function listSchedule(params: { from?: string; to?: string; status?: Appo
   return api<{ appointments: Appointment[] }>(`/doctor/appointments${suffix}`);
 }
 
+/**
+ * One appointment by id. The reschedule form loads from here — scanning a date
+ * window instead silently produced a blank form for anything outside it.
+ */
+export function getAppointment(appointmentId: string) {
+  return api<{ appointment: Appointment }>(`/doctor/appointments/${appointmentId}`);
+}
+
 export function listPatientAppointments(patientId: string) {
   return api<{ appointments: Appointment[] }>(`/doctor/patients/${patientId}/appointments`);
 }
