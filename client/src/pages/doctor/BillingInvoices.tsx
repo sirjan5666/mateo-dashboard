@@ -1,12 +1,15 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import {
-  AlertCircle, ArrowUp, Banknote, Calendar, ChevronDown, ChevronLeft, ChevronRight, CircleCheck,
+  Loader2,
+  AlertCircle, Banknote, Calendar, ChevronDown, ChevronLeft, ChevronRight, CircleCheck,
   Clock, CreditCard, Download, FileText, IndianRupee, Landmark, Phone, Plus, Search, Send,
   SlidersHorizontal, X,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { BILLING_KPIS, INVOICES, INVOICE_DETAIL, STATUS_STYLE, money } from '../../data/invoices';
+import { STATUS_STYLE, billingKpisFrom, invoiceFromApi, money } from '../../data/invoices';
+import { getBillingSummary, listInvoices } from '../../api/doctorBilling';
+import type { BillingSummary } from '../../api/doctorBilling';
 import type { Invoice, PaymentMode } from '../../data/invoices';
 import { RowMenu } from '../../components/doctor/v2/RowMenu';
 import { cn } from '../../lib/cn';
@@ -43,7 +46,32 @@ function ModeCell({ mode }: { mode: PaymentMode }) {
 
 export default function BillingInvoices() {
   const navigate = useNavigate();
-  const [selected, setSelected] = useState<Invoice | null>(INVOICES[0]);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [summary, setSummary] = useState<BillingSummary | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Invoice | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void Promise.all([listInvoices(), getBillingSummary()])
+      .then(([r, sum]) => {
+        if (cancelled) return;
+        const list = r.invoices.map(invoiceFromApi);
+        setInvoices(list);
+        setSummary(sum);
+        setSelected(list[0] ?? null);
+      })
+      .catch((e: unknown) => {
+        if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Could not load invoices');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState('all');
   const [mode, setMode] = useState('all');
@@ -51,17 +79,36 @@ export default function BillingInvoices() {
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return INVOICES.filter((i) =>
+    return invoices.filter((i) =>
       (!q || i.no.toLowerCase().includes(q) || i.patient.toLowerCase().includes(q)) &&
       (status === 'all' || i.status === status) &&
       (mode === 'all' || i.mode === mode));
-  }, [query, status, mode]);
+  }, [invoices, query, status, mode]);
 
   const allChecked = checked.length === rows.length && rows.length > 0;
   const selectPill = 'h-11 rounded-[10px] border border-[#E4E8F1] bg-white pl-3.5 pr-9 text-[13px] font-semibold text-[#334155] appearance-none focus:border-[#3B4FE0] focus:outline-none';
 
+  if (loading) {
+    return (
+      <p className="flex items-center gap-2 py-16 text-sm text-[#64748B]">
+        <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+        Loading invoices…
+      </p>
+    );
+  }
+
+  // The span the listed invoices actually cover — no fixed range.
+  const dateRangeLabel = invoices.length
+    ? `${invoices[invoices.length - 1].date} – ${invoices[0].date}`
+    : 'No invoices yet';
+
   return (
     <div>
+      {loadError && (
+        <p role="alert" className="mb-4 rounded-[10px] border border-[#F8D4D4] bg-[#FDF0F0] px-4 py-3 text-[13px] font-medium text-[#B42318]">
+          {loadError}
+        </p>
+      )}
       {/* Header */}
       <div className="mb-4 flex flex-wrap items-start gap-4">
         <div className="min-w-0 flex-1">
@@ -87,7 +134,7 @@ export default function BillingInvoices() {
 
       {/* KPI row */}
       <div className="mb-4 grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
-        {BILLING_KPIS.map((k) => {
+        {billingKpisFrom(invoices, summary).map((k) => {
           const Icon = KPI_ICONS[k.icon] ?? FileText;
           return (
             <div key={k.id} className="rounded-[13px] border border-[#ECEEF4] bg-white px-[18px] pb-3.5 pt-4">
@@ -98,14 +145,7 @@ export default function BillingInvoices() {
                 <span className="min-w-0 text-[12.5px] font-medium text-[#64748B]">{k.label}</span>
               </div>
               <p className="mt-2 font-display text-[22px] font-extrabold leading-none tracking-[-0.02em] text-[#0F172A] tabular-nums">{k.value}</p>
-              <p className="mt-[9px] flex items-center">
-                <span className="text-[11.5px] font-medium text-[#94A3B8]">This Month</span>
-                <span className="ml-auto flex items-center gap-1">
-                  <ArrowUp aria-hidden="true" className="h-[11px] w-[11px]" style={{ color: k.deltaFg }} />
-                  <span className="text-[11.5px] font-bold" style={{ color: k.deltaFg }}>{k.delta}</span>
-                  <span className="sr-only">up</span>
-                </span>
-              </p>
+              <p className="mt-[9px] text-[11.5px] font-medium text-[#94A3B8]">All invoices</p>
             </div>
           );
         })}
@@ -132,7 +172,7 @@ export default function BillingInvoices() {
               </div>
               <button type="button" aria-label="Change date range" className="flex h-11 w-[232px] items-center gap-2 rounded-[10px] border border-[#E4E8F1] bg-white px-3.5 hover:bg-[#F7F8FC]">
                 <Calendar className="h-[17px] w-[17px] text-[#3B4FE0]" />
-                <span className="text-[13px] font-semibold text-[#0F172A]">01 May 2025 - 12 May 2025</span>
+                <span className="text-[13px] font-semibold text-[#0F172A]">{dateRangeLabel}</span>
                 <ChevronDown className="ml-auto h-4 w-4 text-[#94A3B8]" />
               </button>
               <div className="relative">
@@ -227,12 +267,14 @@ export default function BillingInvoices() {
           </div>
 
           <div className="flex flex-col gap-4 border-t border-[#ECEEF4] p-[18px] lg:flex-row lg:items-center">
-            <p className="text-[12.5px] font-medium text-[#64748B]">Showing 1 to {rows.length} of 1,248 invoices</p>
+            <p className="text-[12.5px] font-medium text-[#64748B]">
+              Showing {rows.length} of {invoices.length} invoice{invoices.length === 1 ? '' : 's'}
+            </p>
             <div className="flex items-center gap-2 lg:mx-auto">
               <button type="button" disabled aria-label="Previous page" className="grid h-9 w-9 place-items-center rounded-[9px] border border-[#E2E6F0] text-[#64748B] opacity-45">
                 <ChevronLeft className="h-4 w-4" />
               </button>
-              {['1', '2', '3', '…', '125'].map((p, i) => p === '…' ? (
+              {['1'].map((p, i) => p === '…' ? (
                 <span key={i} aria-hidden="true" className="grid h-9 w-9 place-items-center text-[13px] font-semibold text-[#94A3B8]">…</span>
               ) : (
                 <button key={p} type="button" aria-current={p === '1' ? 'page' : undefined}
@@ -267,7 +309,7 @@ export default function BillingInvoices() {
                 <span className="font-display text-[17px] font-extrabold text-[#0F172A]">{selected.no}</span>
                 <span className="rounded-[7px] px-[11px] py-1 text-[11px] font-bold" style={{ background: STATUS_STYLE[selected.status].bg, color: STATUS_STYLE[selected.status].fg }}>{selected.status}</span>
               </p>
-              <p className="mt-1.5 text-[12.5px] font-medium text-[#64748B]">{selected.no === INVOICE_DETAIL.no ? INVOICE_DETAIL.issuedAt : `${selected.date}, 10:30 AM`}</p>
+              <p className="mt-1.5 text-[12.5px] font-medium text-[#64748B]">{selected.date}</p>
             </div>
 
             <div className="border-b border-[#ECEEF4] px-[18px] pb-[18px] pt-4">
@@ -290,7 +332,7 @@ export default function BillingInvoices() {
             <div className="border-b border-[#ECEEF4] px-[18px] pb-[18px] pt-4">
               <h3 className="text-[13.5px] font-bold text-[#0F172A]">Billing Summary</h3>
               <dl className="mt-3 flex flex-col gap-3">
-                {(selected.no === INVOICE_DETAIL.no ? INVOICE_DETAIL.lines : [{ label: 'Consultation Fee', value: money(selected.amount), fg: '#0F172A' }]).map((l) => (
+                {[{ label: 'Invoice total', value: money(selected.amount), fg: '#0F172A' }].map((l) => (
                   <div key={l.label} className="flex items-center justify-between gap-3">
                     <dt className="text-[12.5px] font-medium text-[#475569]">{l.label}</dt>
                     <dd className="text-[12.5px] font-semibold" style={{ color: l.fg }}>
@@ -320,11 +362,12 @@ export default function BillingInvoices() {
             <div className="border-b border-[#ECEEF4] px-[18px] pb-[18px] pt-4">
               <h3 className="text-[13.5px] font-bold text-[#0F172A]">Payment Information</h3>
               <dl className="mt-3 flex flex-col gap-3">
-                {(selected.no === INVOICE_DETAIL.no ? INVOICE_DETAIL.payment : [
-                  { label: 'Payment Mode', value: selected.mode ?? '—' },
-                  { label: 'Transaction ID', value: selected.mode ? 'TXN…' : '—' },
-                  { label: 'Paid On', value: selected.paid ? `${selected.date}, 10:35 AM` : '—' },
-                ]).map((p) => (
+                {/* An invoice stores no payment mode or reference yet, so those read as em dashes. */}
+                {[
+                  { label: 'Amount Paid', value: money(selected.paid) },
+                  { label: 'Balance Due', value: money(selected.due) },
+                  { label: 'Status', value: selected.status },
+                ].map((p) => (
                   <div key={p.label} className="flex items-center justify-between gap-3">
                     <dt className="text-[12.5px] font-medium text-[#475569]">{p.label}</dt>
                     <dd className="text-[12.5px] font-semibold text-[#0F172A]">{p.value}</dd>

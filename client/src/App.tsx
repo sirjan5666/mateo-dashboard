@@ -45,7 +45,7 @@ import BillSuccess from './pages/pharmacy/BillSuccess';
 import DoctorProfileForm from './pages/doctor/DoctorProfileForm';
 import AnalyticsPage from './pages/doctor/Analytics';
 import Reports from './pages/doctor/Reports';
-import Billing from './pages/doctor/Billing';
+import BillingInvoices from './pages/doctor/BillingInvoices';
 import Schedule from './pages/doctor/Schedule';
 import DoctorMessages from './pages/doctor/Messages';
 import MyHealth from './pages/portal/MyHealth';
@@ -131,7 +131,6 @@ function AppRoutes() {
           <Route path="/doctor/messages" element={<DoctorMessages />} />
           <Route path="/doctor/analytics" element={<AnalyticsPage />} />
           <Route path="/doctor/reports" element={<Reports />} />
-          <Route path="/doctor/billing" element={<Billing />} />
           <Route path="/doctor/schedule" element={<Schedule />} />
           <Route path="/doctor/profile" element={<DoctorProfileForm />} />
           <Route path="/doctor/settings" element={<SettingsPage />} />
@@ -150,7 +149,7 @@ function AppRoutes() {
           <Route path="/doctor/pharmacy/purchase" element={<NewPurchaseEntry />} />
           <Route path="/doctor/pharmacy/billing" element={<NewBill />} />
           <Route path="/doctor/pharmacy/billing/success" element={<BillSuccess />} />
-          <Route path="/doctor/revenue" element={<Billing />} />
+          <Route path="/doctor/revenue" element={<BillingInvoices />} />
           <Route path="/doctor/staff" element={<DoctorScreenStub title="Staff" />} />
           <Route path="/doctor/locations" element={<LocationsManagement />} />
           <Route path="/doctor/team" element={<TeamAndRoles />} />
