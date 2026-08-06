@@ -13,9 +13,13 @@ export interface IDoctorPrescription {
   doctorUserId: Types.ObjectId; // TENANT
   patientId: Types.ObjectId;
   encounterId?: Types.ObjectId; // optional link to the visit it was issued at
+  /** The printed prescription this line belongs to, when it was issued as one. */
+  documentId?: Types.ObjectId;
   date: Date;
   drug: string; // PHI — encrypted at rest
-  dose?: string; // PHI — encrypted at rest (e.g. "250 mg")
+  /** Composition / strength as printed, e.g. "250 mg / 5 ml". PHI — encrypted. */
+  strength?: string;
+  dose?: string; // PHI — encrypted at rest (e.g. "5 ml")
   frequency?: string; // PHI — encrypted (e.g. "Twice daily")
   duration?: string; // PHI — encrypted (e.g. "5 days")
   instructions?: string; // PHI — encrypted (e.g. "After food")
@@ -29,8 +33,10 @@ const prescriptionSchema = new Schema<IDoctorPrescription>(
     doctorUserId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     patientId: { type: Schema.Types.ObjectId, ref: 'Patient', required: true, index: true },
     encounterId: { type: Schema.Types.ObjectId, ref: 'Encounter' },
+    documentId: { type: Schema.Types.ObjectId, ref: 'PrescriptionDocument', index: true },
     date: { type: Date, required: true },
     drug: { type: String, required: true },
+    strength: { type: String },
     dose: { type: String },
     frequency: { type: String },
     duration: { type: String },
@@ -42,6 +48,6 @@ const prescriptionSchema = new Schema<IDoctorPrescription>(
 // Tenant-scoped patient medication list (newest first).
 prescriptionSchema.index({ doctorUserId: 1, patientId: 1, date: -1 });
 
-encryptedFields(prescriptionSchema, ['drug', 'dose', 'frequency', 'duration', 'instructions']);
+encryptedFields(prescriptionSchema, ['drug', 'strength', 'dose', 'frequency', 'duration', 'instructions']);
 
 export const DoctorPrescription = model<IDoctorPrescription>('DoctorPrescription', prescriptionSchema);

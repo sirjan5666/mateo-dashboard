@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router';
 import { Area, ComposedChart, CartesianGrid, Line, ResponsiveContainer, XAxis, YAxis } from 'recharts';
 import {
-  AlertCircle, AlertTriangle, ChevronRight, CircleCheck, Info, Plus, Printer, TrendingUp,
+  AlertCircle, AlertTriangle, ChevronRight, CircleCheck, FileText, Info, Plus, Printer, TrendingUp,
 } from 'lucide-react';
 import { useAuth } from '../../../../auth/context';
 import { createPrescription, listPrescriptions, updatePrescription } from '../../../../api/doctorPrescriptions';
@@ -10,6 +11,8 @@ import { plotGrowth } from '../../../../api/doctorGrowth';
 import type { BandPoint, Indicator, PlotResult } from '../../../../api/doctorGrowth';
 import { createGrowthRecord, deleteGrowthRecord, listGrowthRecords } from '../../../../api/doctorPatientClinical';
 import type { GrowthRecord } from '../../../../api/doctorPatientClinical';
+import { listPrescriptionDocs } from '../../../../api/doctorPrescriptionDocs';
+import { IssuePrescriptionModal } from '../IssuePrescriptionModal';
 import { RowMenu } from '../RowMenu';
 import { CARD, Dash, H2, PanelState, Tile, swatch, useLoad, wsDate } from './shared';
 import type { WorkspacePanelProps } from './shared';
@@ -528,16 +531,26 @@ function groupByDate(rows: Prescription[]): RxGroup[] {
 const BLANK_MED = { drug: '', dose: '', frequency: '', duration: '', instructions: '' };
 
 export function PrescriptionsPanel({ patientId, patientName }: WorkspacePanelProps) {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [selected, setSelected] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  const [issuing, setIssuing] = useState(false);
   const [med, setMed] = useState(BLANK_MED);
   const [saving, setSaving] = useState(false);
   const [writeError, setWriteError] = useState<string | null>(null);
 
-  const { data, loading, error, reload } = useLoad(() => listPrescriptions(patientId), [patientId]);
+  const { data, loading, error, reload } = useLoad(
+    async () => {
+      const [rx, docs] = await Promise.all([listPrescriptions(patientId), listPrescriptionDocs(patientId)]);
+      return { prescriptions: rx.prescriptions, documents: docs.documents };
+    },
+    [patientId],
+  );
   const groups = useMemo(() => groupByDate(data?.prescriptions ?? []), [data]);
   const current = groups.find((g) => g.date === selected) ?? groups[0] ?? null;
+  const documents = useMemo(() => data?.documents ?? [], [data]);
+  const latestDoc = documents[0] ?? null;
 
   const doctorName = user?.name ?? 'Doctor';
   const doctorInitials = doctorName.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase()).join('');
@@ -587,15 +600,25 @@ export function PrescriptionsPanel({ patientId, patientName }: WorkspacePanelPro
           <Tile icon="FileText" tint="#EEF1FE" fg="#4F46E5" size={34} glyph={17} radius={9} />
           <h2 className="font-display text-[17px] font-extrabold tracking-[-0.02em] text-[#0F172A]">Prescriptions</h2>
           <div className="ml-auto flex flex-wrap items-center gap-[11px]">
-            <button type="button" onClick={() => window.print()} className="flex h-[42px] items-center gap-2 rounded-[10px] border border-[#E2E6F0] bg-white px-5 hover:bg-[#F7F8FC]">
-              <Printer className="h-4 w-4 text-[#334155]" />
-              <span className="text-[13px] font-bold text-[#1E2A5A]">Print</span>
-            </button>
+            {/* Printing the app page produced app chrome; the printable thing is
+                an issued prescription sheet, so this opens the newest one. */}
+            {latestDoc && (
+              <button type="button" onClick={() => navigate(`/doctor/prescriptions/${latestDoc.id}`)}
+                className="flex h-[42px] items-center gap-2 rounded-[10px] border border-[#E2E6F0] bg-white px-5 hover:bg-[#F7F8FC]">
+                <Printer className="h-4 w-4 text-[#334155]" />
+                <span className="text-[13px] font-bold text-[#1E2A5A]">Print latest</span>
+              </button>
+            )}
             <button type="button" onClick={() => setAdding((v) => !v)}
+              className="flex h-[42px] items-center gap-2 rounded-[10px] border border-[#E2E6F0] bg-white px-5 hover:bg-[#F7F8FC]">
+              <Plus className="h-[17px] w-[17px] text-[#334155]" />
+              <span className="text-[13px] font-bold text-[#1E2A5A]">Add Medication</span>
+            </button>
+            <button type="button" onClick={() => setIssuing(true)}
               className="flex h-[42px] items-center gap-2 rounded-[10px] px-5 text-white shadow-[0_8px_18px_-8px_rgba(59,79,224,.65)] hover:brightness-105"
               style={{ background: 'linear-gradient(135deg, #5B5BF0 0%, #3B3FD8 100%)' }}>
-              <Plus className="h-[17px] w-[17px]" />
-              <span className="text-[13px] font-bold">Add Medication</span>
+              <FileText className="h-[17px] w-[17px]" />
+              <span className="text-[13px] font-bold">Issue Prescription</span>
             </button>
           </div>
         </div>
@@ -775,17 +798,43 @@ export function PrescriptionsPanel({ patientId, patientName }: WorkspacePanelPro
         )}
 
         <section className={`${CARD} px-5 pb-5 pt-[18px]`}>
-          <h2 className={H2}>Dosing Check</h2>
-          <p className="mt-1 text-[12.5px] text-[#64748B]">
-            Paediatric dose checking lives in the dosing tool — it needs the child&rsquo;s current weight.
-          </p>
-          <button type="button" onClick={() => setAdding(true)}
-            className="mt-3.5 flex h-10 w-full items-center justify-center gap-2 rounded-[10px] border border-[#E2E6F0] bg-white text-[13px] font-bold text-[#1E2A5A] hover:bg-[#F7F8FC]">
-            <Plus className="h-4 w-4" />
-            Add Medication
-          </button>
+          <h2 className={H2}>Issued Prescriptions</h2>
+          <p className="mt-1 text-[12.5px] text-[#64748B]">Printable sheets, newest first.</p>
+          {documents.length ? (
+            <ul className="mt-3">
+              {documents.map((d, i) => (
+                <li key={d.id}>
+                  <button type="button" aria-label={`Open prescription ${d.number}`}
+                    onClick={() => navigate(`/doctor/prescriptions/${d.id}`)}
+                    className={cn('flex h-[58px] w-full items-center gap-3 text-left transition-colors hover:bg-[#FAFBFF]', i > 0 && 'border-t border-[#F1F3F9]')}>
+                    <Tile icon="FileText" tint="#EEF1FE" fg="#4F46E5" size={30} glyph={15} radius={8} />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[12.5px] font-bold text-[#0F172A]">{d.number}</span>
+                      <span className="block text-[11.5px] text-[#64748B]">
+                        {wsDate(d.issuedAt)} • {d.medicineCount} medicine{d.medicineCount === 1 ? '' : 's'}
+                      </span>
+                    </span>
+                    <Printer className="h-4 w-4 shrink-0 text-[#94A3B8]" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-3.5 rounded-[11px] bg-[#F7F8FC] px-4 py-6 text-center text-[12.5px] font-medium text-[#64748B]">
+              No printable prescription issued yet.
+            </p>
+          )}
         </section>
       </div>
+
+      {issuing && (
+        <IssuePrescriptionModal
+          patientId={patientId}
+          patientName={patientName}
+          onClose={() => setIssuing(false)}
+          onIssued={(docId) => navigate(`/doctor/prescriptions/${docId}`)}
+        />
+      )}
     </div>
   );
 }

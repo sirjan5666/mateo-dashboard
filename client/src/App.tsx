@@ -35,6 +35,7 @@ import CreateSubUser from './pages/doctor/CreateSubUser';
 import PatientsList from './pages/doctor/PatientsList';
 import PatientWorkspace from './pages/doctor/PatientWorkspace';
 import PrescriptionsPage from './pages/doctor/PrescriptionsPage';
+import PrescriptionPrint from './pages/doctor/PrescriptionPrint';
 import ConsultationDetails from './pages/doctor/ConsultationDetails';
 import RegisterNewPatient from './pages/doctor/RegisterNewPatient';
 import SettingsPage from './pages/doctor/SettingsPage';
@@ -137,6 +138,7 @@ function AppRoutes() {
           <Route path="/doctor/profile" element={<DoctorProfileForm />} />
           <Route path="/doctor/settings" element={<SettingsPage />} />
           <Route path="/doctor/prescriptions" element={<PrescriptionsPage />} />
+          <Route path="/doctor/prescriptions/:id" element={<PrescriptionPrint />} />
           <Route path="/doctor/consultations/:id" element={<ConsultationDetails />} />
           <Route path="/doctor/charts" element={<ReportsAnalytics />} />
           <Route path="/doctor/pharmacy" element={<PharmacyInventory />} />

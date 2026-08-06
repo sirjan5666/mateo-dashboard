@@ -46,6 +46,7 @@ import pharmacyRouter from './routes/pharmacy.js';
 import doctorLogsRouter from './routes/doctorLogs.js';
 import doctorDashboardRouter from './routes/doctorDashboard.js';
 import doctorPatientClinicalRouter from './routes/doctorPatientClinical.js';
+import doctorPrescriptionDocsRouter from './routes/doctorPrescriptionDocs.js';
 import portalRouter from './routes/portal.js';
 import { errorHandler } from './middleware/error.js';
 
@@ -153,6 +154,8 @@ export function createApp() {
 
   // Per-patient growth records, notes, documents and immunisations.
   app.use('/api/doctor', doctorPatientClinicalRouter);
+  // Printable prescription documents (header + the medication rows that point at it)
+  app.use('/api/doctor', doctorPrescriptionDocsRouter);
   // Patient portal: read-only record + care messaging (patient role, strictly scoped)
   app.use('/api/portal', portalRouter);
 

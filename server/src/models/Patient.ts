@@ -26,6 +26,7 @@ export interface IPatient {
   dob?: string; // PHI — encrypted ISO date string at rest
   sex: PatientSex;
   phone?: string; // PHI — encrypted at rest
+  address?: string; // PHI — encrypted at rest (printed on prescriptions)
   status: string; // a status key defined by the template
   archivedAt?: Date; // soft-delete
   createdAt: Date;
@@ -45,6 +46,7 @@ const patientSchema = new Schema<IPatient>(
     dob: { type: String },
     sex: { type: String, enum: PATIENT_SEXES, default: 'unspecified' },
     phone: { type: String },
+    address: { type: String },
     status: { type: String, required: true },
     archivedAt: { type: Date },
   },
@@ -56,6 +58,6 @@ patientSchema.index({ doctorUserId: 1, archivedAt: 1 });
 patientSchema.index({ doctorUserId: 1, status: 1 });
 
 // Encrypt PHI demographics at rest (idempotent; decrypt in the response shaper).
-encryptedFields(patientSchema, ['displayName', 'dob', 'phone']);
+encryptedFields(patientSchema, ['displayName', 'dob', 'phone', 'address']);
 
 export const Patient = model<IPatient>('Patient', patientSchema);

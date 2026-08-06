@@ -409,7 +409,7 @@ function TopBar({ unread, onOpenNav, railCollapsed }: { unread: number; onOpenNa
     .join('');
 
   return (
-    <header className="sticky top-[var(--imp-bar-h)] z-30 flex h-[74px] items-center gap-2 border-b border-[#ECEEF4] bg-white px-3 sm:gap-4 sm:px-4 lg:px-6">
+    <header data-doctor-shell-chrome className="sticky top-[var(--imp-bar-h)] z-30 flex h-[74px] items-center gap-2 border-b border-[#ECEEF4] bg-white px-3 sm:gap-4 sm:px-4 lg:px-6">
       <button
         type="button"
         onClick={onOpenNav}
@@ -577,6 +577,7 @@ export function DoctorShell({ unread = 0, globals }: { unread?: number; globals?
       >
         {/* Desktop rail */}
         <aside
+          data-doctor-shell-chrome
           className={cn(
             'fixed bottom-0 left-0 top-[var(--imp-bar-h)] z-40 hidden transition-[width] duration-200 lg:block',
             collapsed ? 'w-[76px]' : 'w-[234px]',

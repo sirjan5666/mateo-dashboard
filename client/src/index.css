@@ -726,3 +726,64 @@ html.lenis body {
     transform: translateY(0) scale(1);
   }
 }
+
+/* ── Printed documents (prescription sheet, consultation note) ────────────────
+   Printing IS the download path: the browser's print dialog offers "Save as
+   PDF", so one layout serves both. A separate PDF generator would be a second
+   layout free to drift from what the doctor actually saw on screen.
+
+   The sheet is lifted out of the app shell and printed alone at A4. Colours are
+   forced with print-color-adjust so the navy table header and the footer band
+   survive browsers that strip backgrounds by default. */
+@media print {
+  @page {
+    size: A4;
+    margin: 10mm;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+  }
+
+  /* App chrome — sidebar, topbar, toolbars, cart drawer — never prints. */
+  .no-print,
+  [data-doctor-shell-chrome],
+  #cart-drawer {
+    display: none !important;
+  }
+
+  /* Escape the shell's scroll containers and fixed widths so the sheet can
+     paginate normally instead of being clipped to a viewport-sized box. */
+  .rx-print-page,
+  .consultation-print {
+    position: static !important;
+    overflow: visible !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  #rx-sheet {
+    max-width: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+
+  #rx-sheet,
+  #rx-sheet * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Keep a medication row, and each side card, off a page fold. */
+  #rx-sheet tr,
+  #rx-sheet section {
+    break-inside: avoid;
+  }
+
+  #rx-sheet thead {
+    display: table-header-group;
+  }
+}
