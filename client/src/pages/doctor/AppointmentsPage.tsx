@@ -1,11 +1,14 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
+  Loader2,
   BadgeCheck, Bookmark, Calendar, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight,
   ClipboardList, Clock, FileText, Hourglass, MapPin, Pencil, Phone, Plus, Trash2, UserRound, X,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { APPOINTMENTS, APPT_STATUS, EMPTY_HOUR, HOURS, LUNCH_HOUR, TONE_STYLE } from '../../data/appointments';
+import { APPT_STATUS, EMPTY_HOUR, HOURS, LUNCH_HOUR, TONE_STYLE, appointmentFromApi } from '../../data/appointments';
+import { listSchedule } from '../../api/doctorAppointments';
 import type { Appointment, ApptStatus } from '../../data/appointments';
+import { useAuth } from '../../auth/context';
 import { cn } from '../../lib/cn';
 
 const CARD = 'rounded-[14px] border border-[#ECEEF4] bg-white shadow-[0_1px_2px_rgba(16,24,40,.04),0_8px_24px_-12px_rgba(16,24,40,.10)]';
@@ -38,7 +41,38 @@ function DetailRow({ icon: Icon, label, children }: { icon: LucideIcon; label: s
 }
 
 export default function AppointmentsPage() {
-  const [selected, setSelected] = useState<Appointment | null>(APPOINTMENTS.find((a) => a.id === 'A2') ?? null);
+  const { user } = useAuth();
+  const doctorName = user?.name ?? 'Doctor';
+  const todayLabel = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', weekday: 'long' });
+
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Appointment | null>(null);
+
+  // Today's bookings. The grid is a day view, so the range is today only.
+  useEffect(() => {
+    const day = new Date();
+    const from = new Date(day.getFullYear(), day.getMonth(), day.getDate()).toISOString();
+    const to = new Date(day.getFullYear(), day.getMonth(), day.getDate() + 1).toISOString();
+    let cancelled = false;
+    void listSchedule({ from, to })
+      .then((r) => {
+        if (cancelled) return;
+        const list = r.appointments.map(appointmentFromApi);
+        setAppointments(list);
+        setSelected(list[0] ?? null);
+      })
+      .catch((e: unknown) => {
+        if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Could not load the schedule');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const [view, setView] = useState<'Day' | 'Week' | 'Month'>('Day');
   const [provider, setProvider] = useState('all');
   const [type, setType] = useState('all');
@@ -46,14 +80,28 @@ export default function AppointmentsPage() {
 
   const matches = (a: Appointment) =>
     (provider === 'all') && (type === 'all' || a.type === type) && (status === 'all' || a.status === status);
-  const visibleCount = APPOINTMENTS.filter(matches).length;
+  const visibleCount = appointments.filter(matches).length;
 
   const selectPill = 'h-11 rounded-[10px] border border-[#E2E6F0] bg-white pl-3.5 pr-9 text-[13.5px] font-semibold text-[#334155] appearance-none focus:border-[#3B4FE0] focus:outline-none';
+
+  if (loading) {
+    return (
+      <p className="flex items-center gap-2 py-16 text-sm text-[#64748B]">
+        <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+        Loading schedule…
+      </p>
+    );
+  }
 
   return (
     <div className="grid grid-cols-1 gap-0 xl:grid-cols-[1fr_342px]">
       {/* ── Schedule column ── */}
       <div className="min-w-0 xl:pr-6">
+        {loadError && (
+          <p role="alert" className="mb-4 rounded-[10px] border border-[#F8D4D4] bg-[#FDF0F0] px-4 py-3 text-[13px] font-medium text-[#B42318]">
+            {loadError}
+          </p>
+        )}
         {/* Header */}
         <div className="mb-[18px] flex flex-wrap items-start gap-4">
           <div className="min-w-0 flex-1">
@@ -89,7 +137,7 @@ export default function AppointmentsPage() {
             </button>
             <div className="flex h-11 items-center gap-[11px] rounded-[10px] border border-[#E2E6F0] bg-white px-4">
               <Calendar className="h-[17px] w-[17px] text-[#3B4FE0]" />
-              <span className="text-sm font-bold text-[#0F172A]">12 May 2025, Monday</span>
+              <span className="text-sm font-bold text-[#0F172A]">{todayLabel}</span>
               <button type="button" aria-label="Next day"><ChevronRight className="h-[18px] w-[18px] text-[#334155]" /></button>
             </div>
             <button type="button" className="h-11 rounded-[10px] border border-[#E2E6F0] bg-white px-[18px] text-[13.5px] font-bold text-[#1E2A5A] hover:bg-[#F7F8FC]">Today</button>
@@ -98,7 +146,7 @@ export default function AppointmentsPage() {
               <label htmlFor="f-provider" className="sr-only">Provider</label>
               <select id="f-provider" value={provider} onChange={(e) => setProvider(e.target.value)} className={cn(selectPill, 'w-[150px]')}>
                 <option value="all">All Providers</option>
-                <option value="ananya">Dr. Ananya Sharma</option>
+                <option value="me">{doctorName}</option>
               </select>
               <ChevronDown aria-hidden="true" className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94A3B8]" />
             </div>
@@ -106,7 +154,7 @@ export default function AppointmentsPage() {
               <label htmlFor="f-type" className="sr-only">Appointment type</label>
               <select id="f-type" value={type} onChange={(e) => setType(e.target.value)} className={cn(selectPill, 'w-[194px]')}>
                 <option value="all">All Appointment Types</option>
-                {[...new Set(APPOINTMENTS.map((a) => a.type))].map((t) => <option key={t} value={t}>{t}</option>)}
+                {[...new Set(appointments.map((a) => a.type))].map((t) => <option key={t} value={t}>{t}</option>)}
               </select>
               <ChevronDown aria-hidden="true" className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94A3B8]" />
             </div>
@@ -140,7 +188,7 @@ export default function AppointmentsPage() {
                 <div className="flex items-center gap-3 pl-5">
                   <span className="grid h-[34px] w-[34px] place-items-center rounded-full bg-[#EDE9FE] text-[12px] font-bold text-[#6D5AE0]">AS</span>
                   <div>
-                    <p className="text-[13.5px] font-bold text-[#0F172A]">Dr. Ananya Sharma</p>
+                    <p className="text-[13.5px] font-bold text-[#0F172A]">{doctorName}</p>
                     <p className="text-[11.5px] font-medium text-[#64748B]">Paediatrician</p>
                   </div>
                 </div>
@@ -149,7 +197,7 @@ export default function AppointmentsPage() {
               {/* Grid */}
               <div role="grid" aria-label="Day schedule">
                 {HOURS.map((h) => {
-                  const appt = APPOINTMENTS.find((a) => a.hour === h);
+                  const appt = appointments.find((a) => a.hour === h);
                   const dimmed = appt ? !matches(appt) : false;
                   return (
                     <div key={h} role="row" aria-label={h === LUNCH_HOUR ? '1 PM, Lunch break, no appointments' : undefined} className="flex min-h-[66px] border-b border-[#F1F3F9] last:border-b-0">
@@ -205,7 +253,7 @@ export default function AppointmentsPage() {
                   <div key={h} className="contents">
                     <div className="bg-white p-2 text-right text-[11.5px] font-medium text-[#64748B]">{h}</div>
                     {[0, 1, 2, 3, 4, 5, 6].map((d) => {
-                      const a = d === 0 ? APPOINTMENTS.find((x) => x.hour === h) : undefined;
+                      const a = d === 0 ? appointments.find((x) => x.hour === h) : undefined;
                       return (
                         <div key={d} className="min-h-[46px] bg-white p-1">
                           {a && (
@@ -236,7 +284,7 @@ export default function AppointmentsPage() {
                           <span className={cn('text-[12px] font-semibold', isMay12 ? 'text-[#3B4FE0]' : 'text-[#334155]')}>{day}</span>
                           {isMay12 && (
                             <span className="mt-1.5 block rounded-[6px] bg-[#EAF2FE] px-2 py-1 text-[11px] font-bold text-[#2B6FF0]">
-                              {APPOINTMENTS.length} appts
+                              {appointments.length} appts
                             </span>
                           )}
                         </>
@@ -287,10 +335,10 @@ export default function AppointmentsPage() {
 
           <dl className="mt-5 flex flex-col gap-[18px]">
             <DetailRow icon={Calendar} label="Date & Time">
-              12 May 2025 (Mon) <span aria-hidden="true" className="px-1 text-[#CBD5E1]">•</span> {selected.start} – {selected.end}
+              {todayLabel} <span aria-hidden="true" className="px-1 text-[#CBD5E1]">•</span> {selected.start} – {selected.end}
             </DetailRow>
             <DetailRow icon={UserRound} label="Provider">
-              Dr. Ananya Sharma
+              {doctorName}
               <span className="mt-0.5 block text-[12.5px] font-medium text-[#64748B]">Paediatrician</span>
             </DetailRow>
             <DetailRow icon={ClipboardList} label="Appointment Type">{selected.type}</DetailRow>

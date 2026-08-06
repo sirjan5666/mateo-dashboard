@@ -43,10 +43,9 @@ import NewPurchaseEntry from './pages/pharmacy/NewPurchaseEntry';
 import NewBill from './pages/pharmacy/NewBill';
 import BillSuccess from './pages/pharmacy/BillSuccess';
 import DoctorProfileForm from './pages/doctor/DoctorProfileForm';
-import AnalyticsPage from './pages/doctor/Analytics';
-import Reports from './pages/doctor/Reports';
+import ReportsAnalytics from './pages/doctor/ReportsAnalytics';
 import BillingInvoices from './pages/doctor/BillingInvoices';
-import Schedule from './pages/doctor/Schedule';
+import AppointmentsPage from './pages/doctor/AppointmentsPage';
 import DoctorMessages from './pages/doctor/Messages';
 import MyHealth from './pages/portal/MyHealth';
 import MyMessages from './pages/portal/MyMessages';
@@ -127,24 +126,14 @@ function AppRoutes() {
           <Route path="/doctor/patients" element={<PatientsList />} />
           <Route path="/doctor/patients/new" element={<RegisterNewPatient />} />
           <Route path="/doctor/patients/:id" element={<PatientWorkspace />} />
-          <Route path="/doctor/appointments" element={<Schedule />} />
+          <Route path="/doctor/appointments" element={<AppointmentsPage />} />
           <Route path="/doctor/messages" element={<DoctorMessages />} />
-          <Route path="/doctor/analytics" element={<AnalyticsPage />} />
-          <Route path="/doctor/reports" element={<Reports />} />
-          <Route path="/doctor/schedule" element={<Schedule />} />
+          <Route path="/doctor/analytics" element={<ReportsAnalytics />} />
+          <Route path="/doctor/reports" element={<ReportsAnalytics />} />
           <Route path="/doctor/profile" element={<DoctorProfileForm />} />
           <Route path="/doctor/settings" element={<SettingsPage />} />
-          {/*
-            Withheld until they read real data — each currently renders fabricated
-            clinical content under a real patient's identity:
-              ConsultationDetails  hardcoded vitals + prescription, ignores :id
-              AppointmentsPage     invented schedule, no network calls
-              ReportsAnalytics     invented practice figures
-              BillingInvoices      invented invoices
-              PatientWorkspace     falls back to a fabricated child
-          */}
           <Route path="/doctor/prescriptions" element={<DoctorScreenStub title="Prescriptions" />} />
-          <Route path="/doctor/charts" element={<AnalyticsPage />} />
+          <Route path="/doctor/charts" element={<ReportsAnalytics />} />
           <Route path="/doctor/pharmacy" element={<PharmacyInventory />} />
           <Route path="/doctor/pharmacy/purchase" element={<NewPurchaseEntry />} />
           <Route path="/doctor/pharmacy/billing" element={<NewBill />} />

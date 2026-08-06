@@ -1,13 +1,13 @@
+import { useEffect, useState } from 'react';
 import { Area, AreaChart, Bar, BarChart, Cell, Pie, PieChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from 'recharts';
 import {
-  ArrowUp, BarChart3, Calendar, CalendarDays, ChevronDown, ChevronRight, ClipboardList, Copy,
+  ArrowUp, Loader2, BarChart3, Calendar, CalendarDays, ChevronDown, ChevronRight, ClipboardList, Copy,
   Download, FileClock, FileText, IndianRupee, Receipt, Stethoscope, UserRound, Users,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import {
-  ANALYTICS_KPIS, APPT_SERIES, APPT_STATUS_SPLIT, COMPARISON, DEMOGRAPHICS, QUICK_REPORTS,
-  RECENT_ACTIVITY, RECENT_REPORTS, REVENUE_AVG, REVENUE_BARS, TOP_PROVIDERS, TOP_SERVICES,
-} from '../../data/analytics';
+import { QUICK_REPORTS, analyticsFromReport } from '../../data/analytics';
+import { getReport } from '../../api/doctorAnalytics';
+import type { DoctorReport } from '../../api/doctorAnalytics';
 import { cn } from '../../lib/cn';
 
 const CARD = 'rounded-[14px] border border-[#ECEEF4] bg-white shadow-[0_1px_2px_rgba(16,24,40,.04),0_8px_24px_-12px_rgba(16,24,40,.10)]';
@@ -76,6 +76,57 @@ function DonutCard({ title, id, total, totalLabel, data }: {
 }
 
 export default function ReportsAnalytics() {
+  const [report, setReport] = useState<DoctorReport | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void getReport()
+      .then((r) => {
+        if (!cancelled) setReport(r);
+      })
+      .catch((e: unknown) => {
+        if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Could not load the report');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (loading) {
+    return (
+      <p className="flex items-center gap-2 py-16 text-sm text-[#64748B]">
+        <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+        Loading report…
+      </p>
+    );
+  }
+
+  if (!report) {
+    return (
+      <p role="alert" className="rounded-[10px] border border-[#F8D4D4] bg-[#FDF0F0] px-4 py-3 text-[13px] font-medium text-[#B42318]">
+        {loadError ?? 'Could not load the report.'}
+      </p>
+    );
+  }
+
+  const a = analyticsFromReport(report);
+  const ANALYTICS_KPIS = a.kpis;
+  const REVENUE_BARS = a.revenueBars;
+  const REVENUE_AVG = a.revenueAvg;
+  const APPT_SERIES = a.apptSeries;
+  const APPT_STATUS_SPLIT = a.apptStatusSplit;
+  const DEMOGRAPHICS = a.demographics;
+  const TOP_PROVIDERS = a.topProviders;
+  const TOP_SERVICES = a.topServices;
+  const COMPARISON = a.comparison;
+  // Report history needs a saved-reports store, which does not exist yet.
+  const RECENT_REPORTS: { name: string; type: string; range: string; on: string; by: string }[] = [];
+  const RECENT_ACTIVITY: { tint: string; fg: string; icon: string; title: string; subtitle: string; elapsed: string; datetime: string }[] = [];
   return (
     <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[1fr_300px]">
       {/* ── Left ── */}
@@ -94,7 +145,7 @@ export default function ReportsAnalytics() {
           <div className="flex flex-wrap items-center gap-3">
             <button type="button" aria-label="Change date range" className="flex h-[46px] w-[240px] items-center gap-2.5 rounded-[11px] border border-[#E2E6F0] bg-white px-4 hover:bg-[#F7F8FC]">
               <Calendar className="h-[17px] w-[17px] text-[#3B4FE0]" />
-              <span className="text-[13.5px] font-bold text-[#0F172A]">01 May 2025 - 12 May 2025</span>
+              <span className="text-[13.5px] font-bold text-[#0F172A]">{a.comparison}</span>
               <ChevronDown className="ml-auto h-[17px] w-[17px] text-[#94A3B8]" />
             </button>
             <button type="button" aria-label="Export report" onClick={() => console.log('[Clinic OS] Export Report')} className="flex h-[46px] items-center gap-2 rounded-[11px] border border-[#E2E6F0] bg-white px-5 hover:bg-[#F7F8FC]">
@@ -117,12 +168,7 @@ export default function ReportsAnalytics() {
                   <span className="min-w-0 text-[12.5px] font-medium text-[#64748B]">{k.label}</span>
                 </div>
                 <p className="mt-2.5 font-display text-2xl font-extrabold leading-none tracking-[-0.02em] text-[#0F172A] tabular-nums">{k.value}</p>
-                <p className="mt-[7px] flex items-center gap-1">
-                  <ArrowUp aria-hidden="true" className="h-3 w-3 text-[#12A150]" />
-                  <span className="text-[11.5px] font-bold text-[#12A150]">{k.delta}</span>
-                  <span className="sr-only">up</span>
-                  <span className="text-[11.5px] font-medium text-[#94A3B8]">{COMPARISON}</span>
-                </p>
+                <p className="mt-[7px] text-[11.5px] font-medium text-[#94A3B8]">{COMPARISON}</p>
               </div>
             );
           })}

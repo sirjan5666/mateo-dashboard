@@ -63,3 +63,62 @@ export const APPT_STATUS: Record<ApptStatus, { label: string; fg: string }> = {
   pending: { label: 'Pending', fg: '#E8890B' },
   cancelled: { label: 'Cancelled', fg: '#E03131' },
 };
+
+// ── Live wiring ──────────────────────────────────────────────────────────────
+
+import type { Appointment as ApiAppointment } from '../api/doctorAppointments';
+
+const TONES: BlockTone[] = ['blue', 'violet', 'green', 'amber'];
+
+/** The server's four statuses onto the screen's vocabulary. */
+const STATUS_MAP: Record<string, ApptStatus> = {
+  scheduled: 'confirmed',
+  completed: 'completed',
+  cancelled: 'cancelled',
+  no_show: 'pending',
+};
+
+const MODE_LABEL: Record<string, string> = {
+  in_person: 'In-person visit', phone: 'Phone consultation', video: 'Video consultation',
+};
+
+/** "09:00 AM" — the same key HOURS uses, so a booking lands in the right row. */
+function hourKey(d: Date): string {
+  const h = d.getHours();
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${String(h12).padStart(2, '0')}:00 ${h < 12 ? 'AM' : 'PM'}`;
+}
+const clock = (d: Date) =>
+  d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+
+/**
+ * Server appointment → the shape the day/week grid already renders.
+ *
+ * Fields an appointment does not carry — the patient's age, sex, phone, the
+ * clinic address, how it was booked — come back empty and render as em dashes
+ * rather than being invented.
+ */
+export function appointmentFromApi(a: ApiAppointment, idx = 0): Appointment {
+  const start = new Date(a.start);
+  const end = new Date(start.getTime() + a.durationMin * 60_000);
+  return {
+    id: a.id,
+    hour: hourKey(start),
+    start: clock(start),
+    end: clock(end),
+    patient: a.patient?.name ?? 'Patient',
+    patientId: a.patientId,
+    age: '',
+    sex: '',
+    phone: '',
+    type: a.reason || MODE_LABEL[a.mode] || 'Consultation',
+    status: STATUS_MAP[a.status] ?? 'pending',
+    tone: a.status === 'completed' ? 'green' : a.status === 'cancelled' ? 'red' : TONES[idx % TONES.length],
+    duration: `${a.durationMin} min`,
+    location: '',
+    locationAddress: '',
+    bookingSource: '',
+    notes: a.reason ?? '',
+    createdOn: new Date(a.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
+  };
+}
