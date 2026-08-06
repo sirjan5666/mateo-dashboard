@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { Types, isValidObjectId } from 'mongoose';
 import { z } from 'zod';
 import { requireAuth, requireRole } from '../middleware/auth.js';
+import { guardModule, loadStaffContext } from '../middleware/permissions.js';
 import { auditAccess } from '../middleware/audit.js';
 import { scopeToDoctor } from '../middleware/loadOwnedPatient.js';
 import {
@@ -31,7 +32,14 @@ import { istDateString } from '../lib/ist.js';
  * so a half-applied bill can never be left behind.
  */
 const router = Router();
-router.use(requireAuth, requireRole('doctor'));
+// RBAC: a staff session is narrowed to what its role allows. The doctor who
+// owns the practice passes every check — see middleware/permissions.ts.
+router.use(requireAuth, requireRole('doctor'), loadStaffContext, guardModule('pharmacy', [
+  { match: '/bills', method: 'POST', action: 'sale' },
+  { match: '/purchases', method: 'POST', action: 'purchase' },
+  { match: '/adjust', action: 'adjust' },
+  { match: '/import', action: 'import' },
+]));
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 

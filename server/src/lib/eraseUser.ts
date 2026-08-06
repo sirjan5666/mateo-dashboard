@@ -37,6 +37,9 @@ import {
 import { PrescriptionDocument } from '../models/PrescriptionDocument.js';
 import { ClinicLocation } from '../models/ClinicLocation.js';
 import { StaffMember } from '../models/StaffMember.js';
+import { StaffSession } from '../models/StaffSession.js';
+import { StaffLoginEvent } from '../models/StaffLoginEvent.js';
+import { StaffToken } from '../models/StaffToken.js';
 import { StaffRole } from '../models/StaffRole.js';
 import { Distributor, Medicine, PharmacyBill, PharmacyPurchase, StockMovement } from '../models/Pharmacy.js';
 import { EmailLog } from '../models/EmailLog.js';
@@ -122,6 +125,10 @@ export async function eraseUserData(userId: string): Promise<void> {
     // Practice administration: clinics, sub-users, roles, pharmacy, mail log.
     ClinicLocation.deleteMany({ doctorUserId: userId }),
     StaffMember.deleteMany({ doctorUserId: userId }),
+    // Staff auth state: live sessions, link tokens and the login history.
+    StaffSession.deleteMany({ doctorUserId: userId }),
+    StaffToken.deleteMany({ doctorUserId: userId }),
+    StaffLoginEvent.deleteMany({ doctorUserId: userId }),
     StaffRole.deleteMany({ doctorUserId: userId }),
     Distributor.deleteMany({ doctorUserId: userId }),
     Medicine.deleteMany({ doctorUserId: userId }),

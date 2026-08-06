@@ -3,6 +3,7 @@ import { isValidObjectId } from 'mongoose';
 import type { HydratedDocument } from 'mongoose';
 import { z } from 'zod';
 import { requireAuth, requireRole } from '../middleware/auth.js';
+import { guardModule, loadStaffContext } from '../middleware/permissions.js';
 import { loadOwnedPatient, scopeToDoctor } from '../middleware/loadOwnedPatient.js';
 import { auditAccess, recordAudit } from '../middleware/audit.js';
 import { requireConsent } from '../middleware/requireConsent.js';
@@ -16,7 +17,9 @@ import { decryptField, decryptOptional } from '../lib/crypto/fieldCipher.js';
 // Doctor's own scheduling for their patients. Tenant-scoped; `reason` decrypted only
 // in the shaper. Schedule responses attach the (decrypted) patient name.
 const router = Router();
-router.use(requireAuth, requireRole('doctor'));
+// RBAC: a staff session is narrowed to what its role allows. The doctor who
+// owns the practice passes every check — see middleware/permissions.ts.
+router.use(requireAuth, requireRole('doctor'), loadStaffContext, guardModule('appointments'));
 
 function publicAppointment(a: HydratedDocument<IDoctorAppointment>, patientName?: string) {
   return {

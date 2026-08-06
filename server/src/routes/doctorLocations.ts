@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { Types, isValidObjectId } from 'mongoose';
 import { z } from 'zod';
 import { requireAuth, requireRole } from '../middleware/auth.js';
+import { guardModule, loadStaffContext } from '../middleware/permissions.js';
 import { auditAccess } from '../middleware/audit.js';
 import { scopeToDoctor } from '../middleware/loadOwnedPatient.js';
 import { ClinicLocation } from '../models/ClinicLocation.js';
@@ -20,7 +21,11 @@ import { istDateString } from '../lib/ist.js';
 // on this page can never drift from the collections they came from, and an empty
 // practice honestly reports zeros rather than a seeded figure.
 const router = Router();
-router.use(requireAuth, requireRole('doctor'));
+// RBAC: a staff session is narrowed to what its role allows. The doctor who
+// owns the practice passes every check — see middleware/permissions.ts.
+router.use(requireAuth, requireRole('doctor'), loadStaffContext, guardModule('locations', [
+  { match: '/active', method: 'PATCH', action: 'deactivate' },
+]));
 
 type LocationDoc = Awaited<ReturnType<typeof ClinicLocation.findOne>>;
 

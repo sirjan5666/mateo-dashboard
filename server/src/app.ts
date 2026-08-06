@@ -47,6 +47,7 @@ import doctorLogsRouter from './routes/doctorLogs.js';
 import doctorDashboardRouter from './routes/doctorDashboard.js';
 import doctorPatientClinicalRouter from './routes/doctorPatientClinical.js';
 import doctorPrescriptionDocsRouter from './routes/doctorPrescriptionDocs.js';
+import staffAuthRouter from './routes/staffAuth.js';
 import portalRouter from './routes/portal.js';
 import { errorHandler } from './middleware/error.js';
 
@@ -68,6 +69,9 @@ export function createApp() {
   });
 
   app.use('/api/auth', authRouter);
+  // Staff sign-in. Separate from /api/auth because staff are not User rows, but
+  // it issues the SAME cookie with the doctor as subject — see middleware/permissions.ts.
+  app.use('/api/staff/auth', staffAuthRouter);
   app.use('/api/babies', babiesRouter);
   app.use('/api/overview', overviewRouter);
   // GET /api/babies/:id/vaccines and PATCH /api/vaccines/:doseId

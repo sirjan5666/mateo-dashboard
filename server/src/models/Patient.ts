@@ -110,7 +110,14 @@ const patientSchema = new Schema<IPatient>(
 patientSchema.index({ doctorUserId: 1, archivedAt: 1 });
 // Unique per doctor, so a concurrent create is a duplicate-key error to retry
 // rather than two patients quietly sharing a printed number.
-patientSchema.index({ doctorUserId: 1, code: 1 }, { unique: true, sparse: true });
+// `partialFilterExpression`, NOT `sparse`. On a COMPOUND index sparse only skips
+// a document when every indexed field is missing — doctorUserId is always there,
+// so two patients without a code both indexed as `code: null` and collided on
+// the second one. A partial index leaves un-coded rows out of the index entirely.
+patientSchema.index(
+  { doctorUserId: 1, code: 1 },
+  { unique: true, partialFilterExpression: { code: { $type: 'number' } } },
+);
 patientSchema.index({ doctorUserId: 1, status: 1 });
 
 // Encrypt PHI demographics at rest (idempotent; decrypt in the response shaper).

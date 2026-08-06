@@ -3,6 +3,7 @@ import { isValidObjectId } from 'mongoose';
 import bcrypt from 'bcrypt';
 import { z } from 'zod';
 import { requireAuth, requireRole } from '../middleware/auth.js';
+import { guardModule, loadStaffContext } from '../middleware/permissions.js';
 import { auditAccess } from '../middleware/audit.js';
 import { scopeToDoctor } from '../middleware/loadOwnedPatient.js';
 import { StaffRole, STAFF_MODULES, PERMISSION_LEVELS } from '../models/StaffRole.js';
@@ -21,7 +22,12 @@ import { ClinicLocation } from '../models/ClinicLocation.js';
  * and it is NEVER returned by any endpoint below.
  */
 const router = Router();
-router.use(requireAuth, requireRole('doctor'));
+// RBAC: a staff session is narrowed to what its role allows. The doctor who
+// owns the practice passes every check — see middleware/permissions.ts.
+router.use(requireAuth, requireRole('doctor'), loadStaffContext, guardModule('team', [
+  { match: '/invite', action: 'invite' },
+  { match: '/members/', method: 'DELETE', action: 'deactivate' },
+]));
 
 // The five roles every practice starts with. Seeded on first read so the matrix
 // is never empty, and marked isSystem so they cannot be deleted out from under

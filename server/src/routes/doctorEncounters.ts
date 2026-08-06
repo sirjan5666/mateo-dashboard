@@ -3,6 +3,7 @@ import { isValidObjectId } from 'mongoose';
 import type { HydratedDocument } from 'mongoose';
 import { z } from 'zod';
 import { requireAuth, requireRole } from '../middleware/auth.js';
+import { guardModule, loadStaffContext } from '../middleware/permissions.js';
 import { loadOwnedPatient, scopeToDoctor } from '../middleware/loadOwnedPatient.js';
 import { auditAccess, recordAudit } from '../middleware/audit.js';
 import { requireConsent } from '../middleware/requireConsent.js';
@@ -15,7 +16,9 @@ import type { IPatient } from '../models/Patient.js';
 // Clinical encounters (SOAP visit notes). Doctor-role-gated + tenant-scoped. SOAP
 // narrative is decrypted only in the shaper. Writes require an active treatment consent.
 const router = Router();
-router.use(requireAuth, requireRole('doctor'));
+// RBAC: a staff session is narrowed to what its role allows. The doctor who
+// owns the practice passes every check — see middleware/permissions.ts.
+router.use(requireAuth, requireRole('doctor'), loadStaffContext, guardModule('consultations'));
 
 function publicEncounter(e: HydratedDocument<IEncounter>) {
   return {

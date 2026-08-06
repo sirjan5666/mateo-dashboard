@@ -3,6 +3,7 @@ import { Types, isValidObjectId } from 'mongoose';
 import type { HydratedDocument } from 'mongoose';
 import { z } from 'zod';
 import { requireAuth, requireRole } from '../middleware/auth.js';
+import { guardModule, loadStaffContext } from '../middleware/permissions.js';
 import { auditAccess, recordAudit } from '../middleware/audit.js';
 import { scopeToDoctor } from '../middleware/loadOwnedPatient.js';
 import { Invoice, INVOICE_STATUSES } from '../models/Invoice.js';
@@ -18,7 +19,11 @@ import { istDateString } from '../lib/ist.js';
 // doctor (verified in-query via scopeToDoctor). Line items + notes decrypt only in
 // the shaper. Money totals are plain so collection totals aggregate in the DB.
 const router = Router();
-router.use(requireAuth, requireRole('doctor'));
+// RBAC: a staff session is narrowed to what its role allows. The doctor who
+// owns the practice passes every check — see middleware/permissions.ts.
+router.use(requireAuth, requireRole('doctor'), loadStaffContext, guardModule('billing', [
+  { match: '/refund', action: 'refund' },
+]));
 
 const DAY_MS = 86_400_000;
 function istDayStartUTC(d: Date): Date {
