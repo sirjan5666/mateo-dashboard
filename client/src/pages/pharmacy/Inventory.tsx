@@ -11,7 +11,7 @@ import {
 import type { DistributorDto, InventorySummary, MedicineDto, MedicineInput } from '../../api/pharmacy';
 import { RowMenu } from '../../components/doctor/v2/RowMenu';
 import { MedicineFormModal } from '../../components/doctor/v2/pharmacy/MedicineFormModal';
-import { CARD, Chip, Dash, H2, TH, Tile } from '../../components/doctor/v2/pharmacy/shared';
+import { CARD, Chip, H2, TH, Tile } from '../../components/doctor/v2/pharmacy/shared';
 import { cn } from '../../lib/cn';
 
 const amt = (n: number) => n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -100,6 +100,101 @@ function QtyCell({
       }}
       className="h-8 w-[74px] rounded-[8px] border border-transparent bg-transparent px-2 text-right text-[13px] font-bold tabular-nums text-[#0F172A] transition-colors hover:border-[#E2E6F0] hover:bg-white focus:border-[#3B4FE0] focus:bg-white focus:outline-none focus:ring-[3px] focus:ring-[rgba(59,79,224,.12)] disabled:opacity-50"
     />
+  );
+}
+
+/** Looks like plain text; a hover border and focus ring show it can be edited. */
+const INLINE =
+  'h-8 w-full rounded-[8px] border border-transparent bg-transparent px-2 text-[12.5px] text-[#334155] transition-colors hover:border-[#E2E6F0] hover:bg-white focus:border-[#3B4FE0] focus:bg-white focus:outline-none focus:ring-[3px] focus:ring-[rgba(59,79,224,.12)] disabled:opacity-50';
+
+/**
+ * A table cell edited in place. Text and number fields read as plain text until
+ * focused; committing on Enter or blur, abandoning on Escape. The parent
+ * persists and reloads, so an unchanged or rejected value simply snaps back.
+ *
+ * Numbers show their formatted form at rest (₹ 600.00) and their raw form while
+ * editing (600), and refuse anything that is not a non-negative number.
+ */
+function InlineText({
+  value, kind = 'text', align = 'left', busy, ariaLabel, placeholder, format, onCommit,
+}: {
+  value: string;
+  kind?: 'text' | 'number';
+  align?: 'left' | 'right';
+  busy: boolean;
+  ariaLabel: string;
+  placeholder?: string;
+  format?: (v: string) => string;
+  onCommit: (raw: string) => void;
+}) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const editing = draft !== null;
+  const shown = editing ? draft : format ? format(value) : value;
+
+  const commit = () => {
+    if (draft === null) return;
+    const next = draft.trim();
+    setDraft(null);
+    if (next === value.trim()) return;
+    if (kind === 'number' && next !== '' && !(Number.isFinite(Number(next)) && Number(next) >= 0)) return;
+    onCommit(next);
+  };
+
+  return (
+    <input
+      type="text"
+      inputMode={kind === 'number' ? 'decimal' : undefined}
+      value={busy ? (format ? format(value) : value) : shown}
+      disabled={busy}
+      aria-label={ariaLabel}
+      placeholder={placeholder}
+      onFocus={() => setDraft(value)}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') e.currentTarget.blur();
+        if (e.key === 'Escape') { setDraft(null); e.currentTarget.blur(); }
+      }}
+      className={cn(INLINE, align === 'right' && 'text-right font-semibold tabular-nums text-[#0F172A]')}
+    />
+  );
+}
+
+/** A native date field for the expiry column; empty clears the date. */
+function InlineDate({ value, busy, ariaLabel, onCommit }: {
+  value: string; busy: boolean; ariaLabel: string; onCommit: (raw: string) => void;
+}) {
+  return (
+    <input
+      type="date"
+      defaultValue={value}
+      disabled={busy}
+      aria-label={ariaLabel}
+      onBlur={(e) => { if (e.target.value !== value) onCommit(e.target.value); }}
+      className={cn(INLINE, 'tabular-nums')}
+    />
+  );
+}
+
+/** Reassign the distributor from the ones this practice already deals with. */
+function InlineDistributor({ value, options, busy, ariaLabel, onCommit }: {
+  value: string | null;
+  options: DistributorDto[];
+  busy: boolean;
+  ariaLabel: string;
+  onCommit: (id: string) => void;
+}) {
+  return (
+    <select
+      value={value ?? ''}
+      disabled={busy}
+      aria-label={ariaLabel}
+      onChange={(e) => onCommit(e.target.value)}
+      className={cn(INLINE, 'appearance-none pr-6', !value && 'text-[#94A3B8]')}
+    >
+      <option value="">No distributor</option>
+      {options.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+    </select>
   );
 }
 
@@ -240,6 +335,24 @@ export default function PharmacyInventory() {
       await reload();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not adjust stock');
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  /**
+   * Persist an inline edit to one field of a row. Everything except the stock
+   * balance goes through the medicine PATCH; the count has its own movement-based
+   * path (`setQty`) so it always lands in the stock ledger.
+   */
+  async function saveField(m: MedicineDto, patch: Partial<MedicineInput>) {
+    setBusyId(m.id);
+    setError(null);
+    try {
+      await updateMedicine(m.id, patch);
+      await reload();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not save the change');
     } finally {
       setBusyId(null);
     }
@@ -467,15 +580,57 @@ export default function PharmacyInventory() {
                             </span>
                           </span>
                         </th>
-                        <td className={cn(TD, 'font-medium text-[#334155]')}>{r.batch}</td>
-                        <td className={cn(TD, 'font-medium text-[#334155]')}>
-                          <span className="block truncate">{r.distributorName ?? <Dash say="No distributor recorded" />}</span>
+                        <td className={TD}>
+                          <InlineText
+                            value={r.batch}
+                            busy={busyId === r.id}
+                            ariaLabel={`Batch for ${r.name}`}
+                            placeholder="Batch"
+                            onCommit={(v) => void saveField(r, { batch: v })}
+                          />
                         </td>
-                        <td className={cn(TD, 'font-medium text-[#334155]')}>
-                          {r.expiry ?? <Dash say="No expiry date" />}
+                        <td className={TD}>
+                          <InlineDistributor
+                            value={r.distributorId}
+                            options={distributors}
+                            busy={busyId === r.id}
+                            ariaLabel={`Distributor for ${r.name}`}
+                            onCommit={(id) => void saveField(r, { distributorId: id })}
+                          />
                         </td>
-                        <td className={cn(TD, 'text-right font-semibold text-[#0F172A] tabular-nums')}>{amt(r.purchaseRate)}</td>
-                        <td className={cn(TD, 'text-right font-semibold text-[#0F172A] tabular-nums')}>{amt(r.mrp)}</td>
+                        <td className={TD}>
+                          {/* Keyed by the value so a saved date remounts the
+                              uncontrolled input with the new default. */}
+                          <InlineDate
+                            key={r.expiry ?? 'none'}
+                            value={r.expiry ?? ''}
+                            busy={busyId === r.id}
+                            ariaLabel={`Expiry date for ${r.name}`}
+                            onCommit={(v) => void saveField(r, { expiry: v })}
+                          />
+                        </td>
+                        <td className={TD}>
+                          <InlineText
+                            value={String(r.purchaseRate)}
+                            kind="number"
+                            align="right"
+                            busy={busyId === r.id}
+                            ariaLabel={`Purchase rate for ${r.name}`}
+                            format={(v) => amt(Number(v))}
+                            onCommit={(v) => void saveField(r, { purchaseRate: Number(v) })}
+                          />
+                        </td>
+                        <td className={TD}>
+                          <InlineText
+                            value={String(r.mrp)}
+                            kind="number"
+                            align="right"
+                            busy={busyId === r.id}
+                            ariaLabel={`MRP for ${r.name}`}
+                            format={(v) => amt(Number(v))}
+                            onCommit={(v) => void saveField(r, { mrp: Number(v) })}
+                          />
+                        </td>
                         <td className={cn(TD, 'text-right')}>
                           <QtyCell
                             row={r}

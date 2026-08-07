@@ -1,7 +1,7 @@
 import { Link } from 'react-router';
 import { ChevronDown, ChevronUp, ChevronsUpDown, Phone } from 'lucide-react';
 import { useActiveLocation } from '../../../../lib/doctorLocation';
-import { formatAge, formatDate, spokenAge } from '../../../../data/patients';
+import { formatAge, formatDate, patientLabel, spokenAge } from '../../../../data/patients';
 import type { Patient } from '../../../../data/patients';
 import { cn } from '../../../../lib/cn';
 import { PatientRowMenu } from './PatientRowMenu';
@@ -9,16 +9,20 @@ import { PatientRowMenu } from './PatientRowMenu';
 export type SortKey = 'name' | 'id' | 'gender' | 'dob' | 'registeredOn' | 'lastVisit' | 'phone' | 'location';
 export type SortDir = 'asc' | 'desc' | null;
 
+// Widths sum to 100. The Patient ID column shrank once it stopped showing the
+// 24-character database id and now shows the short patient number, so the space
+// it gave up went to Name, Phone and Location — the columns that were cramped at
+// a 100% window.
 const COLUMNS: { key: SortKey | null; label: string; className: string }[] = [
-  { key: 'name', label: 'Patient', className: 'w-[16%] pl-[22px]' },
-  { key: 'id', label: 'Patient ID', className: 'w-[9%]' },
-  { key: 'gender', label: 'Gender / Age', className: 'w-[10%]' },
-  { key: 'dob', label: 'Date of Birth', className: 'w-[10%] hidden lg:table-cell' },
-  { key: 'registeredOn', label: 'Registered On', className: 'w-[10%] hidden lg:table-cell' },
-  { key: 'lastVisit', label: 'Last Visit', className: 'w-[9%]' },
-  { key: 'phone', label: 'Phone', className: 'w-[14%]' },
+  { key: 'name', label: 'Patient', className: 'w-[19%] pl-[22px]' },
+  { key: 'id', label: 'Patient ID', className: 'w-[7%]' },
+  { key: 'gender', label: 'Gender / Age', className: 'w-[11%]' },
+  { key: 'dob', label: 'Date of Birth', className: 'w-[9%] hidden lg:table-cell' },
+  { key: 'registeredOn', label: 'Registered On', className: 'w-[9%] hidden lg:table-cell' },
+  { key: 'lastVisit', label: 'Last Visit', className: 'w-[8%]' },
+  { key: 'phone', label: 'Phone', className: 'w-[15%]' },
   { key: 'location', label: 'Primary Location', className: 'w-[15%]' },
-  { key: null, label: 'Actions', className: 'w-[7%] pr-[22px] text-right' },
+  { key: null, label: 'Actions', className: 'w-[6%] pr-[22px] text-right' },
 ];
 
 function Avatar({ p }: { p: Patient }) {
@@ -134,9 +138,13 @@ export function PatientsTable({
                 </span>
               </th>
 
-              <td className="border-b border-[#F1F3F9] group-hover:bg-[#FAFBFF]">
-                <Link to={`/doctor/patients/${p.id}`} className="text-[13px] font-semibold text-[#3B4FE0] hover:underline">
-                  {p.id}
+              <td className="border-b border-[#F1F3F9] pr-3 group-hover:bg-[#FAFBFF]">
+                <Link
+                  to={`/doctor/patients/${p.id}`}
+                  title={p.code ? `Patient no. ${p.code}` : p.id}
+                  className="font-mono text-[13px] font-semibold tabular-nums text-[#3B4FE0] hover:underline"
+                >
+                  {patientLabel(p)}
                 </Link>
               </td>
 

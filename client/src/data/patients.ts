@@ -22,6 +22,11 @@ export const today = () => new Date();
 
 export interface Patient {
   id: string;
+  /**
+   * The short, human patient number shown and printed (e.g. "00017"), not the
+   * 24-character database id. Null on legacy rows created before numbering.
+   */
+  code: string | null;
   name: string;
   guardian: string;
   gender: 'Male' | 'Female' | 'Other';
@@ -77,6 +82,7 @@ export function formatDate(iso: string): string {
 export const PATIENTS: Patient[] = [
   {
     id: 'PT-0002486',
+    code: '02486',
     name: 'Aarav Mehta',
     guardian: 'Neha Mehta',
     gender: 'Male',
@@ -91,6 +97,7 @@ export const PATIENTS: Patient[] = [
   },
   {
     id: 'PT-0002485',
+    code: '02485',
     name: 'Myra Kapoor',
     guardian: 'Rohan Kapoor',
     gender: 'Female',
@@ -105,6 +112,7 @@ export const PATIENTS: Patient[] = [
   },
   {
     id: 'PT-0002484',
+    code: '02484',
     name: 'Kabir Singh',
     guardian: 'Pooja Singh',
     gender: 'Male',
@@ -119,6 +127,7 @@ export const PATIENTS: Patient[] = [
   },
   {
     id: 'PT-0002483',
+    code: '02483',
     name: 'Siya Verma',
     guardian: 'Amit Verma',
     gender: 'Female',
@@ -133,6 +142,7 @@ export const PATIENTS: Patient[] = [
   },
   {
     id: 'PT-0002482',
+    code: '02482',
     name: 'Ishaan Gupta',
     guardian: 'Priya Gupta',
     gender: 'Male',
@@ -147,6 +157,7 @@ export const PATIENTS: Patient[] = [
   },
   {
     id: 'PT-0002481',
+    code: '02481',
     name: 'Anaya Reddy',
     guardian: 'Sandeep Reddy',
     gender: 'Female',
@@ -161,6 +172,7 @@ export const PATIENTS: Patient[] = [
   },
   {
     id: 'PT-0002480',
+    code: '02480',
     name: 'Vivaan Patel',
     guardian: 'Dhara Patel',
     gender: 'Male',
@@ -175,6 +187,7 @@ export const PATIENTS: Patient[] = [
   },
   {
     id: 'PT-0002479',
+    code: '02479',
     name: 'Avni Sharma',
     guardian: 'Kunal Sharma',
     gender: 'Female',
@@ -211,6 +224,16 @@ export const SORTS = [
   { value: 'age', label: 'Age' },
 ];
 
+/**
+ * The short patient number to show in the UI — the five-digit code when the
+ * patient has one, otherwise the last six characters of the database id so a
+ * legacy row still reads as an identifier rather than a 24-character wall.
+ */
+export function patientLabel(p: Pick<Patient, 'code' | 'id'>): string {
+  if (p.code) return `#${p.code}`;
+  return p.id.length > 6 ? p.id.slice(-6).toUpperCase() : p.id;
+}
+
 /** Deterministic avatar wash, so a patient keeps the same colour across renders. */
 const TINTS = [
   { tint: '#EDE9FE', fg: '#6D5AE0' }, { tint: '#E4EBFD', fg: '#2B6FF0' },
@@ -231,6 +254,7 @@ export function fromApi(p: ApiPatient): Patient {
   const sex = (p.sex || '').toLowerCase();
   return {
     id: p.id,
+    code: p.code,
     name: p.displayName,
     guardian: '',
     gender: sex === 'male' ? 'Male' : sex === 'female' ? 'Female' : 'Other',

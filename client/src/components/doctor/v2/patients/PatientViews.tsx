@@ -1,6 +1,6 @@
 import { Link } from 'react-router';
 import { useActiveLocation } from '../../../../lib/doctorLocation';
-import { formatAge, formatDate, spokenAge } from '../../../../data/patients';
+import { formatAge, formatDate, patientLabel, spokenAge } from '../../../../data/patients';
 import type { Patient } from '../../../../data/patients';
 import { PatientRowMenu } from './PatientRowMenu';
 import { PhoneCell } from './PatientsTable';
@@ -56,8 +56,8 @@ export function PatientGridView({ patients }: ViewProps) {
             <PatientRowMenu patient={p} />
           </div>
 
-          <Link to={`/doctor/patients/${p.id}`} className="mt-3 inline-block text-[13px] font-semibold text-[#3B4FE0] hover:underline">
-            {p.id}
+          <Link to={`/doctor/patients/${p.id}`} title={p.code ? `Patient no. ${p.code}` : p.id} className="mt-3 inline-block font-mono text-[13px] font-semibold tabular-nums text-[#3B4FE0] hover:underline">
+            {patientLabel(p)}
           </Link>
 
           <dl className="mt-3 grid grid-cols-2 gap-3">
@@ -110,7 +110,7 @@ export function PatientCardList({ patients }: ViewProps) {
           </div>
 
           <dl className="mt-3 grid grid-cols-3 gap-3">
-            <Field label="Patient ID">{p.id}</Field>
+            <Field label="Patient ID"><span className="font-mono tabular-nums">{patientLabel(p)}</span></Field>
             <Field label="Gender / Age">
               <span aria-hidden="true">
                 {p.gender} • {formatAge(p.dob)}

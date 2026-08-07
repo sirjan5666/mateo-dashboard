@@ -99,6 +99,7 @@ export default function PatientsList() {
         p.guardian.toLowerCase().includes(q) ||
         p.phone.replace(/\s/g, '').includes(q.replace(/\s/g, '')) ||
         p.email.toLowerCase().includes(q) ||
+        (p.code ?? '').toLowerCase().includes(q.replace(/^#/, '')) ||
         p.id.toLowerCase().includes(q)
       )) return false;
       if (locationFilter !== 'all' && p.locationId !== locationFilter) return false;
@@ -117,7 +118,7 @@ export default function PatientsList() {
     if (sortKey) {
       const get = (p: Patient): string | number =>
         sortKey === 'name' ? p.name
-        : sortKey === 'id' ? p.id
+        : sortKey === 'id' ? (p.code ?? p.id)
         : sortKey === 'gender' ? ageParts(p.dob).years * 12 + ageParts(p.dob).months
         : sortKey === 'dob' ? p.dob
         : sortKey === 'registeredOn' ? p.registeredOn
@@ -150,7 +151,7 @@ export default function PatientsList() {
   function exportCsv() {
     const head = ['Patient ID', 'Name', 'Guardian', 'Gender', 'Date of Birth', 'Registered On', 'Last Visit', 'Phone', 'Primary Location'];
     const rows = filtered.map((p) => [
-      p.id, p.name, p.guardian, p.gender, formatDate(p.dob), formatDate(p.registeredOn),
+      p.code ?? p.id, p.name, p.guardian, p.gender, formatDate(p.dob), formatDate(p.registeredOn),
       p.lastVisit ? formatDate(p.lastVisit) : '', p.phone, locationName(p.locationId),
     ]);
     const csv = [head, ...rows].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\r\n');
