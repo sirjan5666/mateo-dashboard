@@ -27,6 +27,43 @@ export interface IDoctorNotifications {
   reminders: boolean;
 }
 
+/**
+ * Account-level preferences edited on the Settings page. These are STORED
+ * preferences — the ones that already drive behaviour (default landing page,
+ * auto patient numbering) are honoured; the notification toggles record intent
+ * for the reminder job to read. Nothing here is a clinical or statutory value.
+ */
+export interface IClinicPreferences {
+  dateFormat: 'DD MMM YYYY' | 'DD/MM/YYYY';
+  timeFormat: '12' | '24';
+  currency: string;
+  language: 'en' | 'hi';
+  defaultPage: 'dashboard' | 'appointments' | 'patients';
+  patientPortal: boolean;
+  autoPatientId: boolean;
+  appointmentReminders: boolean;
+  whatsappNotifications: boolean;
+  onlineBooking: boolean;
+  dataBackup: boolean;
+  /** Minutes of inactivity before sign-out; 0 = never. */
+  sessionTimeoutMins: number;
+}
+
+export const DEFAULT_PREFERENCES: IClinicPreferences = {
+  dateFormat: 'DD MMM YYYY',
+  timeFormat: '12',
+  currency: 'INR',
+  language: 'en',
+  defaultPage: 'dashboard',
+  patientPortal: true,
+  autoPatientId: true,
+  appointmentReminders: true,
+  whatsappNotifications: true,
+  onlineBooking: true,
+  dataBackup: true,
+  sessionTimeoutMins: 30,
+};
+
 // Weekly recurring availability. Phase 3 (booking) turns this into concrete
 // bookable slots for the next N days, minus anything already booked.
 export interface IDoctorAvailability {
@@ -51,6 +88,7 @@ export interface IDoctorProfile {
   availability: IDoctorAvailability;
   workingHours?: IWorkingHours;
   notifications?: IDoctorNotifications;
+  preferences?: IClinicPreferences;
   // Payout banking — encrypted at rest (account number is sensitive). Stored as an
   // encrypted JSON string {accountHolder,accountNumber,ifsc,bankName}; decrypted only
   // in the owner's self shaper, never sent to anyone else.
@@ -98,6 +136,23 @@ const notificationsSchema = new Schema<IDoctorNotifications>(
   },
   { _id: false },
 );
+const preferencesSchema = new Schema<IClinicPreferences>(
+  {
+    dateFormat: { type: String, enum: ['DD MMM YYYY', 'DD/MM/YYYY'], default: 'DD MMM YYYY' },
+    timeFormat: { type: String, enum: ['12', '24'], default: '12' },
+    currency: { type: String, default: 'INR', maxlength: 8 },
+    language: { type: String, enum: ['en', 'hi'], default: 'en' },
+    defaultPage: { type: String, enum: ['dashboard', 'appointments', 'patients'], default: 'dashboard' },
+    patientPortal: { type: Boolean, default: true },
+    autoPatientId: { type: Boolean, default: true },
+    appointmentReminders: { type: Boolean, default: true },
+    whatsappNotifications: { type: Boolean, default: true },
+    onlineBooking: { type: Boolean, default: true },
+    dataBackup: { type: Boolean, default: true },
+    sessionTimeoutMins: { type: Number, default: 30, min: 0, max: 1440 },
+  },
+  { _id: false },
+);
 
 const doctorProfileSchema = new Schema<IDoctorProfile>(
   {
@@ -115,6 +170,7 @@ const doctorProfileSchema = new Schema<IDoctorProfile>(
     availability: { type: availabilitySchema, default: () => ({}) },
     workingHours: { type: workingHoursSchema },
     notifications: { type: notificationsSchema },
+    preferences: { type: preferencesSchema },
     bankDetailsEnc: { type: String },
     // Admin-gated visibility: parents only ever see 'approved' doctors.
     status: { type: String, enum: DOCTOR_STATUSES, default: 'pending', index: true },

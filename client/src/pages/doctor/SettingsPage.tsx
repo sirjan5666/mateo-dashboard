@@ -1,6 +1,10 @@
-import { useState } from 'react';
-import { ChevronDown, ExternalLink, Settings as Gear, ShieldCheck } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Check, ChevronDown, ExternalLink, Loader2, Settings as Gear, ShieldCheck } from 'lucide-react';
 import { PhoneNumberInput } from '../../components/doctor/v2/subuser/fields';
+import { getSettings, saveSettings } from '../../api/doctorSettings';
+import type { ClinicPreferences, ClinicSettings } from '../../api/doctorSettings';
+import { WEEK_DAYS } from '../../api/doctors';
+import type { DayHours, WeekDay } from '../../api/doctors';
 import { cn } from '../../lib/cn';
 
 const CARD = 'rounded-[14px] border border-[#ECEEF4] bg-white shadow-[0_1px_2px_rgba(16,24,40,.04),0_8px_24px_-12px_rgba(16,24,40,.10)]';
@@ -9,21 +13,30 @@ const LABEL = 'mb-2 block text-[12.5px] font-bold text-[#334155]';
 
 const TABS = ['General', 'Clinic Profile', 'Users & Permissions', 'Appointment Settings', 'Billing & Payments', 'Notifications', 'Integrations', 'Security'];
 
-/** Only "Enable Dark Mode" starts off; the other six are on. */
-const PREFERENCES = [
-  { id: 'dark', title: 'Enable Dark Mode', desc: 'Switch between light and dark theme', on: false },
-  { id: 'portal', title: 'Enable Patient Dashboard', desc: 'Allow patients to access their portal', on: true },
-  { id: 'autoid', title: 'Auto-generate Patient ID', desc: 'Automatically generate unique patient IDs', on: true },
-  { id: 'reminders', title: 'Appointment Reminders', desc: 'Send SMS/Email reminders to patients', on: true },
-  { id: 'whatsapp', title: 'Enable WhatsApp Notifications', desc: 'Send notifications via WhatsApp', on: true },
-  { id: 'booking', title: 'Allow Online Booking', desc: 'Allow patients to book appointments online', on: true },
-  { id: 'backup', title: 'Enable Data Backup', desc: 'Automatically backup data daily', on: true },
+/** Dark mode is a per-device display choice, kept client-side — never sent to the server. */
+const DARK_KEY = 'mateo:doctor-dark';
+
+/**
+ * The System Preferences switches, each bound to one persisted preference. Dark
+ * mode is deliberately absent — it is a device setting, handled separately.
+ */
+const TOGGLES: { key: keyof ClinicPreferences; title: string; desc: string }[] = [
+  { key: 'patientPortal', title: 'Enable Patient Dashboard', desc: 'Allow patients to access their portal' },
+  { key: 'autoPatientId', title: 'Auto-generate Patient ID', desc: 'Assign the next patient number automatically' },
+  { key: 'appointmentReminders', title: 'Appointment Reminders', desc: 'Send SMS/Email reminders to patients' },
+  { key: 'whatsappNotifications', title: 'Enable WhatsApp Notifications', desc: 'Send notifications via WhatsApp' },
+  { key: 'onlineBooking', title: 'Allow Online Booking', desc: 'Allow patients to book appointments online' },
+  { key: 'dataBackup', title: 'Enable Data Backup', desc: 'Automatically back up data daily' },
 ];
 
-const HOURS = [
-  ['Monday', '09:00 AM - 08:00 PM'], ['Tuesday', '09:00 AM - 08:00 PM'], ['Wednesday', '09:00 AM - 08:00 PM'],
-  ['Thursday', '09:00 AM - 08:00 PM'], ['Friday', '09:00 AM - 08:00 PM'], ['Saturday', '09:00 AM - 02:00 PM'],
-  ['Sunday', 'Closed'],
+const DAY_LABEL: Record<WeekDay, string> = {
+  monday: 'Monday', tuesday: 'Tuesday', wednesday: 'Wednesday', thursday: 'Thursday',
+  friday: 'Friday', saturday: 'Saturday', sunday: 'Sunday',
+};
+
+const TIMEOUTS = [
+  { v: 15, label: '15 Minutes' }, { v: 30, label: '30 Minutes' }, { v: 60, label: '1 Hour' },
+  { v: 120, label: '2 Hours' }, { v: 0, label: 'Never' },
 ];
 
 function Switch({ on, onToggle, title, descId }: { on: boolean; onToggle: () => void; title: string; descId: string }) {
@@ -38,19 +51,94 @@ function Switch({ on, onToggle, title, descId }: { on: boolean; onToggle: () => 
   );
 }
 
+function Select({ id, value, onChange, options }: {
+  id: string; value: string; onChange: (v: string) => void; options: { value: string; label: string }[];
+}) {
+  return (
+    <div className="relative">
+      <select id={id} value={value} onChange={(e) => onChange(e.target.value)} className={cn(INPUT, 'appearance-none pr-10')}>
+        {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+      </select>
+      <ChevronDown aria-hidden="true" className="pointer-events-none absolute right-3.5 top-1/2 h-[17px] w-[17px] -translate-y-1/2 text-[#94A3B8]" />
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   const [tab, setTab] = useState('General');
-  const [prefs, setPrefs] = useState(() => Object.fromEntries(PREFERENCES.map((p) => [p.id, p.on])));
-  const [timeFormat, setTimeFormat] = useState<'12' | '24'>('12');
-  const [dirty, setDirty] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const [phone, setPhone] = useState('98765 43210');
+  const [data, setData] = useState<ClinicSettings | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const toggle = (id: string) => {
-    setPrefs((p) => ({ ...p, [id]: !p[id] }));
-    setDirty(true);
-    if (id === 'dark') document.documentElement.classList.toggle('dark', !prefs.dark);
+  // The editable copy. Split out so an in-progress edit is obvious (`dirty`).
+  const [clinic, setClinic] = useState<{ name: string; email: string; phone: string }>({ name: '', email: '', phone: '' });
+  const [hours, setHours] = useState<Record<WeekDay, DayHours>>({} as Record<WeekDay, DayHours>);
+  const [prefs, setPrefs] = useState<ClinicPreferences | null>(null);
+  const [dirty, setDirty] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const [dark, setDark] = useState(() => localStorage.getItem(DARK_KEY) === '1');
+
+  useEffect(() => {
+    let cancelled = false;
+    void getSettings()
+      .then((s) => {
+        if (cancelled) return;
+        setData(s);
+        setClinic(s.clinic ? { name: s.clinic.name, email: s.clinic.email, phone: s.clinic.phone } : { name: '', email: '', phone: '' });
+        setHours(s.workingHours);
+        setPrefs(s.preferences);
+      })
+      .catch((e: unknown) => {
+        if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Could not load settings');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  const touch = () => { setDirty(true); setSaved(false); };
+  const setPref = <K extends keyof ClinicPreferences>(key: K, value: ClinicPreferences[K]) => {
+    setPrefs((p) => (p ? { ...p, [key]: value } : p));
+    touch();
   };
+  const setDay = (day: WeekDay, patch: Partial<DayHours>) => {
+    setHours((h) => ({ ...h, [day]: { ...h[day], ...patch } }));
+    touch();
+  };
+  const toggleDark = () => {
+    setDark((d) => {
+      const next = !d;
+      document.documentElement.classList.toggle('dark', next);
+      localStorage.setItem(DARK_KEY, next ? '1' : '0');
+      return next;
+    });
+  };
+
+  async function save() {
+    if (!prefs) return;
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const fresh = await saveSettings({
+        // Only send the clinic block if there is a clinic to save it to.
+        ...(data?.clinic ? { clinic: { name: clinic.name.trim(), email: clinic.email.trim(), phone: clinic.phone.trim() } } : {}),
+        workingHours: hours,
+        preferences: prefs,
+      });
+      setData(fresh);
+      setDirty(false);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : 'Could not save settings');
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <div>
@@ -84,7 +172,19 @@ export default function SettingsPage() {
         ))}
       </div>
 
-      {tab !== 'General' ? (
+      {saveError && (
+        <p role="alert" className="mb-4 rounded-[10px] border border-[#F8D4D4] bg-[#FDF0F0] px-4 py-3 text-[13px] font-medium text-[#B42318]">{saveError}</p>
+      )}
+
+      {loading ? (
+        <p className="flex items-center gap-2 py-16 text-sm text-[#64748B]">
+          <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> Loading settings…
+        </p>
+      ) : loadError || !prefs ? (
+        <p role="alert" className="rounded-[10px] border border-[#F8D4D4] bg-[#FDF0F0] px-4 py-3 text-[13px] font-medium text-[#B42318]">
+          {loadError ?? 'Could not load settings.'}
+        </p>
+      ) : tab !== 'General' ? (
         <div className={`${CARD} grid place-items-center px-6 py-20 text-center`}>
           <div>
             <h2 className="font-display text-lg font-bold text-[#0F172A]">{tab}</h2>
@@ -102,49 +202,40 @@ export default function SettingsPage() {
                   <div className="flex flex-col gap-[18px]">
                     <div>
                       <label htmlFor="clinicName" className={LABEL}>Clinic Name</label>
-                      <input id="clinicName" defaultValue="Greenview Children Clinic" onChange={() => setDirty(true)} className={INPUT} />
+                      <input id="clinicName" value={clinic.name} disabled={!data?.clinic}
+                        onChange={(e) => { setClinic((c) => ({ ...c, name: e.target.value })); touch(); }}
+                        className={cn(INPUT, !data?.clinic && 'cursor-not-allowed bg-[#F9FAFD] text-[#94A3B8]')} />
                     </div>
                     <div>
                       <label htmlFor="clinicEmail" className={LABEL}>Clinic Email</label>
-                      <input id="clinicEmail" type="email" defaultValue="info@greenviewclinic.com" onChange={() => setDirty(true)} className={INPUT} />
+                      <input id="clinicEmail" type="email" value={clinic.email} disabled={!data?.clinic}
+                        onChange={(e) => { setClinic((c) => ({ ...c, email: e.target.value })); touch(); }}
+                        className={cn(INPUT, !data?.clinic && 'cursor-not-allowed bg-[#F9FAFD] text-[#94A3B8]')} />
                     </div>
                     <div>
                       <label htmlFor="phone" className={LABEL}>Phone Number</label>
-                      <PhoneNumberInput value={phone} onChange={(v) => { setPhone(v); setDirty(true); }} />
+                      <PhoneNumberInput value={clinic.phone} onChange={(v) => { setClinic((c) => ({ ...c, phone: v })); touch(); }} />
                     </div>
-                    <div>
-                      <label htmlFor="tz" className={LABEL}>Time Zone</label>
-                      <div className="relative">
-                        <select id="tz" onChange={() => setDirty(true)} className={cn(INPUT, 'appearance-none pr-10')}>
-                          <option>(GMT +05:30) Asia/Kolkata</option>
-                          <option>(GMT +04:00) Asia/Dubai</option>
-                        </select>
-                        <ChevronDown aria-hidden="true" className="pointer-events-none absolute right-3.5 top-1/2 h-[17px] w-[17px] -translate-y-1/2 text-[#94A3B8]" />
-                      </div>
-                    </div>
+                    {!data?.clinic && (
+                      <p className="-mt-2 text-[12px] text-[#94A3B8]">
+                        Add a clinic under Locations to set its name, email and phone.
+                      </p>
+                    )}
+
                     <div>
                       <label htmlFor="dateFmt" className={LABEL}>Date Format</label>
-                      <div className="relative">
-                        <select id="dateFmt" onChange={() => setDirty(true)} className={cn(INPUT, 'appearance-none pr-10')}>
-                          <option>DD MMM YYYY (e.g. 12 May 2025)</option>
-                          <option>DD/MM/YYYY (e.g. 12/05/2025)</option>
-                        </select>
-                        <ChevronDown aria-hidden="true" className="pointer-events-none absolute right-3.5 top-1/2 h-[17px] w-[17px] -translate-y-1/2 text-[#94A3B8]" />
-                      </div>
+                      <Select id="dateFmt" value={prefs.dateFormat} onChange={(v) => setPref('dateFormat', v as ClinicPreferences['dateFormat'])}
+                        options={[{ value: 'DD MMM YYYY', label: 'DD MMM YYYY (e.g. 12 May 2025)' }, { value: 'DD/MM/YYYY', label: 'DD/MM/YYYY (e.g. 12/05/2025)' }]} />
                     </div>
 
                     <fieldset>
                       <legend className={LABEL}>Time Format</legend>
                       <div role="radiogroup" aria-label="Time Format" className="mt-1 flex flex-wrap gap-10">
-                        {([['12', '12 Hour (e.g. 02:30 PM)', 'radio'], ['24', '24 Hour (e.g. 14:30)', 'square']] as const).map(([v, label, shape]) => {
-                          const on = timeFormat === v;
+                        {([['12', '12 Hour (e.g. 02:30 PM)'], ['24', '24 Hour (e.g. 14:30)']] as const).map(([v, label]) => {
+                          const on = prefs.timeFormat === v;
                           return (
-                            <button key={v} role="radio" type="button" aria-checked={on} onClick={() => { setTimeFormat(v); setDirty(true); }} className="flex items-center gap-[11px]">
-                              {/* The reference draws the unselected option as a square. Shape is
-                                  cosmetic only — both are radios in the same group. */}
-                              <span aria-hidden="true" className={cn('grid h-[18px] w-[18px] shrink-0 place-items-center border-2',
-                                shape === 'radio' || on ? 'rounded-full' : 'rounded-[5px] border-[1.5px]',
-                                on ? 'border-[#3B4FE0]' : 'border-[#C7CEDB]')}>
+                            <button key={v} role="radio" type="button" aria-checked={on} onClick={() => setPref('timeFormat', v)} className="flex items-center gap-[11px]">
+                              <span aria-hidden="true" className={cn('grid h-[18px] w-[18px] shrink-0 place-items-center rounded-full border-2', on ? 'border-[#3B4FE0]' : 'border-[#C7CEDB]')}>
                                 {on && <span className="h-2 w-2 rounded-full bg-[#3B4FE0]" />}
                               </span>
                               <span className="text-[13px] font-medium text-[#334155]">{label}</span>
@@ -157,55 +248,44 @@ export default function SettingsPage() {
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                       <div>
                         <label htmlFor="currency" className={LABEL}>Currency</label>
-                        <div className="relative">
-                          <select id="currency" onChange={() => setDirty(true)} className={cn(INPUT, 'appearance-none pr-10')}>
-                            <option>₹ INR - Indian Rupee</option>
-                            <option>$ USD - US Dollar</option>
-                          </select>
-                          <ChevronDown aria-hidden="true" className="pointer-events-none absolute right-3.5 top-1/2 h-[17px] w-[17px] -translate-y-1/2 text-[#94A3B8]" />
-                        </div>
+                        <Select id="currency" value={prefs.currency} onChange={(v) => setPref('currency', v)}
+                          options={[{ value: 'INR', label: '₹ INR - Indian Rupee' }, { value: 'USD', label: '$ USD - US Dollar' }]} />
                       </div>
                       <div>
                         <label htmlFor="lang" className={LABEL}>Language</label>
-                        <div className="relative">
-                          <select id="lang" onChange={() => setDirty(true)} className={cn(INPUT, 'appearance-none pr-10')}>
-                            <option>English</option>
-                            <option>हिन्दी</option>
-                          </select>
-                          <ChevronDown aria-hidden="true" className="pointer-events-none absolute right-3.5 top-1/2 h-[17px] w-[17px] -translate-y-1/2 text-[#94A3B8]" />
-                        </div>
+                        <Select id="lang" value={prefs.language} onChange={(v) => setPref('language', v as ClinicPreferences['language'])}
+                          options={[{ value: 'en', label: 'English' }, { value: 'hi', label: 'हिन्दी' }]} />
                       </div>
                     </div>
 
                     <div>
                       <label htmlFor="defaultPage" className={LABEL}>Default Page</label>
-                      <div className="relative">
-                        <select id="defaultPage" onChange={() => setDirty(true)} className={cn(INPUT, 'appearance-none pr-10')}>
-                          <option>Dashboard</option><option>Appointments</option><option>Patients</option>
-                        </select>
-                        <ChevronDown aria-hidden="true" className="pointer-events-none absolute right-3.5 top-1/2 h-[17px] w-[17px] -translate-y-1/2 text-[#94A3B8]" />
-                      </div>
+                      <Select id="defaultPage" value={prefs.defaultPage} onChange={(v) => setPref('defaultPage', v as ClinicPreferences['defaultPage'])}
+                        options={[{ value: 'dashboard', label: 'Dashboard' }, { value: 'appointments', label: 'Appointments' }, { value: 'patients', label: 'Patients' }]} />
                     </div>
                   </div>
-
-                  <button type="button" disabled={!dirty} onClick={() => { setDirty(false); setSaved(true); setTimeout(() => setSaved(false), 2500); }}
-                    className="mt-[26px] h-[46px] rounded-[10px] bg-[#4F46E5] px-[26px] text-sm font-bold text-white transition-colors hover:bg-[#4338CA] disabled:cursor-not-allowed disabled:opacity-50">
-                    Save Changes
-                  </button>
-                  <p aria-live="polite" className="sr-only">{saved ? 'Settings saved' : ''}</p>
                 </div>
 
                 {/* System Preferences */}
                 <div className="min-w-0 lg:pl-11">
                   <h2 className="mb-5 font-display text-[16.5px] font-bold text-[#0F172A]">System Preferences</h2>
                   <div>
-                    {PREFERENCES.map((p, i) => (
-                      <div key={p.id} className={cn('flex items-center gap-4 py-4', i > 0 && 'border-t border-[#F1F3F9]')}>
+                    <div className="flex items-center gap-4 py-4">
+                      <div className="min-w-0">
+                        <p className="text-[13.5px] font-bold text-[#0F172A]">Enable Dark Mode</p>
+                        <p id="dark-desc" className="mt-[3px] text-[12.5px] text-[#64748B]">Switch between light and dark theme on this device</p>
+                      </div>
+                      <span className="ml-auto"><Switch on={dark} onToggle={toggleDark} title="Enable Dark Mode" descId="dark-desc" /></span>
+                    </div>
+                    {TOGGLES.map((t) => (
+                      <div key={t.key} className="flex items-center gap-4 border-t border-[#F1F3F9] py-4">
                         <div className="min-w-0">
-                          <p className="text-[13.5px] font-bold text-[#0F172A]">{p.title}</p>
-                          <p id={`${p.id}-desc`} className="mt-[3px] text-[12.5px] text-[#64748B]">{p.desc}</p>
+                          <p className="text-[13.5px] font-bold text-[#0F172A]">{t.title}</p>
+                          <p id={`${t.key}-desc`} className="mt-[3px] text-[12.5px] text-[#64748B]">{t.desc}</p>
                         </div>
-                        <span className="ml-auto"><Switch on={prefs[p.id]} onToggle={() => toggle(p.id)} title={p.title} descId={`${p.id}-desc`} /></span>
+                        <span className="ml-auto">
+                          <Switch on={prefs[t.key] as boolean} onToggle={() => setPref(t.key, !prefs[t.key] as never)} title={t.title} descId={`${t.key}-desc`} />
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -215,13 +295,29 @@ export default function SettingsPage() {
                     <p className="mt-[3px] text-[12.5px] text-[#64748B]">Automatically log out after a period of inactivity</p>
                     <div className="relative mt-3 w-[152px]">
                       <label htmlFor="timeout" className="sr-only">Session timeout</label>
-                      <select id="timeout" onChange={() => setDirty(true)} className="h-11 w-full appearance-none rounded-[10px] border border-[#E4E8F1] bg-white pl-3.5 pr-9 text-[13.5px] font-medium text-[#0F172A] focus:outline-none">
-                        {['15 Minutes', '30 Minutes', '1 Hour', '2 Hours', 'Never'].map((o) => <option key={o} selected={o === '30 Minutes'}>{o}</option>)}
+                      <select id="timeout" value={prefs.sessionTimeoutMins} onChange={(e) => setPref('sessionTimeoutMins', Number(e.target.value))}
+                        className="h-11 w-full appearance-none rounded-[10px] border border-[#E4E8F1] bg-white pl-3.5 pr-9 text-[13.5px] font-medium text-[#0F172A] focus:outline-none">
+                        {TIMEOUTS.map((o) => <option key={o.v} value={o.v}>{o.label}</option>)}
                       </select>
                       <ChevronDown aria-hidden="true" className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94A3B8]" />
                     </div>
                   </div>
                 </div>
+              </div>
+
+              {/* Save */}
+              <div className="mt-[26px] flex items-center gap-3.5 border-t border-[#F1F3F9] pt-[22px]">
+                <button type="button" disabled={!dirty || saving} onClick={() => void save()}
+                  className="flex h-[46px] items-center gap-2 rounded-[10px] bg-[#4F46E5] px-[26px] text-sm font-bold text-white transition-colors hover:bg-[#4338CA] disabled:cursor-not-allowed disabled:opacity-50">
+                  {saving && <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />}
+                  {saving ? 'Saving…' : 'Save Changes'}
+                </button>
+                {saved && (
+                  <span role="status" className="flex items-center gap-1.5 text-[13px] font-semibold text-[#0F7A46]">
+                    <Check className="h-4 w-4" /> Saved
+                  </span>
+                )}
+                <p aria-live="polite" className="sr-only">{saved ? 'Settings saved' : ''}</p>
               </div>
             </div>
 
@@ -240,36 +336,41 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* ── Right rail ── */}
+          {/* ── Right rail: Business Hours ── */}
           <div className="flex min-w-0 flex-col gap-[18px]">
             <section className={`${CARD} px-5 pb-5 pt-[18px]`}>
-              <h2 className="font-display text-[15.5px] font-bold text-[#0F172A]">Clinic Logo</h2>
-              <p className="mt-[5px] text-[12.5px] text-[#64748B]">Upload your clinic logo. Recommended size: 512x512px</p>
-              <div className="mt-3.5 grid h-[132px] place-items-center rounded-[11px] border border-[#ECEEF4] bg-[#F7F8FC]">
-                <svg viewBox="0 0 120 90" role="img" aria-label="Greenview Children Clinic logo" className="h-[104px]">
-                  <path d="M52 12h16v10h10v16H68v10H52V38H42V22h10z" fill="#12805A" />
-                  <path d="M78 20c8 0 14 5 14 12s-7 12-15 11c0-8 4-16 1-23z" fill="#34A853" opacity=".85" />
-                  <text x="60" y="66" textAnchor="middle" fontSize="12" fontWeight="700" fill="#12805A" fontFamily="Georgia, serif">GREENVIEW</text>
-                  <text x="60" y="80" textAnchor="middle" fontSize="9" fontWeight="600" fill="#12805A" fontFamily="Georgia, serif">CHILDREN CLINIC</text>
-                </svg>
-              </div>
+              <h2 className="font-display text-[15.5px] font-bold text-[#0F172A]">Business Hours</h2>
+              <p className="mt-[5px] text-[12.5px] text-[#64748B]">The hours patients can book. Saved with the button on the left.</p>
+              <ul className="mt-3.5 flex flex-col gap-2.5">
+                {WEEK_DAYS.map((day) => {
+                  const d = hours[day];
+                  if (!d) return null;
+                  return (
+                    <li key={day} className="flex items-center gap-2">
+                      <span className="w-[74px] shrink-0 text-[12.5px] font-semibold text-[#334155]">{DAY_LABEL[day]}</span>
+                      {d.closed ? (
+                        <span className="flex-1 text-[12.5px] font-bold text-[#E03131]">Closed</span>
+                      ) : (
+                        <span className="flex flex-1 items-center gap-1.5">
+                          <input type="time" value={d.start} aria-label={`${DAY_LABEL[day]} opening time`}
+                            onChange={(e) => setDay(day, { start: e.target.value })}
+                            className="h-9 w-full rounded-[8px] border border-[#E4E8F1] bg-white px-2 text-[12.5px] tabular-nums text-[#0F172A] focus:border-[#3B4FE0] focus:outline-none" />
+                          <span className="text-[#94A3B8]">–</span>
+                          <input type="time" value={d.end} aria-label={`${DAY_LABEL[day]} closing time`}
+                            onChange={(e) => setDay(day, { end: e.target.value })}
+                            className="h-9 w-full rounded-[8px] border border-[#E4E8F1] bg-white px-2 text-[12.5px] tabular-nums text-[#0F172A] focus:border-[#3B4FE0] focus:outline-none" />
+                        </span>
+                      )}
+                      <label className="flex shrink-0 cursor-pointer items-center gap-1.5 text-[11.5px] font-medium text-[#64748B]">
+                        <input type="checkbox" checked={d.closed} onChange={(e) => setDay(day, { closed: e.target.checked })}
+                          className="h-3.5 w-3.5 rounded border-[#C7CEDB] text-[#4F46E5] focus:ring-[#4F63F5]" />
+                        Closed
+                      </label>
+                    </li>
+                  );
+                })}
+              </ul>
             </section>
-
-            <section className={`${CARD} px-5 pb-5 pt-[18px]`}>
-              <div className="flex items-center">
-                <h2 className="font-display text-[15.5px] font-bold text-[#0F172A]">Business Hours</h2>
-                <button type="button" className="ml-auto text-[13px] font-bold text-[#3B4FE0] hover:underline">Edit</button>
-              </div>
-              <dl className="mt-3.5">
-                {HOURS.map(([day, hrs]) => (
-                  <div key={day} className="flex h-[30px] items-center justify-between gap-3">
-                    <dt className="text-[12.5px] font-medium text-[#475569]">{day}</dt>
-                    <dd className={cn('text-[12.5px] tabular-nums', hrs === 'Closed' ? 'font-bold text-[#E03131]' : 'font-semibold text-[#0F172A]')}>{hrs}</dd>
-                  </div>
-                ))}
-              </dl>
-            </section>
-
           </div>
         </div>
       )}

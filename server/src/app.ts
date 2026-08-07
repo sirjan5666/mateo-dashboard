@@ -44,6 +44,7 @@ import doctorPrescriptionsRouter from './routes/doctorPrescriptions.js';
 import doctorMessagesRouter from './routes/doctorMessages.js';
 import doctorLocationsRouter from './routes/doctorLocations.js';
 import doctorTeamRouter from './routes/doctorTeam.js';
+import doctorSettingsRouter from './routes/doctorSettings.js';
 import pharmacyRouter from './routes/pharmacy.js';
 import doctorLogsRouter from './routes/doctorLogs.js';
 import doctorDashboardRouter from './routes/doctorDashboard.js';
@@ -160,6 +161,8 @@ export function createApp() {
   app.use('/api/doctor', doctorLocationsRouter);
 
   app.use('/api/doctor', doctorTeamRouter);
+
+  app.use('/api/doctor', doctorSettingsRouter);
 
   app.use('/api/pharmacy', pharmacyRouter);
 
