@@ -93,6 +93,18 @@ export function adjustStock(id: string, delta: number, note?: string) {
   });
 }
 
+/**
+ * Set stock to a counted figure. The SERVER works out the movement from its own
+ * current number — a delta computed here would land on the wrong total if
+ * someone sold at the counter while this page sat open.
+ */
+export function setStock(id: string, qty: number, note?: string) {
+  return api<{ item: MedicineDto }>(`/pharmacy/medicines/${id}/adjust`, {
+    method: 'POST',
+    body: JSON.stringify({ set: qty, note }),
+  });
+}
+
 export function importInventory(rows: MedicineInput[]) {
   return api<{ created: number; updated: number; failed: number; errors: { sku: string; message: string }[] }>(
     '/pharmacy/inventory/import',

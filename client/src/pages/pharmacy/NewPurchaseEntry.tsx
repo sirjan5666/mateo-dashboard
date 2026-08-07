@@ -195,9 +195,7 @@ export default function NewPurchaseEntry() {
   const shownLedger = ledger && ledger.distributor.id === distributorId ? ledger : null;
 
   return (
-    <div className="grid grid-cols-1 items-start gap-5 2xl:grid-cols-[1fr_460px]">
-      {/* ── Left ── */}
-      <div className="flex min-w-0 flex-col gap-4">
+    <div className="flex min-w-0 flex-col gap-4">
         <div>
           <Link to="/doctor/pharmacy" className="flex w-fit items-center gap-2 text-[13px] font-semibold text-[#3B4FE0] hover:underline">
             <ArrowLeft className="h-4 w-4" />
@@ -219,6 +217,80 @@ export default function NewPurchaseEntry() {
             {error}
           </p>
         )}
+
+        {/* ── Distributor ledger ── */}
+        <section className={cn(CARD, 'min-w-0 px-5 pb-5 pt-[18px]')}>
+          <h2 className="font-display text-base font-extrabold tracking-[-0.02em] text-[#0F172A]">Distributor Ledger</h2>
+          <p className="mt-[3px] text-[13px] font-medium text-[#64748B]">
+            {shownLedger?.distributor.name ?? (loading ? 'Loading…' : 'Select a distributor')}
+          </p>
+
+          {shownLedger && (
+            <>
+              <dl className="mt-3.5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                {[
+                  { bg: '#F3F4FE', tint: '#E0E3FD', fg: '#4F46E5', icon: 'ShoppingCart', label: 'Total Purchased', value: shownLedger.kpis.totalPurchased },
+                  { bg: '#EDFAF2', tint: '#DCF7E6', fg: '#12A150', icon: 'ClipboardCheck', label: 'Total Paid', value: shownLedger.kpis.totalPaid },
+                  { bg: '#FEF8EC', tint: '#FDECD3', fg: '#F59E0B', icon: 'Wallet', label: 'Outstanding', value: shownLedger.kpis.outstanding },
+                ].map((k) => {
+                  const Icon = PH_ICONS[k.icon] ?? FileText;
+                  return (
+                    <div key={k.label} className="rounded-[11px] px-3.5 pb-4 pt-3.5" style={{ background: k.bg }}>
+                      <span aria-hidden="true" className="grid h-[30px] w-[30px] place-items-center rounded-[8px]" style={{ background: k.tint }}>
+                        <Icon className="h-[15px] w-[15px]" style={{ color: k.fg }} />
+                      </span>
+                      <dt className="mt-2.5 text-[11.5px] font-medium text-[#64748B]">{k.label}</dt>
+                      <dd className="mt-[5px] text-[17px] font-extrabold text-[#0F172A]">₹{k.value.toLocaleString('en-IN')}</dd>
+                    </div>
+                  );
+                })}
+              </dl>
+
+              <h3 className="mt-4 text-[13px] font-bold text-[#0F172A]">Purchases</h3>
+              {shownLedger.transactions.length === 0 ? (
+                <p className="mt-2 text-[12.5px] text-[#64748B]">No purchases recorded from this distributor yet.</p>
+              ) : (
+                <div className="mt-2 overflow-x-auto">
+                  <table className="w-full min-w-[420px] border-separate border-spacing-0">
+                    <caption className="sr-only">Distributor purchases</caption>
+                    <thead>
+                      <tr>
+                        {['Date', 'Reference', 'Billed (₹)', 'Paid (₹)', 'Due (₹)', 'Status'].map((h, i) => (
+                          <th key={h} scope="col"
+                            className={cn('h-[34px] text-left text-[10px] font-bold uppercase tracking-[0.05em] text-[#64748B]', i >= 2 && i <= 4 && 'text-right')}>
+                            {h}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {shownLedger.transactions.map((t) => (
+                        <tr key={t.id}>
+                          <th scope="row" className="h-10 border-t border-[#F1F3F9] pr-3 text-left text-[11.5px] font-medium text-[#334155]">
+                            {new Date(t.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                          </th>
+                          <td className="border-t border-[#F1F3F9] pr-3 text-[11.5px] font-medium text-[#334155]">{t.reference}</td>
+                          <td className="border-t border-[#F1F3F9] pr-3 text-right text-[11.5px] font-semibold text-[#0F172A]">{amt(t.debit)}</td>
+                          <td className="border-t border-[#F1F3F9] pr-3 text-right text-[11.5px] font-semibold text-[#0F172A]">{amt(t.credit)}</td>
+                          <td className="border-t border-[#F1F3F9] pr-3 text-right text-[11.5px] font-semibold text-[#0F172A]">{amt(t.balance)}</td>
+                          <td className="border-t border-[#F1F3F9]">
+                            <Chip label={t.status === 'paid' ? 'Paid' : t.status === 'partial' ? 'Partial' : 'Unpaid'}
+                              bg={t.status === 'paid' ? '#DCF7E6' : '#FDECD3'}
+                              fg={t.status === 'paid' ? '#12A150' : '#E8890B'}
+                              className="!rounded-[6px] !px-[9px] !py-[3px] !text-[10.5px]" />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              <p className="mt-3.5 rounded-[10px] bg-[#FAFBFD] px-3.5 py-3 text-[11.5px] font-medium text-[#64748B]">
+                Every figure here is summed from this distributor’s own purchase records.
+              </p>
+            </>
+          )}
+        </section>
 
         {/* Header card */}
         <section className={cn(CARD, 'px-5 py-[18px]')}>
@@ -478,81 +550,6 @@ export default function NewPurchaseEntry() {
             </button>
           </div>
         </section>
-      </div>
-
-      {/* ── Distributor ledger ── */}
-      <section className={cn(CARD, 'min-w-0 px-5 pb-5 pt-[18px]')}>
-        <h2 className="font-display text-base font-extrabold tracking-[-0.02em] text-[#0F172A]">Distributor Ledger</h2>
-        <p className="mt-[3px] text-[13px] font-medium text-[#64748B]">
-          {shownLedger?.distributor.name ?? (loading ? 'Loading…' : 'Select a distributor')}
-        </p>
-
-        {shownLedger && (
-          <>
-            <dl className="mt-3.5 grid grid-cols-1 gap-3 sm:grid-cols-3">
-              {[
-                { bg: '#F3F4FE', tint: '#E0E3FD', fg: '#4F46E5', icon: 'ShoppingCart', label: 'Total Purchased', value: shownLedger.kpis.totalPurchased },
-                { bg: '#EDFAF2', tint: '#DCF7E6', fg: '#12A150', icon: 'ClipboardCheck', label: 'Total Paid', value: shownLedger.kpis.totalPaid },
-                { bg: '#FEF8EC', tint: '#FDECD3', fg: '#F59E0B', icon: 'Wallet', label: 'Outstanding', value: shownLedger.kpis.outstanding },
-              ].map((k) => {
-                const Icon = PH_ICONS[k.icon] ?? FileText;
-                return (
-                  <div key={k.label} className="rounded-[11px] px-3.5 pb-4 pt-3.5" style={{ background: k.bg }}>
-                    <span aria-hidden="true" className="grid h-[30px] w-[30px] place-items-center rounded-[8px]" style={{ background: k.tint }}>
-                      <Icon className="h-[15px] w-[15px]" style={{ color: k.fg }} />
-                    </span>
-                    <dt className="mt-2.5 text-[11.5px] font-medium text-[#64748B]">{k.label}</dt>
-                    <dd className="mt-[5px] text-[17px] font-extrabold text-[#0F172A]">₹{k.value.toLocaleString('en-IN')}</dd>
-                  </div>
-                );
-              })}
-            </dl>
-
-            <h3 className="mt-4 text-[13px] font-bold text-[#0F172A]">Purchases</h3>
-            {shownLedger.transactions.length === 0 ? (
-              <p className="mt-2 text-[12.5px] text-[#64748B]">No purchases recorded from this distributor yet.</p>
-            ) : (
-              <div className="mt-2 overflow-x-auto">
-                <table className="w-full min-w-[420px] border-separate border-spacing-0">
-                  <caption className="sr-only">Distributor purchases</caption>
-                  <thead>
-                    <tr>
-                      {['Date', 'Reference', 'Billed (₹)', 'Paid (₹)', 'Due (₹)', 'Status'].map((h, i) => (
-                        <th key={h} scope="col"
-                          className={cn('h-[34px] text-left text-[10px] font-bold uppercase tracking-[0.05em] text-[#64748B]', i >= 2 && i <= 4 && 'text-right')}>
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {shownLedger.transactions.map((t) => (
-                      <tr key={t.id}>
-                        <th scope="row" className="h-10 border-t border-[#F1F3F9] pr-3 text-left text-[11.5px] font-medium text-[#334155]">
-                          {new Date(t.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
-                        </th>
-                        <td className="border-t border-[#F1F3F9] pr-3 text-[11.5px] font-medium text-[#334155]">{t.reference}</td>
-                        <td className="border-t border-[#F1F3F9] pr-3 text-right text-[11.5px] font-semibold text-[#0F172A]">{amt(t.debit)}</td>
-                        <td className="border-t border-[#F1F3F9] pr-3 text-right text-[11.5px] font-semibold text-[#0F172A]">{amt(t.credit)}</td>
-                        <td className="border-t border-[#F1F3F9] pr-3 text-right text-[11.5px] font-semibold text-[#0F172A]">{amt(t.balance)}</td>
-                        <td className="border-t border-[#F1F3F9]">
-                          <Chip label={t.status === 'paid' ? 'Paid' : t.status === 'partial' ? 'Partial' : 'Unpaid'}
-                            bg={t.status === 'paid' ? '#DCF7E6' : '#FDECD3'}
-                            fg={t.status === 'paid' ? '#12A150' : '#E8890B'}
-                            className="!rounded-[6px] !px-[9px] !py-[3px] !text-[10.5px]" />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-            <p className="mt-3.5 rounded-[10px] bg-[#FAFBFD] px-3.5 py-3 text-[11.5px] font-medium text-[#64748B]">
-              Every figure here is summed from this distributor’s own purchase records.
-            </p>
-          </>
-        )}
-      </section>
     </div>
   );
 }

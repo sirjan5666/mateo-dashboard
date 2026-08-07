@@ -239,21 +239,64 @@ router.patch('/medicines/:id', auditAccess('pharmacy'), async (req, res) => {
   res.json({ item: medShape(med, med.distributorId ? names.get(med.distributorId.toString()) ?? null : null) });
 });
 
+/**
+ * Two ways to move stock, and the difference matters.
+ *
+ * `delta` is a MOVEMENT — the +/− buttons, "two more arrived".
+ * `set` is a COUNT — "there are 47 on the shelf". The server works out the delta
+ * from its own current figure, because the client's may be stale: if someone
+ * sold three at the counter while this page sat open, a client-computed delta
+ * would land on the wrong number, and this is a pharmacy's stock.
+ */
+const adjustSchema = z
+  .object({
+    delta: z.number().int().optional(),
+    set: z.number().int().min(0).max(1_000_000).optional(),
+    note: z.string().max(240).optional(),
+  })
+  .refine((b) => (b.delta === undefined) !== (b.set === undefined), 'Send either delta or set, not both')
+  .refine((b) => b.delta !== 0, 'Delta cannot be zero');
+
 // POST /api/pharmacy/medicines/:id/adjust — the +/− buttons and stock take.
 router.post('/medicines/:id/adjust', auditAccess('pharmacy'), async (req, res) => {
   const { id } = req.params;
-  const { delta, note } = z
-    .object({ delta: z.number().int().refine((n) => n !== 0, 'Delta cannot be zero'), note: z.string().max(240).optional() })
-    .parse(req.body);
+  const { delta, set, note } = adjustSchema.parse(req.body);
   if (!isValidObjectId(id)) {
     res.status(404).json({ error: 'Medicine not found' });
     return;
   }
+
+  if (set !== undefined) {
+    // One atomic write to the absolute figure; the pre-image tells us what the
+    // movement actually was, so the ledger still records how it got there.
+    const prev = await Medicine.findOneAndUpdate(
+      scopeToDoctor(req, { _id: id }),
+      { $set: { qtyInStock: set } },
+      { new: false },
+    );
+    if (!prev) {
+      res.status(404).json({ error: 'Medicine not found' });
+      return;
+    }
+    const moved = set - prev.qtyInStock;
+    if (moved !== 0) {
+      await StockMovement.create({
+        doctorUserId: req.userId, medicineId: prev._id, delta: moved, balanceAfter: set,
+        reason: 'adjustment', refType: 'manual', note: note || 'Stock count',
+      });
+    }
+    prev.qtyInStock = set;
+    const names = await distributorNames(req);
+    res.json({ item: medShape(prev, prev.distributorId ? names.get(prev.distributorId.toString()) ?? null : null) });
+    return;
+  }
+  // The schema guarantees one of the two; `set` returned above.
+  const move = delta as number;
   // Atomic + guarded: the $gte precondition is what stops a negative balance.
-  const filter = delta < 0
-    ? scopeToDoctor(req, { _id: id, qtyInStock: { $gte: -delta } })
+  const filter = move < 0
+    ? scopeToDoctor(req, { _id: id, qtyInStock: { $gte: -move } })
     : scopeToDoctor(req, { _id: id });
-  const med = await Medicine.findOneAndUpdate(filter, { $inc: { qtyInStock: delta } }, { new: true });
+  const med = await Medicine.findOneAndUpdate(filter, { $inc: { qtyInStock: move } }, { new: true });
   if (!med) {
     const exists = await Medicine.findOne(scopeToDoctor(req, { _id: id }));
     res.status(exists ? 409 : 404).json({
@@ -262,7 +305,7 @@ router.post('/medicines/:id/adjust', auditAccess('pharmacy'), async (req, res) =
     return;
   }
   await StockMovement.create({
-    doctorUserId: req.userId, medicineId: med._id, delta, balanceAfter: med.qtyInStock,
+    doctorUserId: req.userId, medicineId: med._id, delta: move, balanceAfter: med.qtyInStock,
     reason: 'adjustment', refType: 'manual', note: note || undefined,
   });
   const names = await distributorNames(req);

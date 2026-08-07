@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import {
   adjustStock, downloadInventoryCsv, getInventorySummary, importInventory, listDistributors,
-  listInventory, updateMedicine, MEDICINE_CATEGORIES,
+  listInventory, setStock, updateMedicine, MEDICINE_CATEGORIES,
 } from '../../api/pharmacy';
 import type { DistributorDto, InventorySummary, MedicineDto, MedicineInput } from '../../api/pharmacy';
 import { RowMenu } from '../../components/doctor/v2/RowMenu';
@@ -27,6 +27,80 @@ const STATUS_STYLE: Record<string, { bg: string; fg: string }> = {
 function levelColor(level: number): string | null {
   if (level <= 0) return null;
   return level >= 50 ? '#12A150' : '#F59E0B';
+}
+
+/**
+ * The stock table's columns, declared once so the header and the body cannot
+ * drift out of alignment — which is exactly what had happened: the money columns
+ * were right-aligned with no padding, so their values collided with the header
+ * beside them. Widths keep the numbers from crowding on a narrow window.
+ */
+const COLS: { label: string; align?: 'right'; width: number }[] = [
+  { label: 'Medicine', width: 232 },
+  { label: 'Batch', width: 96 },
+  { label: 'Distributor', width: 150 },
+  { label: 'Expiry', width: 96 },
+  { label: 'Purchase Rate (₹)', align: 'right', width: 124 },
+  { label: 'MRP (₹)', align: 'right', width: 96 },
+  { label: 'Qty in Stock', align: 'right', width: 112 },
+  { label: 'Stock Level', width: 140 },
+  { label: 'Status', width: 106 },
+  { label: 'Actions', width: 128 },
+];
+
+/** Sum of the widths above — the point below which the table has to scroll. */
+const TABLE_MIN = COLS.reduce((t, c) => t + c.width, 0);
+
+/** Shared body-cell padding, matching the header's, so columns line up. */
+const TD = 'border-b border-[#F1F3F9] px-3 py-2 text-[12.5px]';
+
+/**
+ * Stock quantity you can type into, not only step with +/-.
+ *
+ * It commits an absolute COUNT. The server derives the movement from its own
+ * current figure, so the change still lands in the stock history with a note —
+ * and a page that has gone stale cannot land on the wrong total.
+ *
+ * Enter or blur commits; Escape abandons the edit. A value that is not a
+ * non-negative whole number is refused and the field snaps back, because the
+ * alternative is quietly writing a wrong count into a pharmacy's stock.
+ */
+function QtyCell({
+  row,
+  busy,
+  onCommit,
+}: {
+  row: MedicineDto;
+  busy: boolean;
+  onCommit: (target: number) => void;
+}) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const shown = draft ?? String(row.qtyInStock);
+
+  const commit = () => {
+    if (draft === null) return;
+    const n = Number(draft);
+    setDraft(null);
+    if (!/^\d+$/.test(draft.trim()) || !Number.isFinite(n) || n === row.qtyInStock) return;
+    onCommit(n);
+  };
+
+  return (
+    <input
+      type="text"
+      inputMode="numeric"
+      value={busy ? String(row.qtyInStock) : shown}
+      disabled={busy}
+      aria-label={`Quantity in stock for ${row.name}`}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') { e.currentTarget.blur(); }
+        if (e.key === 'Escape') { setDraft(null); e.currentTarget.blur(); }
+      }}
+      className="h-8 w-[74px] rounded-[8px] border border-transparent bg-transparent px-2 text-right text-[13px] font-bold tabular-nums text-[#0F172A] transition-colors hover:border-[#E2E6F0] hover:bg-white focus:border-[#3B4FE0] focus:bg-white focus:outline-none focus:ring-[3px] focus:ring-[rgba(59,79,224,.12)] disabled:opacity-50"
+    />
+  );
 }
 
 /** Icon + tint per category, so the table reads at a glance without stored colours. */
@@ -166,6 +240,24 @@ export default function PharmacyInventory() {
       await reload();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not adjust stock');
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  /**
+   * Set stock to a typed figure. The absolute count goes to the server, which
+   * derives the movement from ITS current number and records it — a delta worked
+   * out here would be wrong the moment this page went stale.
+   */
+  async function setQty(m: MedicineDto, target: number) {
+    setBusyId(m.id);
+    setError(null);
+    try {
+      await setStock(m.id, target, 'Stock count');
+      await reload();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not set the stock count');
     } finally {
       setBusyId(null);
     }
@@ -334,12 +426,28 @@ export default function PharmacyInventory() {
             </div>
           ) : (
             <div className="mt-4 overflow-x-auto">
-              <table className="w-full min-w-[1180px] border-separate border-spacing-0">
+              <table style={{ minWidth: TABLE_MIN }} className="w-full border-separate border-spacing-0">
                 <caption className="sr-only">Pharmacy stock</caption>
                 <thead>
                   <tr>
-                    {['Medicine', 'Batch', 'Distributor', 'Expiry', 'Purchase Rate (₹)', 'MRP (₹)', 'Qty in Stock', 'Stock Level', 'Status', 'Actions'].map((h, i) => (
-                      <th key={h} scope="col" className={cn(TH, i === 0 && 'pl-[22px]', (i === 4 || i === 5) && 'text-right', i === 9 && 'pr-[22px]')}>{h}</th>
+                    {COLS.map((c, i) => (
+                      <th
+                        key={c.label}
+                        scope="col"
+                        className={cn(
+                          TH,
+                          // Every header gets padding of its own. Without it a
+                          // right-aligned "MRP (₹)" ran straight into the next
+                          // header's first letter.
+                          'px-3',
+                          c.align === 'right' && 'text-right',
+                          i === 0 && 'pl-[22px]',
+                          i === COLS.length - 1 && 'pr-[22px]',
+                        )}
+                        style={{ width: c.width }}
+                      >
+                        {c.label}
+                      </th>
                     ))}
                   </tr>
                 </thead>
@@ -359,17 +467,23 @@ export default function PharmacyInventory() {
                             </span>
                           </span>
                         </th>
-                        <td className="border-b border-[#F1F3F9] pr-3 text-[12.5px] font-medium text-[#334155]">{r.batch}</td>
-                        <td className="border-b border-[#F1F3F9] pr-3 text-[12.5px] font-medium text-[#334155]">
-                          {r.distributorName ?? <Dash say="No distributor recorded" />}
+                        <td className={cn(TD, 'font-medium text-[#334155]')}>{r.batch}</td>
+                        <td className={cn(TD, 'font-medium text-[#334155]')}>
+                          <span className="block truncate">{r.distributorName ?? <Dash say="No distributor recorded" />}</span>
                         </td>
-                        <td className="border-b border-[#F1F3F9] pr-3 text-[12.5px] font-medium text-[#334155]">
+                        <td className={cn(TD, 'font-medium text-[#334155]')}>
                           {r.expiry ?? <Dash say="No expiry date" />}
                         </td>
-                        <td className="border-b border-[#F1F3F9] pr-3 text-right text-[12.5px] font-semibold text-[#0F172A]">{amt(r.purchaseRate)}</td>
-                        <td className="border-b border-[#F1F3F9] pr-3 text-right text-[12.5px] font-semibold text-[#0F172A]">{amt(r.mrp)}</td>
-                        <td className="border-b border-[#F1F3F9] pr-3 text-[13px] font-bold text-[#0F172A]">{r.qtyInStock}</td>
-                        <td className="border-b border-[#F1F3F9] pr-3">
+                        <td className={cn(TD, 'text-right font-semibold text-[#0F172A] tabular-nums')}>{amt(r.purchaseRate)}</td>
+                        <td className={cn(TD, 'text-right font-semibold text-[#0F172A] tabular-nums')}>{amt(r.mrp)}</td>
+                        <td className={cn(TD, 'text-right')}>
+                          <QtyCell
+                            row={r}
+                            busy={busyId === r.id}
+                            onCommit={(target) => void setQty(r, target)}
+                          />
+                        </td>
+                        <td className={TD}>
                           <span className="flex items-center gap-2.5">
                             <span role="progressbar" aria-valuenow={r.level} aria-valuemin={0} aria-valuemax={100}
                               aria-label={`Stock level of ${r.name}`}
@@ -379,8 +493,8 @@ export default function PharmacyInventory() {
                             <span className="text-[11.5px] font-semibold text-[#64748B]">{r.level}%</span>
                           </span>
                         </td>
-                        <td className="border-b border-[#F1F3F9] pr-3"><Chip label={r.status} bg={st.bg} fg={st.fg} /></td>
-                        <td className="border-b border-[#F1F3F9] pr-[22px]">
+                        <td className={TD}><Chip label={r.status} bg={st.bg} fg={st.fg} /></td>
+                        <td className="border-b border-[#F1F3F9] py-2 pl-3 pr-[22px]">
                           <span className="flex items-center gap-2">
                             {busyId === r.id ? (
                               <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin text-[#64748B]" />

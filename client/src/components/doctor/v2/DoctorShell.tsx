@@ -2,7 +2,6 @@ import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router';
 import type { LucideIcon } from 'lucide-react';
 import {
-  Activity,
   AlignLeft,
   Bell,
   Boxes,
@@ -83,7 +82,8 @@ const NAV: NavGroup[] = [
     items: [
       { to: '/doctor/patients', label: 'Patients', icon: Users, module: 'patients' },
       { to: '/doctor/prescriptions', label: 'Prescriptions', icon: Pill, module: 'prescriptions' },
-      { to: '/doctor/charts', label: 'Analytics', icon: Activity, module: 'reports' },
+      // "Analytics" was a second door onto this same page; one row, not two.
+      // /doctor/charts and /doctor/analytics still resolve, so old links work.
       { to: '/doctor/reports', label: 'Reports', icon: FileText, module: 'reports' },
       { to: '/doctor/messages', label: 'Messages', icon: MessageSquare, module: 'consultations' },
     ],
