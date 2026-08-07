@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Bar, BarChart, Cell, LabelList, Pie, PieChart, ResponsiveContainer, XAxis, YAxis } from 'recharts';
 import {
-  AlertTriangle, ArrowRight, Boxes, CalendarDays, ChevronDown, Download, IndianRupee, Loader2,
+  AlertTriangle, ArrowRight, Boxes, CalendarDays, ChevronDown, FileDown, IndianRupee, Loader2,
   Minus, Plus, Search, SlidersHorizontal, Upload, XCircle,
 } from 'lucide-react';
 import {
-  adjustStock, downloadInventoryCsv, getInventorySummary, importInventory, listDistributors,
+  adjustStock, getInventorySummary, importInventory, listDistributors,
   listInventory, setStock, updateMedicine, MEDICINE_CATEGORIES,
 } from '../../api/pharmacy';
 import type { DistributorDto, InventorySummary, MedicineDto, MedicineInput } from '../../api/pharmacy';
@@ -390,21 +390,50 @@ export default function PharmacyInventory() {
     }
   }
 
+  /**
+   * Update stock from an uploaded CSV. A row that matches an existing SKU+batch
+   * ADDS its quantity to that batch (recorded as a stock movement, never an
+   * overwrite, so a re-upload can't erase a day's sales); a row for a new SKU
+   * creates the medicine. The format is exactly the sample template below.
+   */
   async function onImportFile(file: File) {
     setError(null);
     setNotice(null);
     try {
       const rows = parseCsv(await file.text());
       if (!rows.length) {
-        setError('No usable rows found — the file needs SKU, Name and Batch columns.');
+        setError('No usable rows found — the file needs at least the SKU, Name and Batch columns. Download the sample template to see the format.');
         return;
       }
       const r = await importInventory(rows);
-      setNotice(`Imported ${r.created} new and updated ${r.updated} item${r.updated === 1 ? '' : 's'}.${r.failed ? ` ${r.failed} failed.` : ''}`);
+      setNotice(
+        `Stock updated from ${file.name}: ${r.updated} existing item${r.updated === 1 ? '' : 's'} topped up, ${r.created} new added.${r.failed ? ` ${r.failed} row(s) could not be read.` : ''}`,
+      );
       await reload();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not import this file');
+      setError(e instanceof Error ? e.message : 'Could not read this file');
     }
+  }
+
+  /**
+   * Hand the doctor the exact format the upload expects — headers plus two
+   * worked example rows — so a stock file is filled in correctly the first time
+   * rather than rejected. Purely client-side; it invents no live stock.
+   */
+  function downloadSampleCsv() {
+    const headers = ['SKU', 'Name', 'Form', 'Category', 'Batch', 'Expiry', 'PurchaseRate', 'MRP', 'GSTPct', 'QtyInStock', 'Capacity', 'ReorderLevel'];
+    const examples = [
+      ['PARA250', 'Paracetamol Syrup', 'Syrup', 'Analgesics', 'PB2417', '2026-12-31', '42', '65', '12', '50', '200', '20'],
+      ['AMOX125', 'Amoxicillin Syrup', 'Syrup', 'Antibiotics', 'AB3110', '2027-03-31', '96', '130', '12', '30', '150', '15'],
+    ];
+    const csv = [headers, ...examples].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'mateo-stock-template.csv';
+    link.click();
+    URL.revokeObjectURL(url);
   }
 
   return (
@@ -423,15 +452,17 @@ export default function PharmacyInventory() {
                 if (f) void onImportFile(f);
                 e.target.value = '';
               }} />
+            <button type="button" onClick={downloadSampleCsv}
+              title="Download a blank stock template with example rows"
+              className="flex h-[46px] items-center gap-2 rounded-[11px] border border-[#E2E6F0] bg-white px-5 hover:bg-[#F7F8FC]">
+              <FileDown className="h-[17px] w-[17px] text-[#334155]" />
+              <span className="text-sm font-bold text-[#1E2A5A]">Sample CSV</span>
+            </button>
             <button type="button" onClick={() => fileRef.current?.click()}
+              title="Upload a filled stock CSV to update quantities"
               className="flex h-[46px] items-center gap-2 rounded-[11px] border border-[#E2E6F0] bg-white px-5 hover:bg-[#F7F8FC]">
               <Upload className="h-[17px] w-[17px] text-[#334155]" />
-              <span className="text-sm font-bold text-[#1E2A5A]">Import Stock</span>
-            </button>
-            <button type="button" onClick={() => void downloadInventoryCsv().catch((e: unknown) => setError(e instanceof Error ? e.message : 'Export failed'))}
-              className="flex h-[46px] items-center gap-2 rounded-[11px] border border-[#E2E6F0] bg-white px-5 hover:bg-[#F7F8FC]">
-              <Download className="h-[17px] w-[17px] text-[#334155]" />
-              <span className="text-sm font-bold text-[#1E2A5A]">Download</span>
+              <span className="text-sm font-bold text-[#1E2A5A]">Upload CSV</span>
             </button>
             <button type="button" onClick={() => { setEditing(null); setFormOpen(true); }}
               className="flex h-[46px] items-center gap-2 rounded-[11px] px-[22px] text-white shadow-[0_8px_18px_-8px_rgba(59,79,224,.65)] hover:brightness-105"
