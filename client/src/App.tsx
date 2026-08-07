@@ -48,6 +48,7 @@ import BillSuccess from './pages/pharmacy/BillSuccess';
 import DoctorProfileForm from './pages/doctor/DoctorProfileForm';
 import ReportsAnalytics from './pages/doctor/ReportsAnalytics';
 import BillingInvoices from './pages/doctor/BillingInvoices';
+import InvoicePrint from './pages/doctor/InvoicePrint';
 import AppointmentsPage from './pages/doctor/AppointmentsPage';
 import BookAppointment from './pages/doctor/BookAppointment';
 import DoctorMessages from './pages/doctor/Messages';
@@ -155,6 +156,7 @@ function AppRoutes() {
           <Route path="/doctor/pharmacy/billing" element={<NewBill />} />
           <Route path="/doctor/pharmacy/billing/success" element={<BillSuccess />} />
           <Route path="/doctor/revenue" element={<BillingInvoices />} />
+          <Route path="/doctor/invoices/:id/print" element={<InvoicePrint />} />
           {/* Staff IS Team & Roles — one page, not two. */}
           <Route path="/doctor/staff" element={<Navigate to="/doctor/team" replace />} />
           <Route path="/doctor/locations" element={<LocationsManagement />} />

@@ -412,10 +412,10 @@ export default function BillingInvoices() {
             </div>
 
             <div className="grid grid-cols-2 gap-3 px-[18px] pb-5 pt-4">
-              <button type="button" aria-label="Print invoice" onClick={() => window.print()}
+              <button type="button" aria-label="Open the printable invoice" onClick={() => navigate(`/doctor/invoices/${selected.id}/print`)}
                 className="flex h-11 items-center justify-center gap-2 rounded-[10px] border border-[#DDE3F5] bg-white text-[12.5px] font-bold text-[#3B4FE0] hover:bg-[#F5F7FF]">
                 <Download className="h-4 w-4" />
-                Print
+                Print / PDF
               </button>
               <button type="button" aria-label="Mark invoice as paid" disabled={busy || selected.status === 'Paid'}
                 onClick={() => void mutate([selected.id], 'paid')}

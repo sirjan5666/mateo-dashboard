@@ -53,8 +53,19 @@ export function listPatientInvoices(patientId: string) {
   );
 }
 
+/** Real patient demographics for the printed invoice's Bill To block. */
+export interface InvoiceBillingPatient {
+  name: string;
+  code: string | null;
+  sex: string;
+  /** ISO date — the client computes age against today; ages are never stored. */
+  dob: string | null;
+  phone: string | null;
+  address: string[] | null;
+}
+
 export function getInvoice(id: string) {
-  return api<{ invoice: InvoiceFull }>(`/doctor/billing/invoices/${id}`);
+  return api<{ invoice: InvoiceFull; patient: InvoiceBillingPatient | null }>(`/doctor/billing/invoices/${id}`);
 }
 
 export function createInvoice(body: CreateInvoiceInput) {

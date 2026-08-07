@@ -69,6 +69,29 @@ function fullShape(inv: HydratedDocument<IInvoice>, patientName: string) {
   };
 }
 
+/**
+ * The patient details a printed invoice's "Bill To" block needs — real, decrypted
+ * demographics, never invented. `dob` is returned so the client computes the age
+ * against today (ages are never stored). Absent fields come back null and the
+ * document simply omits that line.
+ */
+type PatientDoc = Awaited<ReturnType<typeof Patient.findOne>>;
+function billingPatient(p: NonNullable<PatientDoc>) {
+  const addr = [
+    decryptOptional(p.address),
+    decryptOptional(p.addressLine2),
+    [decryptOptional(p.city), decryptOptional(p.state), decryptOptional(p.pincode)].filter(Boolean).join(', '),
+  ].filter(Boolean);
+  return {
+    name: decryptField(p.displayName),
+    code: p.code != null ? String(p.code).padStart(5, '0') : null,
+    sex: p.sex,
+    dob: decryptOptional(p.dob) ?? null,
+    phone: decryptOptional(p.phone) ?? null,
+    address: addr.length ? addr : null,
+  };
+}
+
 // Decrypt patient display names for a set of invoices — one tenant-scoped fetch.
 async function namesFor(req: Parameters<typeof scopeToDoctor>[0], invoices: HydratedDocument<IInvoice>[]) {
   const ids = [...new Set(invoices.map((i) => i.patientId.toString()))];
@@ -124,8 +147,13 @@ router.get('/billing/invoices/:id', auditAccess('invoice'), async (req, res) => 
     res.status(404).json({ error: 'Invoice not found' });
     return;
   }
-  const names = await namesFor(req, [inv]);
-  res.json({ invoice: fullShape(inv, names.get(inv.patientId.toString()) ?? 'Patient') });
+  const patient = await Patient.findOne(scopeToDoctor(req, { _id: inv.patientId }));
+  const name = patient ? decryptField(patient.displayName) : 'Patient';
+  res.json({
+    invoice: fullShape(inv, name),
+    // The printable invoice's Bill To block — real demographics or nulls.
+    patient: patient ? billingPatient(patient) : null,
+  });
 });
 
 // POST /api/doctor/billing/invoices — create. Patient ownership verified in-query.
