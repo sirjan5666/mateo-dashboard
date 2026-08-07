@@ -31,7 +31,7 @@ process.env.DATA_ENCRYPTION_KEY ||= randomBytes(32).toString('base64');
 
 const { StaffMember } = await import('../models/StaffMember.js');
 const { StaffRole } = await import('../models/StaffRole.js');
-const { loadStaffContext, guardModule } = await import('../middleware/permissions.js');
+const { loadStaffContext, guardModule, guardRoutes } = await import('../middleware/permissions.js');
 const { DEFAULT_ROLES } = await import('../permissions/catalogue.js');
 
 const oid = () => new mongoose.Types.ObjectId();
@@ -178,6 +178,80 @@ d('RBAC enforcement (DB-backed)', () => {
       const req = fakeReq({ userId: doctor.toString(), staffId: staffId.toString() });
       await run(loadStaffContext, req);
       expect((await run(guardModule('patients'), req)).passed).toBe(false);
+    });
+  });
+
+  describe('a guard only answers for its own router', () => {
+    /**
+     * Every doctor router is mounted at /api/doctor. With the guard applied via
+     * `router.use()` the FIRST router in the chain answered for all of them, so
+     * a receptionist was refused Team & Roles with "consultations:view" — the
+     * wrong module denying the wrong route. `guardRoutes` binds it per route.
+     */
+    it('does not deny a path belonging to a different router at the same mount', async () => {
+      const express = (await import('express')).default;
+      const { Router } = await import('express');
+
+      const consultations = Router();
+      guardRoutes(consultations, 'consultations');
+      consultations.get('/encounters', (_q, s) => { s.json({ ok: true }); });
+
+      const team = Router();
+      guardRoutes(team, 'team');
+      team.get('/team/members', (_q, s) => { s.json({ ok: true }); });
+
+      const ctx = fakeReq({ userId: doctor.toString(), staffId: staffId.toString() });
+      await run(loadStaffContext, ctx);
+      // Reception cannot see consultations, but has been granted team access.
+      ctx.staff!.permissions.team = 'full';
+      ctx.staff!.permissions.consultations = 'none';
+
+      const app = express();
+      app.use('/api/doctor', (q, _s, n) => { q.staff = ctx.staff; n(); });
+      // Mount order matters: consultations first is what used to swallow the rest.
+      app.use('/api/doctor', consultations);
+      app.use('/api/doctor', team);
+
+      const server = app.listen(0);
+      try {
+        const port = (server.address() as { port: number }).port;
+        const team200 = await fetch(`http://127.0.0.1:${port}/api/doctor/team/members`);
+        expect(team200.status).toBe(200);
+        // And the guard that DOES own a path still refuses it.
+        const denied = await fetch(`http://127.0.0.1:${port}/api/doctor/encounters`);
+        expect(denied.status).toBe(403);
+        expect((await denied.json() as { required?: string }).required).toBe('consultations:view');
+      } finally {
+        await new Promise<void>((r) => server.close(() => { r(); }));
+      }
+    });
+  });
+
+  describe('per-person exceptions', () => {
+    // A role is the default, not a cage: one receptionist may also handle
+    // billing without inventing a role for a single person.
+    it('layer on top of the role', async () => {
+      await StaffMember.updateOne({ _id: staffId }, { $set: { permissions: { settings: 'edit' } } });
+      const req = fakeReq({ userId: doctor.toString(), staffId: staffId.toString(), method: 'PATCH' });
+      await run(loadStaffContext, req);
+      expect((await run(guardModule('settings'), req)).passed).toBe(true);
+      // Everything they did not name still comes from the role.
+      expect(req.staff?.permissions.appointments).toBe('edit');
+    });
+
+    it('can take access away as well as grant it', async () => {
+      await StaffMember.updateOne({ _id: staffId }, { $set: { permissions: { appointments: 'none' } } });
+      const req = fakeReq({ userId: doctor.toString(), staffId: staffId.toString() });
+      await run(loadStaffContext, req);
+      expect((await run(guardModule('appointments'), req)).passed).toBe(false);
+    });
+
+    it('do not freeze the modules they leave alone — a later role edit still reaches them', async () => {
+      await StaffMember.updateOne({ _id: staffId }, { $set: { permissions: { settings: 'edit' } } });
+      await StaffRole.updateOne({ _id: receptionistRole }, { $set: { 'permissions.pharmacy': 'view' } });
+      const req = fakeReq({ userId: doctor.toString(), staffId: staffId.toString() });
+      await run(loadStaffContext, req);
+      expect(req.staff?.permissions.pharmacy).toBe('view');
     });
   });
 

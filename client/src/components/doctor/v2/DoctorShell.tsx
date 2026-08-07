@@ -29,6 +29,8 @@ import {
   X,
 } from 'lucide-react';
 import { useAuth } from '../../../auth/context';
+import { useStaffSession } from '../../../auth/staffSession';
+import { staffLogout } from '../../../api/staffAuth';
 import { Toaster } from '../../ui/Toaster';
 import { cn } from '../../../lib/cn';
 import { openCommand } from '../../../lib/commandPalette';
@@ -52,6 +54,8 @@ interface NavItem {
   to: string;
   label: string;
   icon: LucideIcon;
+  /** Permission module this row needs. Rows without one are always shown. */
+  module?: string;
   end?: boolean;
   badge?: number;
   /** Filled coloured tile instead of a line icon (the OPERATIONS + log items). */
@@ -69,18 +73,18 @@ const NAV: NavGroup[] = [
   {
     section: 'Today',
     items: [
-      { to: '/doctor', label: 'Dashboard', icon: LayoutGrid, end: true },
-      { to: '/doctor/appointments', label: 'Appointments', icon: CalendarDays },
+      { to: '/doctor', label: 'Dashboard', icon: LayoutGrid, end: true, module: 'dashboard' },
+      { to: '/doctor/appointments', label: 'Appointments', icon: CalendarDays, module: 'appointments' },
     ],
   },
   {
     section: 'Patients',
     items: [
-      { to: '/doctor/patients', label: 'Patients', icon: Users },
-      { to: '/doctor/prescriptions', label: 'Prescriptions', icon: Pill },
-      { to: '/doctor/charts', label: 'Analytics', icon: Activity },
-      { to: '/doctor/reports', label: 'Reports', icon: FileText },
-      { to: '/doctor/messages', label: 'Messages', icon: MessageSquare },
+      { to: '/doctor/patients', label: 'Patients', icon: Users, module: 'patients' },
+      { to: '/doctor/prescriptions', label: 'Prescriptions', icon: Pill, module: 'prescriptions' },
+      { to: '/doctor/charts', label: 'Analytics', icon: Activity, module: 'reports' },
+      { to: '/doctor/reports', label: 'Reports', icon: FileText, module: 'reports' },
+      { to: '/doctor/messages', label: 'Messages', icon: MessageSquare, module: 'consultations' },
     ],
   },
   {
@@ -91,23 +95,24 @@ const NAV: NavGroup[] = [
         label: 'Pharmacy',
         icon: BriefcaseMedical,
         tile: '#F59E0B',
+        module: 'pharmacy',
         children: [
           { to: '/doctor/pharmacy', label: 'Inventory', icon: Boxes, end: true },
           { to: '/doctor/pharmacy/purchase', label: 'Purchase', icon: ShoppingCart },
           { to: '/doctor/pharmacy/billing', label: 'Billing', icon: Receipt },
         ],
       },
-      { to: '/doctor/revenue', label: 'Revenue', icon: IndianRupee, tile: '#16A34A' },
+      { to: '/doctor/revenue', label: 'Revenue', icon: IndianRupee, tile: '#16A34A', module: 'billing' },
     ],
   },
   {
     section: 'Admin',
     items: [
-      { to: '/doctor/locations', label: 'Locations', icon: Building2 },
-      { to: '/doctor/team', label: 'Team & Roles', icon: ShieldPlus },
-      { to: '/doctor/audit', label: 'Audit Logs', icon: AlignLeft, tile: '#6366F1' },
-      { to: '/doctor/email-logs', label: 'Email Logs', icon: Mail, tile: '#22D3EE' },
-      { to: '/doctor/settings', label: 'Settings', icon: Settings },
+      { to: '/doctor/locations', label: 'Locations', icon: Building2, module: 'locations' },
+      { to: '/doctor/team', label: 'Team & Roles', icon: ShieldPlus, module: 'team' },
+      { to: '/doctor/audit', label: 'Audit Logs', icon: AlignLeft, tile: '#6366F1', module: 'audit' },
+      { to: '/doctor/email-logs', label: 'Email Logs', icon: Mail, tile: '#22D3EE', module: 'audit' },
+      { to: '/doctor/settings', label: 'Settings', icon: Settings, module: 'settings' },
     ],
   },
 ];
@@ -258,7 +263,12 @@ function SidebarNav({
   onToggleCollapse?: () => void;
 }) {
   const { user, logout } = useAuth();
-  const initials = (user?.name ?? 'Doctor')
+  const { staff, roleName, canSee } = useStaffSession();
+  // A staff member sees THEIR name and role in the rail, not the doctor's —
+  // even though the session's cookie subject is the doctor.
+  const displayName = staff?.name ?? user?.name ?? '';
+  const displaySub = staff ? roleName ?? 'Staff' : user?.email ?? '';
+  const initials = (displayName || 'Doctor')
     .trim()
     .split(/\s+/)
     .slice(0, 2)
@@ -269,9 +279,13 @@ function SidebarNav({
     () =>
       NAV.map((g) => ({
         ...g,
-        items: g.items.map((it) => (it.to === '/doctor/messages' && unread ? { ...it, badge: unread } : it)),
-      })),
-    [unread],
+        items: g.items
+          // A staff role that cannot see a module does not get the nav row.
+          // Advisory only: the server refuses the request regardless.
+          .filter((it) => !it.module || canSee(it.module))
+          .map((it) => (it.to === '/doctor/messages' && unread ? { ...it, badge: unread } : it)),
+      })).filter((g) => g.items.length > 0),
+    [unread, canSee],
   );
 
   return (
@@ -330,8 +344,8 @@ function SidebarNav({
               {initials}
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-semibold text-white">{user?.name}</span>
-              <span className="block truncate text-xs text-white/60">{user?.email}</span>
+              <span className="block truncate text-sm font-semibold text-white">{displayName}</span>
+              <span className="block truncate text-xs text-white/60">{displaySub}</span>
             </span>
           </div>
         )}
@@ -353,7 +367,9 @@ function SidebarNav({
             type="button"
             onClick={() => {
               onNavigate?.();
-              void logout();
+              // Staff sign out through their own endpoint so the refresh token is
+              // revoked server-side, not merely dropped from the browser.
+              void (staff ? staffLogout().finally(() => window.location.assign('/staff/login')) : logout());
             }}
             aria-label="Sign out"
             title="Sign out"
@@ -401,7 +417,9 @@ function IconButton({
 
 function TopBar({ unread, onOpenNav, railCollapsed }: { unread: number; onOpenNav: () => void; railCollapsed: boolean }) {
   const { user } = useAuth();
-  const initials = (user?.name ?? 'Doctor')
+  const { staff, roleName } = useStaffSession();
+  const displayName = staff?.name ?? user?.name ?? '';
+  const initials = (displayName || 'Doctor')
     .trim()
     .split(/\s+/)
     .slice(0, 2)
@@ -447,8 +465,8 @@ function TopBar({ unread, onOpenNav, railCollapsed }: { unread: number; onOpenNa
             {initials}
           </span>
           <span className="hidden text-left lg:block">
-            <span className="block text-sm font-bold leading-tight text-[#0F172A]">{user?.name}</span>
-            <span className="block text-xs font-medium text-[#3B4FE0]">Paediatrician</span>
+            <span className="block text-sm font-bold leading-tight text-[#0F172A]">{displayName}</span>
+            <span className="block text-xs font-medium text-[#3B4FE0]">{staff ? roleName ?? 'Staff' : 'Paediatrician'}</span>
           </span>
           <ChevronDown className="hidden h-[18px] w-[18px] text-[#94A3B8] lg:block" />
         </button>

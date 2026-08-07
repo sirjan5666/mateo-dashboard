@@ -1,4 +1,6 @@
 import express from 'express';
+import { requireAuth, requireRole } from './middleware/auth.js';
+import { loadStaffContext } from './middleware/permissions.js';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import authRouter from './routes/auth.js';
@@ -121,6 +123,15 @@ export function createApp() {
   app.use('/api', subscriptionRouter);
   // Pediatric dose-check (doctor decision-support) — catalog + deterministic check
   app.use('/api/dosing', dosingRouter);
+  /**
+   * Every doctor-panel router below is mounted at the SAME path, so the session
+   * work is done once here rather than nineteen times over. Each router then
+   * guards only its own routes (guardRoutes) — a router-level `use()` guard
+   * would also fire for requests belonging to a different router at this mount.
+   */
+  app.use('/api/doctor', requireAuth, requireRole('doctor'), loadStaffContext);
+  app.use('/api/pharmacy', requireAuth, requireRole('doctor'), loadStaffContext);
+
   // Doctor EHR: single-doctor patient management (doctor-owned, tenant-scoped PHI)
   app.use('/api/doctor', doctorPatientsRouter);
   // Doctor EHR: clinical encounters (SOAP visit notes), same tenant scoping

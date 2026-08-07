@@ -6,7 +6,7 @@ import bcrypt from 'bcrypt';
 import rateLimit from 'express-rate-limit';
 import { env } from '../config/env.js';
 import { AUTH_COOKIE, requireAuth, setStaffAuthCookie } from '../middleware/auth.js';
-import { loadStaffContext, sessionPermissions } from '../middleware/permissions.js';
+import { effectivePermissions, loadStaffContext, sessionPermissions } from '../middleware/permissions.js';
 import { StaffMember } from '../models/StaffMember.js';
 import { StaffRole } from '../models/StaffRole.js';
 import { StaffSession } from '../models/StaffSession.js';
@@ -100,7 +100,9 @@ async function sessionPayload(staffId: string) {
     },
     role: role ? { id: role._id, name: role.name, description: role.description ?? null } : null,
     practice: { doctorUserId: staff.doctorUserId, doctorName: doctor?.name ?? 'Your clinic' },
-    permissions: grantedActions(role?.permissions),
+    // The role AND this person's own exceptions — the same merge the guard
+    // performs, so the UI hides exactly what the API would refuse.
+    permissions: grantedActions(effectivePermissions(staff.permissions, role?.permissions)),
   };
 }
 

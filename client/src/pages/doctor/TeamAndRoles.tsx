@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router';
-import { Check, Info, Loader2, Plus, ShieldPlus, Trash2, Users, X } from 'lucide-react';
+import { Link, useLocation } from 'react-router';
+import { Check, Copy, Info, Loader2, Mail, Plus, ShieldPlus, Trash2, Users, X } from 'lucide-react';
 import {
-  createRole, deleteMember, deleteRole, listMembers, listRoles, updateMember, updateRole,
+  createRole, deleteMember, deleteRole, inviteMember, listMembers, listRoles, setMemberActive,
+  teamCatalogue, updateRole,
 } from '../../api/doctorTeam';
-import type { PermissionLevel, RolesResponse, StaffMemberDto, StaffRoleDto } from '../../api/doctorTeam';
+import type {
+  CatalogueResponse, InviteResult, PermissionLevel, RolesResponse, StaffMemberDto, StaffRoleDto,
+  StaffStatus,
+} from '../../api/doctorTeam';
 import { ApiError } from '../../api/client';
 import { cn } from '../../lib/cn';
 
@@ -22,12 +26,16 @@ const LEVEL_STYLE: Record<PermissionLevel, { bg: string; fg: string; label: stri
 /** Clicking a cell walks the levels in order. */
 const NEXT: Record<PermissionLevel, PermissionLevel> = { none: 'view', view: 'edit', edit: 'full', full: 'none' };
 
-const MODULE_LABEL: Record<string, string> = {
-  dashboard: 'Dashboard', appointments: 'Appointments', patients: 'Patients',
-  prescriptions: 'Prescriptions', billing: 'Billing', pharmacy: 'Pharmacy',
-  reports: 'Reports', locations: 'Locations', team: 'Team & Roles',
-  settings: 'Settings', logs: 'Audit & Email Logs',
+/** How each account state paints in the members table. */
+const STATUS_STYLE: Record<StaffStatus, { bg: string; fg: string; label: string }> = {
+  active: { bg: '#DCF7E6', fg: '#12A150', label: 'Active' },
+  invited: { bg: '#FEF3C7', fg: '#B45309', label: 'Invited' },
+  disabled: { bg: '#F1F3F9', fg: '#64748B', label: 'Disabled' },
 };
+
+const IST_DATE = new Intl.DateTimeFormat('en-IN', {
+  timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true,
+});
 
 /** roleId -> module -> level, so a cell edit is one lookup. */
 type Matrix = Record<string, Record<string, PermissionLevel>>;
@@ -49,6 +57,10 @@ export default function TeamAndRoles() {
   const [addOpen, setAddOpen] = useState(false);
   const [newRole, setNewRole] = useState('');
   const [newDesc, setNewDesc] = useState('');
+  const [catalogue, setCatalogue] = useState<CatalogueResponse | null>(null);
+  const { state } = useLocation();
+  /** Set by a resend; the one handed over by Create Sub-User arrives in router state. */
+  const [resent, setResent] = useState<(InviteResult & { name: string }) | null>(null);
 
   const load = useCallback(async () => {
     const [r, m] = await Promise.all([listRoles(), listMembers()]);
@@ -56,14 +68,18 @@ export default function TeamAndRoles() {
     setMembers(m.members);
   }, []);
 
+  /** Module id -> label, straight from the catalogue the API enforces. */
+  const moduleLabel = (id: string) => catalogue?.modules.find((m) => m.id === id)?.label ?? id;
+
   // Inlined so every setState is provably after an await.
   useEffect(() => {
     let cancelled = false;
-    void Promise.all([listRoles(), listMembers()])
-      .then(([r, m]) => {
+    void Promise.all([listRoles(), listMembers(), teamCatalogue()])
+      .then(([r, m, c]) => {
         if (cancelled) return;
         setData(r);
         setMembers(m.members);
+        setCatalogue(c);
       })
       .catch((e: unknown) => {
         if (!cancelled) setError(e instanceof Error ? e.message : 'Could not load your team');
@@ -139,7 +155,17 @@ export default function TeamAndRoles() {
     }
   }
 
-  const activeMembers = members.filter((m) => m.active).length;
+  // The Create Sub-User form hands back whether the invite email actually went
+  // out — without SMTP it did not, and the doctor gets the link to pass on
+  // instead. Derived during render rather than copied into state.
+  const handed = (state as { invite?: InviteResult & { name: string } } | null)?.invite ?? null;
+  const invite = resent ?? handed;
+  const shownNotice = notice ?? (invite?.emailed
+    ? `Invite sent to ${invite.name} — they set their own password from the emailed link.`
+    : null);
+
+  const activeMembers = members.filter((m) => m.status === 'active').length;
+  const pending = members.filter((m) => m.status === 'invited').length;
 
   if (loading) {
     return (
@@ -210,10 +236,35 @@ export default function TeamAndRoles() {
           <X aria-hidden="true" className="mt-px h-4 w-4 shrink-0" />{error}
         </p>
       )}
-      {notice && (
+      {shownNotice && (
         <p role="status" className="mb-4 flex items-center gap-2.5 rounded-[10px] border border-[#C8EDD8] bg-[#ECFAF1] px-4 py-3 text-[13px] font-medium text-[#0F7A46]">
-          <Check aria-hidden="true" className="h-4 w-4 shrink-0" />{notice}
+          <Check aria-hidden="true" className="h-4 w-4 shrink-0" />{shownNotice}
         </p>
+      )}
+      {/* Shown once, and only when no email could go out: without it a clinic
+          with no SMTP would create accounts nobody can ever sign into. It is a
+          one-time token, so it is never stored — reload and it is gone. */}
+      {invite && !invite.emailed && invite.link && (
+        <section role="status" className="mb-4 rounded-[12px] border border-[#F8E3B8] bg-[#FEF8EC] px-4 py-3.5">
+          <p className="flex items-start gap-2.5 text-[13px] font-medium text-[#8A5A0B]">
+            <Info aria-hidden="true" className="mt-px h-4 w-4 shrink-0 text-[#E8890B]" />
+            <span>
+              No invite email was sent — email is not configured on this server. Send {invite.name} this
+              activation link yourself; it works once and expires in 3 days.
+            </span>
+          </p>
+          <div className="mt-2.5 flex flex-wrap items-center gap-2">
+            <code className="min-w-0 flex-1 truncate rounded-[8px] border border-[#F0DCB0] bg-white px-3 py-2 text-[12px] text-[#334155]">
+              {invite.link}
+            </code>
+            <button type="button"
+              onClick={() => { void navigator.clipboard?.writeText(invite.link ?? ''); setNotice('Activation link copied.'); }}
+              className="flex h-9 items-center gap-1.5 rounded-[8px] border border-[#E2E6F0] bg-white px-3 text-[12.5px] font-bold text-[#334155] hover:bg-[#F7F8FC]">
+              <Copy aria-hidden="true" className="h-[14px] w-[14px]" />
+              Copy
+            </button>
+          </div>
+        </section>
       )}
 
       <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[1fr_264px]">
@@ -280,7 +331,7 @@ export default function TeamAndRoles() {
                     {modules.map((mod) => (
                       <tr key={mod} className="hover:bg-[#FAFBFF]">
                         <th scope="row" className="h-[46px] border-b border-[#F1F3F9] pl-[22px] pr-3 text-left text-[13px] font-semibold text-[#0F172A]">
-                          {MODULE_LABEL[mod] ?? mod}
+                          {moduleLabel(mod)}
                         </th>
                         {roles.map((r) => {
                           const lvl = shown[r.id]?.[mod] ?? 'none';
@@ -289,7 +340,7 @@ export default function TeamAndRoles() {
                             <td key={r.id} className="border-b border-[#F1F3F9] px-2 text-center">
                               {editing ? (
                                 <button type="button" onClick={() => cycle(r.id, mod)}
-                                  aria-label={`${MODULE_LABEL[mod] ?? mod} for ${r.name}: ${s.label}. Click to change.`}
+                                  aria-label={`${moduleLabel(mod)} for ${r.name}: ${s.label}. Click to change.`}
                                   className="mx-auto block w-[68px] rounded-[7px] py-1.5 text-[11.5px] font-bold transition-colors hover:brightness-95"
                                   style={{ background: s.bg, color: s.fg }}>
                                   {s.label}
@@ -333,10 +384,10 @@ export default function TeamAndRoles() {
                   <caption className="sr-only">Team members</caption>
                   <thead>
                     <tr>
-                      {['Name', 'Email', 'Role', 'Location', 'Status', 'Actions'].map((h, i) => (
+                      {['Name', 'Email', 'Role', 'Location', 'Status', 'Last sign-in', 'Actions'].map((h, i) => (
                         <th key={h} scope="col"
                           className={cn('h-10 border-y border-[#ECEEF4] bg-[#FAFBFD] text-left text-[10.5px] font-bold uppercase tracking-[0.06em] text-[#64748B]',
-                            i === 0 && 'pl-[22px]', i === 5 && 'pr-[22px]')}>
+                            i === 0 && 'pl-[22px]', i === 6 && 'pr-[22px]')}>
                           {h}
                         </th>
                       ))}
@@ -358,25 +409,61 @@ export default function TeamAndRoles() {
                         </th>
                         <td className="border-b border-[#F1F3F9] pr-3 text-[12.5px] font-medium text-[#334155]">{m.email}</td>
                         <td className="border-b border-[#F1F3F9] pr-3">
-                          <span className="rounded-[7px] bg-[#EEF2FF] px-2.5 py-1 text-[11.5px] font-bold text-[#3B4FE0]">{m.roleName}</span>
+                          <span className="flex flex-wrap items-center gap-1.5">
+                            <span className="rounded-[7px] bg-[#EEF2FF] px-2.5 py-1 text-[11.5px] font-bold text-[#3B4FE0]">{m.roleName}</span>
+                            {/* This person has exceptions of their own, so their
+                                access is not simply what the matrix above shows. */}
+                            {m.customPermissions && (
+                              <span
+                                title={`Own exceptions: ${Object.entries(m.overrides).map(([mod, lvl]) => `${moduleLabel(mod)} → ${lvl}`).join(', ')}`}
+                                className="rounded-[7px] bg-[#FDECD3] px-2 py-1 text-[11px] font-bold text-[#D97706]"
+                              >
+                                Custom
+                              </span>
+                            )}
+                          </span>
                         </td>
                         <td className="border-b border-[#F1F3F9] pr-3 text-[12.5px] font-medium text-[#334155]">
                           {m.locationName ?? <span className="text-[#94A3B8]">All locations</span>}
                         </td>
                         <td className="border-b border-[#F1F3F9] pr-3">
-                          <span className={cn('rounded-[7px] px-2.5 py-1 text-[11.5px] font-bold',
-                            m.active ? 'bg-[#DCF7E6] text-[#12A150]' : 'bg-[#F1F3F9] text-[#64748B]')}>
-                            {m.active ? 'Active' : 'Inactive'}
+                          <span className="rounded-[7px] px-2.5 py-1 text-[11.5px] font-bold"
+                            style={{ background: STATUS_STYLE[m.status].bg, color: STATUS_STYLE[m.status].fg }}>
+                            {STATUS_STYLE[m.status].label}
                           </span>
+                        </td>
+                        <td className="border-b border-[#F1F3F9] pr-3 text-[12.5px] font-medium text-[#334155]">
+                          {/* "Never" is a real answer here — an invited account
+                              that has never signed in is exactly what a doctor
+                              needs to spot. */}
+                          {m.lastLoginAt
+                            ? IST_DATE.format(new Date(m.lastLoginAt))
+                            : <span className="text-[#94A3B8]">Never</span>}
                         </td>
                         <td className="border-b border-[#F1F3F9] pr-[22px]">
                           {busy === m.id ? (
                             <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin text-[#64748B]" />
                           ) : (
                             <span className="flex items-center gap-2">
-                              <button type="button" onClick={() => void act(m.id, () => updateMember(m.id, { active: !m.active }))}
+                              {/* Only for someone who has not activated yet.
+                                  A member with a password resets it themselves
+                                  from the staff sign-in page. */}
+                              {m.status === 'invited' && (
+                                <button type="button"
+                                  onClick={() => void act(m.id, async () => {
+                                    const r = await inviteMember(m.id);
+                                    setNotice(r.emailed ? `Invite resent to ${m.email}.` : null);
+                                    // A fresh link supersedes whatever was shown before.
+                                    setResent({ ...r, name: m.name });
+                                  })}
+                                  className="flex h-8 items-center gap-1.5 rounded-[8px] border border-[#E2E6F0] px-3 text-[12px] font-bold text-[#334155] hover:bg-[#F7F8FC]">
+                                  <Mail aria-hidden="true" className="h-[13px] w-[13px]" />
+                                  Resend invite
+                                </button>
+                              )}
+                              <button type="button" onClick={() => void act(m.id, () => setMemberActive(m.id, m.status === 'disabled'))}
                                 className="h-8 rounded-[8px] border border-[#E2E6F0] px-3 text-[12px] font-bold text-[#334155] hover:bg-[#F7F8FC]">
-                                {m.active ? 'Deactivate' : 'Activate'}
+                                {m.status === 'disabled' ? 'Reactivate' : 'Deactivate'}
                               </button>
                               <button type="button" aria-label={`Remove ${m.name}`}
                                 onClick={() => void act(m.id, () => deleteMember(m.id))}
@@ -427,11 +514,12 @@ export default function TeamAndRoles() {
             </dl>
           </section>
 
-          <p className="flex items-start gap-2.5 rounded-[12px] border border-[#F8E3B8] bg-[#FEF8EC] px-4 py-3.5 text-[12px] leading-5 text-[#8A5A0B]">
-            <Info aria-hidden="true" className="mt-px h-4 w-4 shrink-0 text-[#E8890B]" />
+          <p className="flex items-start gap-2.5 rounded-[12px] border border-[#C7D7F5] bg-[#EEF3FE] px-4 py-3.5 text-[12px] leading-5 text-[#1E3A8A]">
+            <Info aria-hidden="true" className="mt-px h-4 w-4 shrink-0 text-[#2563EB]" />
             <span>
-              Sub-user accounts are stored and assigned here, but <strong>staff sign-in is not switched on yet</strong> —
-              only you can log into the panel today.
+              Staff sign in at <strong>/staff/login</strong> with their own email and password — never yours. Deactivating
+              someone ends their live sessions immediately.
+              {pending > 0 && ` ${pending} invite${pending === 1 ? '' : 's'} not yet accepted.`}
             </span>
           </p>
         </aside>

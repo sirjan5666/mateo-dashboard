@@ -1,7 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { requireAuth, requireRole } from '../middleware/auth.js';
-import { guardModule, loadStaffContext } from '../middleware/permissions.js';
+import { guardRoutes } from '../middleware/permissions.js';
 import { LAB_ANALYTES, LAB_DATA_STATUS, flagValue, labById } from '../labs/reference.js';
 
 // Doctor-side lab-results INTERPRETER. Decision support only:
@@ -12,7 +11,7 @@ import { LAB_ANALYTES, LAB_DATA_STATUS, flagValue, labById } from '../labs/refer
 const router = Router();
 // RBAC: a staff session is narrowed to what its role allows. The doctor who
 // owns the practice passes every check — see middleware/permissions.ts.
-router.use(requireAuth, requireRole('doctor'), loadStaffContext, guardModule('consultations'));
+guardRoutes(router, 'consultations');
 
 router.get('/labs/catalog', (_req, res) => {
   res.json({ status: LAB_DATA_STATUS, analytes: LAB_ANALYTES });

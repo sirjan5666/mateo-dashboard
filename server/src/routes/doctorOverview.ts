@@ -1,8 +1,7 @@
 import { Router } from 'express';
 import { Types } from 'mongoose';
 import type { HydratedDocument } from 'mongoose';
-import { requireAuth, requireRole } from '../middleware/auth.js';
-import { guardModule, loadStaffContext } from '../middleware/permissions.js';
+import { guardRoutes } from '../middleware/permissions.js';
 import { auditAccess } from '../middleware/audit.js';
 import { scopeToDoctor } from '../middleware/loadOwnedPatient.js';
 import { Patient } from '../models/Patient.js';
@@ -18,7 +17,7 @@ import { istDateString } from '../lib/ist.js';
 const router = Router();
 // RBAC: a staff session is narrowed to what its role allows. The doctor who
 // owns the practice passes every check — see middleware/permissions.ts.
-router.use(requireAuth, requireRole('doctor'), loadStaffContext, guardModule('dashboard'));
+guardRoutes(router, 'dashboard');
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 /** UTC instant of IST midnight for the given instant's IST day (IST = UTC+5:30, no DST). */

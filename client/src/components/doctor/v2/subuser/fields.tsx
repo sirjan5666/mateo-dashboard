@@ -114,7 +114,8 @@ export function PrimaryLocationSelect({
   value,
   onChange,
 }: {
-  value: ClinicLocation;
+  /** null until the practice has added a clinic — not every one has. */
+  value: ClinicLocation | null;
   onChange: (l: ClinicLocation) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -134,6 +135,19 @@ export function PrimaryLocationSelect({
       document.removeEventListener('keydown', onKey);
     };
   }, [open]);
+
+  // A practice with no clinics yet used to crash this control on `value.tint`.
+  if (!value) {
+    return (
+      <p
+        id="primary-location"
+        className="flex h-[72px] items-center gap-3.5 rounded-[10px] border border-dashed border-[#E4E8F1] bg-[#F9FAFD] px-4 text-[13px] text-[#64748B]"
+      >
+        <Building2 aria-hidden="true" className="h-5 w-5 shrink-0 text-[#94A3B8]" />
+        No clinic locations added yet — this person will have access to all of them.
+      </p>
+    );
+  }
 
   return (
     <div ref={ref} className="relative">

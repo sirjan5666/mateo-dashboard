@@ -36,10 +36,18 @@ export interface IStaffMember {
    * that already filters on it. `status` is the source of truth.
    */
   active: boolean;
+  /** The day they joined the practice, as entered by the doctor. */
+  joinedOn?: Date;
   lastLoginAt?: Date;
   lastActiveAt?: Date;
   /** Set when an admin resets the password, cleared once the staff member does. */
   mustChangePassword?: boolean;
+  /**
+   * Per-person exceptions to the role, module -> level. Only the modules that
+   * differ are stored; everything else follows the role, so a later change to
+   * the role still reaches this person. Empty/absent = pure role.
+   */
+  permissions?: Record<string, string>;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -56,9 +64,11 @@ const staffMemberSchema = new Schema<IStaffMember>(
     passwordHash: { type: String },
     status: { type: String, enum: STAFF_STATUSES, default: 'invited', index: true },
     active: { type: Boolean, default: true },
+    joinedOn: { type: Date },
     lastLoginAt: { type: Date },
     lastActiveAt: { type: Date },
     mustChangePassword: { type: Boolean, default: false },
+    permissions: { type: Schema.Types.Mixed },
   },
   { timestamps: true },
 );

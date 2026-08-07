@@ -3,8 +3,7 @@ import path from 'node:path';
 import { Router } from 'express';
 import { isValidObjectId } from 'mongoose';
 import { z } from 'zod';
-import { requireAuth, requireRole } from '../middleware/auth.js';
-import { guardModule, loadStaffContext } from '../middleware/permissions.js';
+import { guardRoutes } from '../middleware/permissions.js';
 import { auditAccess, recordAudit } from '../middleware/audit.js';
 import { loadOwnedPatient, scopeToDoctor } from '../middleware/loadOwnedPatient.js';
 import { uploadDocument, uploadsDir } from '../middleware/upload.js';
@@ -26,9 +25,9 @@ import { decryptField, decryptOptional } from '../lib/crypto/fieldCipher.js';
 const router = Router();
 // RBAC: a staff session is narrowed to what its role allows. The doctor who
 // owns the practice passes every check — see middleware/permissions.ts.
-router.use(requireAuth, requireRole('doctor'), loadStaffContext, guardModule('patients', [
+guardRoutes(router, 'patients', [
   { match: '/growth-records', method: 'GET', action: 'view' },
-]));
+]);
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 

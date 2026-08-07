@@ -1,7 +1,6 @@
 import { Router } from 'express';
 import { Types } from 'mongoose';
-import { requireAuth, requireRole } from '../middleware/auth.js';
-import { guardModule, loadStaffContext } from '../middleware/permissions.js';
+import { guardRoutes } from '../middleware/permissions.js';
 import { scopeToDoctor } from '../middleware/loadOwnedPatient.js';
 import { DoctorAppointment } from '../models/DoctorAppointment.js';
 import { Invoice } from '../models/Invoice.js';
@@ -19,7 +18,7 @@ import { istDateString } from '../lib/ist.js';
 const router = Router();
 // RBAC: a staff session is narrowed to what its role allows. The doctor who
 // owns the practice passes every check — see middleware/permissions.ts.
-router.use(requireAuth, requireRole('doctor'), loadStaffContext, guardModule('dashboard'));
+guardRoutes(router, 'dashboard');
 
 interface Alert {
   id: string;

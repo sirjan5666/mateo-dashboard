@@ -1,5 +1,5 @@
 import { env } from '../config/env.js';
-import { sendMail } from './mailer.js';
+import { mailerConfigured, sendMail } from './mailer.js';
 
 /**
  * Staff invitation and password-reset emails.
@@ -12,8 +12,23 @@ import { sendMail } from './mailer.js';
  * (review bug #3).
  *
  * Nothing secret is logged: EmailLog stores the subject and recipient, never the
- * body, so the link never lands in the log.
+ * body, so the link never lands in the log — and the not-configured branch of
+ * sendMail logs the subject and recipient only, for the same reason.
+ *
+ * Both senders return whether a mail could actually GO OUT. `sendMail` never
+ * throws, so "no exception" is not evidence of delivery; without SMTP the caller
+ * has to be told, and show the link on screen instead.
  */
+
+/** Where an invited staff member sets their password. */
+export function staffActivateLink(token: string): string {
+  return `${base()}/staff/activate?token=${encodeURIComponent(token)}`;
+}
+
+/** Where a staff member chooses a new password after a reset request. */
+export function staffResetLink(token: string): string {
+  return `${base()}/staff/reset?token=${encodeURIComponent(token)}`;
+}
 
 const base = () => env.APP_BASE_URL.replace(/\/$/, '');
 
@@ -26,8 +41,8 @@ export interface StaffInviteInput {
   expiresInHours: number;
 }
 
-export async function sendStaffInviteEmail(input: StaffInviteInput): Promise<void> {
-  const link = `${base()}/staff/activate?token=${encodeURIComponent(input.token)}`;
+export async function sendStaffInviteEmail(input: StaffInviteInput): Promise<boolean> {
+  const link = staffActivateLink(input.token);
   const lines = [
     `Hi ${input.name},`,
     '',
@@ -48,6 +63,7 @@ export async function sendStaffInviteEmail(input: StaffInviteInput): Promise<voi
     text: lines.join('\n'),
     doctorUserId: input.doctorUserId,
   });
+  return mailerConfigured();
 }
 
 export interface StaffResetInput {
@@ -59,8 +75,8 @@ export interface StaffResetInput {
   expiresInMinutes: number;
 }
 
-export async function sendStaffResetEmail(input: StaffResetInput): Promise<void> {
-  const link = `${base()}/staff/reset?token=${encodeURIComponent(input.token)}`;
+export async function sendStaffResetEmail(input: StaffResetInput): Promise<boolean> {
+  const link = staffResetLink(input.token);
   const lines = [
     `Hi ${input.name},`,
     '',
@@ -81,4 +97,5 @@ export async function sendStaffResetEmail(input: StaffResetInput): Promise<void>
     text: lines.join('\n'),
     doctorUserId: input.doctorUserId,
   });
+  return mailerConfigured();
 }

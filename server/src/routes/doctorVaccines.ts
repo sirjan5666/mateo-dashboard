@@ -1,7 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { requireAuth, requireRole } from '../middleware/auth.js';
-import { guardModule, loadStaffContext } from '../middleware/permissions.js';
+import { guardRoutes } from '../middleware/permissions.js';
 import {
   addDays,
   ageLabelForOffsetDays,
@@ -21,7 +20,7 @@ import {
 const router = Router();
 // RBAC: a staff session is narrowed to what its role allows. The doctor who
 // owns the practice passes every check — see middleware/permissions.ts.
-router.use(requireAuth, requireRole('doctor'), loadStaffContext, guardModule('vaccinations'));
+guardRoutes(router, 'vaccinations');
 
 const schema = z.object({
   dob: z.coerce.date(),

@@ -1,7 +1,6 @@
 import { Router } from 'express';
 import { Types } from 'mongoose';
-import { requireAuth, requireRole } from '../middleware/auth.js';
-import { guardModule, loadStaffContext } from '../middleware/permissions.js';
+import { guardRoutes } from '../middleware/permissions.js';
 import { scopeToDoctor } from '../middleware/loadOwnedPatient.js';
 import { AuditLog, AUDIT_ACTIONS } from '../models/AuditLog.js';
 import { EmailLog, EMAIL_STATUSES } from '../models/EmailLog.js';
@@ -23,7 +22,7 @@ import { decryptField } from '../lib/crypto/fieldCipher.js';
 const router = Router();
 // RBAC: a staff session is narrowed to what its role allows. The doctor who
 // owns the practice passes every check — see middleware/permissions.ts.
-router.use(requireAuth, requireRole('doctor'), loadStaffContext, guardModule('audit'));
+guardRoutes(router, 'audit');
 
 const MAX = 200;
 

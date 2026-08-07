@@ -74,6 +74,8 @@ import { CartToast } from './components/shop/CartToast';
 import { SmoothScroll } from './components/SmoothScroll';
 import { CommandPalette } from './components/doctor/CommandPalette';
 import { DoctorShell } from './components/doctor/v2/DoctorShell';
+import { StaffSessionProvider } from './auth/staffSession';
+import { StaffActivate, StaffForgot, StaffLogin, StaffReset } from './pages/staff/StaffAuthPages';
 // Growth pulls in recharts (~350 kB) — code-split so it stays out of the initial bundle.
 const Growth = lazy(() => import('./pages/Growth'));
 
@@ -117,6 +119,12 @@ function AppRoutes() {
     return (
       <Routes>
         <Route path="/login" element={<Login />} />
+        {/* Reachable with no session at all — an invitation link is followed by
+            someone who does not have an account yet. */}
+        <Route path="/staff/login" element={<StaffLogin />} />
+        <Route path="/staff/activate" element={<StaffActivate />} />
+        <Route path="/staff/forgot" element={<StaffForgot />} />
+        <Route path="/staff/reset" element={<StaffReset />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     );
@@ -124,6 +132,7 @@ function AppRoutes() {
 
   if (user.role === 'doctor') {
     return (
+      <StaffSessionProvider enabled>
       <Routes>
         <Route element={<DoctorShell unread={doctorUnread} globals={<CommandPalette />} />}>
           <Route path="/doctor" element={<DoctorDashboard />} />
@@ -154,8 +163,18 @@ function AppRoutes() {
           <Route path="/doctor/audit" element={<AuditLogs />} />
           <Route path="/doctor/email-logs" element={<EmailLogs />} />
         </Route>
+        {/* The staff sign-in pages stay reachable even when a session already
+            exists in this browser — the doctor's, or another staff member's on a
+            shared clinic PC. Bouncing them to the dashboard makes an invitation
+            link look broken, and leaves someone who just set their password with
+            nowhere to sign in. */}
+        <Route path="/staff/login" element={<StaffLogin />} />
+        <Route path="/staff/activate" element={<StaffActivate />} />
+        <Route path="/staff/forgot" element={<StaffForgot />} />
+        <Route path="/staff/reset" element={<StaffReset />} />
         <Route path="*" element={<Navigate to="/doctor" replace />} />
       </Routes>
+      </StaffSessionProvider>
     );
   }
 

@@ -1,7 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { requireAuth, requireRole } from '../middleware/auth.js';
-import { guardModule, loadStaffContext } from '../middleware/permissions.js';
+import { guardRoutes } from '../middleware/permissions.js';
 import { milestones, milestoneStatus } from '../milestones/milestones.js';
 
 // Doctor-side developmental-milestone SCREENING aid. Decision support only:
@@ -14,7 +13,7 @@ import { milestones, milestoneStatus } from '../milestones/milestones.js';
 const router = Router();
 // RBAC: a staff session is narrowed to what its role allows. The doctor who
 // owns the practice passes every check — see middleware/permissions.ts.
-router.use(requireAuth, requireRole('doctor'), loadStaffContext, guardModule('growth'));
+guardRoutes(router, 'growth');
 
 const schema = z.object({ ageMonths: z.number().min(0).max(72) });
 

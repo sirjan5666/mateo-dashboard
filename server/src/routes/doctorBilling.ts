@@ -2,8 +2,7 @@ import { Router } from 'express';
 import { Types, isValidObjectId } from 'mongoose';
 import type { HydratedDocument } from 'mongoose';
 import { z } from 'zod';
-import { requireAuth, requireRole } from '../middleware/auth.js';
-import { guardModule, loadStaffContext } from '../middleware/permissions.js';
+import { guardRoutes } from '../middleware/permissions.js';
 import { auditAccess, recordAudit } from '../middleware/audit.js';
 import { scopeToDoctor } from '../middleware/loadOwnedPatient.js';
 import { Invoice, INVOICE_STATUSES } from '../models/Invoice.js';
@@ -21,9 +20,9 @@ import { istDateString } from '../lib/ist.js';
 const router = Router();
 // RBAC: a staff session is narrowed to what its role allows. The doctor who
 // owns the practice passes every check — see middleware/permissions.ts.
-router.use(requireAuth, requireRole('doctor'), loadStaffContext, guardModule('billing', [
+guardRoutes(router, 'billing', [
   { match: '/refund', action: 'refund' },
-]));
+]);
 
 const DAY_MS = 86_400_000;
 function istDayStartUTC(d: Date): Date {

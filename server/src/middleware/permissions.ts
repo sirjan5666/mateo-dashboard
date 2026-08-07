@@ -1,4 +1,4 @@
-import type { NextFunction, Request, Response } from 'express';
+import type { NextFunction, Request, Response, Router } from 'express';
 import type { HydratedDocument } from 'mongoose';
 import { StaffMember } from '../models/StaffMember.js';
 import type { IStaffMember } from '../models/StaffMember.js';
@@ -40,6 +40,25 @@ declare module 'express-serve-static-core' {
 }
 
 /**
+ * What a staff member may actually do: their role, with their own per-person
+ * exceptions laid over it — and only for the modules those exceptions name, so
+ * editing a role still reaches everyone who holds it.
+ *
+ * A role deleted out from under someone grants nothing rather than falling back
+ * to something permissive. Everything that answers "what can this person do"
+ * goes through here, so the guard and the UI can never disagree.
+ */
+export function effectivePermissions(
+  overrides: Record<string, unknown> | undefined | null,
+  rolePermissions: unknown,
+): Record<ModuleId, string> {
+  return normalisePermissions({
+    ...(rolePermissions as Record<string, unknown> | undefined),
+    ...(overrides ?? {}),
+  });
+}
+
+/**
  * Loads the staff member behind `req.staffId` and attaches their permissions.
  * Read from the DATABASE every request, never from the token: a role change or a
  * deactivation has to take effect immediately, not when a JWT happens to expire.
@@ -61,9 +80,7 @@ export async function loadStaffContext(req: Request, res: Response, next: NextFu
     email: staff.email,
     roleId: String(staff.roleId),
     roleName: role?.name ?? 'Unknown role',
-    // A role deleted out from under a staff member grants nothing, rather than
-    // falling back to something permissive.
-    permissions: normalisePermissions(role?.permissions),
+    permissions: effectivePermissions(staff.permissions, role?.permissions),
     locationId: staff.locationId ? String(staff.locationId) : undefined,
   };
   next();
@@ -125,10 +142,7 @@ const METHOD_ACTION: Record<string, string> = {
   DELETE: 'delete',
 };
 
-export function guardModule(
-  module: ModuleId,
-  overrides: { match: string; method?: string; action: string }[] = [],
-) {
+export function guardModule(module: ModuleId, overrides: Override[] = []) {
   return async function (req: Request, res: Response, next: NextFunction): Promise<void> {
     if (!req.staff) {
       next();
@@ -165,6 +179,34 @@ export function guardModule(
       required: `${module}:${resolved}`,
     });
   };
+}
+
+type Override = { match: string; method?: string; action: string };
+type RouteMethod = 'get' | 'post' | 'put' | 'patch' | 'delete';
+const ROUTE_METHODS: RouteMethod[] = ['get', 'post', 'put', 'patch', 'delete'];
+
+/**
+ * Bind a module guard to the routes THIS router declares.
+ *
+ * Not `router.use(guardModule(...))`, which looks equivalent and is not: all
+ * nineteen doctor routers are mounted at the same `/api/doctor`, so a `use()`
+ * guard runs for every request that reaches that mount — including the ones
+ * belonging to a different router further down the chain. The first router whose
+ * guard denied would then answer for everybody, and a receptionist with
+ * `team: full` was refused Team & Roles because an earlier router's
+ * `consultations` guard got there first.
+ *
+ * Injecting the guard at route-registration time means it fires only when the
+ * path actually matches this router's own route. Call it BEFORE registering any
+ * routes.
+ */
+export function guardRoutes(router: Router, module: ModuleId, overrides: Override[] = []): void {
+  const guard = guardModule(module, overrides);
+  for (const method of ROUTE_METHODS) {
+    const original = router[method].bind(router) as (...args: unknown[]) => unknown;
+    router[method] = ((path: unknown, ...handlers: unknown[]) =>
+      original(path, guard, ...handlers)) as typeof router[RouteMethod];
+  }
 }
 
 /** The permission payload the client needs to hide what a session cannot do. */

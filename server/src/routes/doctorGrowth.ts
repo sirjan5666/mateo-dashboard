@@ -1,7 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { requireAuth, requireRole } from '../middleware/auth.js';
-import { guardModule, loadStaffContext } from '../middleware/permissions.js';
+import { guardRoutes } from '../middleware/permissions.js';
 import { bandCurves, computePercentile, percentileZone } from '../growth/percentile.js';
 import type { Indicator, Sex } from '../growth/percentile.js';
 
@@ -15,7 +14,7 @@ import type { Indicator, Sex } from '../growth/percentile.js';
 const router = Router();
 // RBAC: a staff session is narrowed to what its role allows. The doctor who
 // owns the practice passes every check — see middleware/permissions.ts.
-router.use(requireAuth, requireRole('doctor'), loadStaffContext, guardModule('growth'));
+guardRoutes(router, 'growth');
 
 const MEASURES: { indicator: Indicator; label: string; key: 'weightG' | 'lengthCm' | 'headCircCm'; toValue: (n: number) => number }[] = [
   { indicator: 'weight', label: 'Weight-for-age', key: 'weightG', toValue: (g) => g / 1000 },
