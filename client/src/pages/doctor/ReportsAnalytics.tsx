@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react';
 import { Area, AreaChart, Bar, BarChart, Cell, Pie, PieChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from 'recharts';
 import {
-  ArrowUp, Loader2, BarChart3, Calendar, CalendarDays, ChevronDown, ChevronRight, Copy,
+  ArrowUp, Loader2, BarChart3, CalendarDays, ChevronDown, ChevronRight, Copy,
   Download, FileClock, FileText, IndianRupee, Receipt, Stethoscope, UserRound, Users,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { analyticsFromReport } from '../../data/analytics';
 import { getReport } from '../../api/doctorAnalytics';
 import type { DoctorReport } from '../../api/doctorAnalytics';
+import { RangeSelector, rangeForPreset } from '../../components/doctor/v2/RangeSelector';
+import type { DateRange, RangePreset } from '../../components/doctor/v2/RangeSelector';
 import { cn } from '../../lib/cn';
 
 const CARD = 'rounded-[14px] border border-[#ECEEF4] bg-white shadow-[0_1px_2px_rgba(16,24,40,.04),0_8px_24px_-12px_rgba(16,24,40,.10)]';
@@ -82,6 +84,9 @@ export default function ReportsAnalytics() {
   const [report, setReport] = useState<DoctorReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  // Default to the last 30 days — the same window the endpoint used before.
+  const [preset, setPreset] = useState<RangePreset>('30d');
+  const [range, setRange] = useState<DateRange>(() => rangeForPreset('30d'));
 
   /**
    * Exports exactly the figures on screen, client-side. No server report
@@ -104,11 +109,14 @@ export default function ReportsAnalytics() {
     URL.revokeObjectURL(url);
   }
 
+  // Re-fetch whenever the range changes; the string key avoids re-running on a
+  // new-but-equal object identity.
+  const rangeKey = `${preset}:${range?.from ?? ''}:${range?.to ?? ''}`;
   useEffect(() => {
     let cancelled = false;
-    void getReport()
+    void getReport(range ?? undefined)
       .then((r) => {
-        if (!cancelled) setReport(r);
+        if (!cancelled) { setReport(r); setLoadError(null); }
       })
       .catch((e: unknown) => {
         if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Could not load the report');
@@ -119,9 +127,12 @@ export default function ReportsAnalytics() {
     return () => {
       cancelled = true;
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rangeKey]);
 
-  if (loading) {
+  // Full-page loader only on the FIRST load; a range change re-fetches under the
+  // header (which carries the selector) so the control never vanishes.
+  if (loading && !report) {
     return (
       <p className="flex items-center gap-2 py-16 text-sm text-[#64748B]">
         <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
@@ -168,11 +179,8 @@ export default function ReportsAnalytics() {
             <p className="mt-1.5 text-sm text-[#64748B] sm:pl-[59px]">Insights and analytics to help you make better decisions.</p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <button type="button" aria-label="Change date range" className="flex h-[46px] w-[240px] items-center gap-2.5 rounded-[11px] border border-[#E2E6F0] bg-white px-4 hover:bg-[#F7F8FC]">
-              <Calendar className="h-[17px] w-[17px] text-[#3B4FE0]" />
-              <span className="text-[13.5px] font-bold text-[#0F172A]">{a.comparison}</span>
-              <ChevronDown className="ml-auto h-[17px] w-[17px] text-[#94A3B8]" />
-            </button>
+            {loading && <Loader2 aria-label="Updating" className="h-4 w-4 animate-spin text-[#94A3B8]" />}
+            <RangeSelector preset={preset} range={range} onChange={(p, r) => { setLoading(true); setPreset(p); setRange(r); }} />
             <button type="button" aria-label="Export report" onClick={exportCsv} className="flex h-[46px] items-center gap-2 rounded-[11px] border border-[#E2E6F0] bg-white px-5 hover:bg-[#F7F8FC]">
               <Download className="h-[17px] w-[17px] text-[#334155]" />
               <span className="text-[13.5px] font-bold text-[#1E2A5A]">Export Report</span>
