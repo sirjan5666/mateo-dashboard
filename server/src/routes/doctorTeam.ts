@@ -2,8 +2,9 @@ import { Router } from 'express';
 import { isValidObjectId } from 'mongoose';
 import type { Types } from 'mongoose';
 import { z } from 'zod';
+import { setStaffViewAsCookie } from '../middleware/auth.js';
 import { guardRoutes } from '../middleware/permissions.js';
-import { auditAccess } from '../middleware/audit.js';
+import { auditAccess, recordAudit } from '../middleware/audit.js';
 import { scopeToDoctor } from '../middleware/loadOwnedPatient.js';
 import { StaffRole } from '../models/StaffRole.js';
 import { StaffMember } from '../models/StaffMember.js';
@@ -376,6 +377,46 @@ router.post('/team/members/:id/invite', auditAccess('team'), async (req, res) =>
     return;
   }
   res.json(await issueInvite(member));
+});
+
+/**
+ * POST /api/doctor/team/members/:id/view-as — see the panel as this person does.
+ *
+ * The practice owner is the super admin of their own clinic: they can already
+ * reach everything a staff member can. This route therefore only ever REMOVES
+ * capability — the session's subject stays the doctor, and the staff id narrows
+ * it to that role. Nothing is unlocked that the owner did not already have.
+ *
+ * OWNER ONLY. A staff session is refused outright, because "view as" from inside
+ * a role would be an escalation: a receptionist could step into the clinic
+ * admin's permissions. Both entering and leaving are audited.
+ */
+router.post('/team/members/:id/view-as', async (req, res) => {
+  if (req.staffId) {
+    res.status(403).json({ error: 'Only the practice owner can view the panel as someone else' });
+    return;
+  }
+  const { id } = req.params;
+  const member = isValidObjectId(id) ? await StaffMember.findOne(scopeToDoctor(req, { _id: id })) : null;
+  if (!member) {
+    res.status(404).json({ error: 'Staff member not found' });
+    return;
+  }
+  if (member.status === 'disabled') {
+    res.status(400).json({ error: 'This account is deactivated — reactivate it first' });
+    return;
+  }
+  const role = await StaffRole.findOne(scopeToDoctor(req, { _id: member.roleId }));
+  await recordAudit(req, {
+    action: 'read',
+    resourceType: 'staff:view-as:start',
+    resourceId: String(member._id),
+    outcome: 'allow',
+  }).catch(() => undefined);
+  setStaffViewAsCookie(res, String(req.userId), String(member._id));
+  res.json({
+    viewingAs: { id: member._id, name: member.name, roleName: role?.name ?? 'Unknown role' },
+  });
 });
 
 /**

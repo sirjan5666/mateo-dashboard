@@ -1,15 +1,16 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router';
-import { Check, Copy, Info, Loader2, Mail, Plus, ShieldPlus, Trash2, Users, X } from 'lucide-react';
+import { Check, Copy, Eye, Info, Loader2, Mail, Plus, ShieldPlus, Trash2, Users, X } from 'lucide-react';
 import {
   createRole, deleteMember, deleteRole, inviteMember, listMembers, listRoles, setMemberActive,
-  teamCatalogue, updateRole,
+  teamCatalogue, updateRole, viewAsMember,
 } from '../../api/doctorTeam';
 import type {
   CatalogueResponse, InviteResult, PermissionLevel, RolesResponse, StaffMemberDto, StaffRoleDto,
   StaffStatus,
 } from '../../api/doctorTeam';
 import { ApiError } from '../../api/client';
+import { useStaffSession } from '../../auth/staffSession';
 import { cn } from '../../lib/cn';
 
 const CARD =
@@ -61,6 +62,8 @@ export default function TeamAndRoles() {
   const { state } = useLocation();
   /** Set by a resend; the one handed over by Create Sub-User arrives in router state. */
   const [resent, setResent] = useState<(InviteResult & { name: string }) | null>(null);
+  // Only the practice owner may step into a staff account.
+  const { owner } = useStaffSession();
 
   const load = useCallback(async () => {
     const [r, m] = await Promise.all([listRoles(), listMembers()]);
@@ -459,6 +462,21 @@ export default function TeamAndRoles() {
                                   className="flex h-8 items-center gap-1.5 rounded-[8px] border border-[#E2E6F0] px-3 text-[12px] font-bold text-[#334155] hover:bg-[#F7F8FC]">
                                   <Mail aria-hidden="true" className="h-[13px] w-[13px]" />
                                   Resend invite
+                                </button>
+                              )}
+                              {/* Owner only, and downgrade-only: it shows the
+                                  panel with this role's access, never more. */}
+                              {owner && m.status !== 'disabled' && (
+                                <button type="button" title={`See the panel as ${m.name} does`}
+                                  onClick={() => void act(m.id, async () => {
+                                    await viewAsMember(m.id);
+                                    // Full reload: every page has to be rebuilt
+                                    // against the staff member's permissions.
+                                    window.location.assign('/doctor');
+                                  })}
+                                  className="flex h-8 items-center gap-1.5 rounded-[8px] border border-[#C7CEF5] px-3 text-[12px] font-bold text-[#3B4FE0] hover:bg-[#F5F7FF]">
+                                  <Eye aria-hidden="true" className="h-[13px] w-[13px]" />
+                                  View as
                                 </button>
                               )}
                               <button type="button" onClick={() => void act(m.id, () => setMemberActive(m.id, m.status === 'disabled'))}

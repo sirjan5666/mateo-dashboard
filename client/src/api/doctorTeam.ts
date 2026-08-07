@@ -126,6 +126,18 @@ export function inviteMember(id: string) {
   return api<InviteResult>(`/doctor/team/members/${id}/invite`, { method: 'POST' });
 }
 
+/**
+ * See the panel exactly as this staff member does. Owner only, and it can only
+ * ever REMOVE access — the session stays the doctor's, narrowed to that role.
+ * Leave again with `stopViewAs()`.
+ */
+export function viewAsMember(id: string) {
+  return api<{ viewingAs: { id: string; name: string; roleName: string } }>(
+    `/doctor/team/members/${id}/view-as`,
+    { method: 'POST' },
+  );
+}
+
 /** Deactivating revokes every live session immediately. */
 export function setMemberActive(id: string, active: boolean) {
   return api<{ status: StaffStatus }>(`/doctor/team/members/${id}/deactivate`, {

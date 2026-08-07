@@ -22,6 +22,11 @@ interface StaffSessionValue {
   roleName: string | null;
   /** True for the practice owner — every `can()` returns true. */
   owner: boolean;
+  /**
+   * True when the OWNER is viewing the panel as this staff member, rather than
+   * the staff member being signed in themselves. Drives the exit banner.
+   */
+  viewAs: boolean;
   loading: boolean;
   can: (module: string, action: string) => boolean;
   /** True if the role may do ANYTHING in the module — for hiding whole sections. */
@@ -33,6 +38,7 @@ const StaffSessionCtx = createContext<StaffSessionValue>({
   staff: null,
   roleName: null,
   owner: true,
+  viewAs: false,
   loading: false,
   can: () => true,
   canSee: () => true,
@@ -47,6 +53,7 @@ export function StaffSessionProvider({ enabled, children }: { enabled: boolean; 
   const [staff, setStaff] = useState<StaffSelf | null>(null);
   const [roleName, setRoleName] = useState<string | null>(null);
   const [owner, setOwner] = useState(true);
+  const [viewAs, setViewAs] = useState(false);
   const [actions, setActions] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(enabled);
 
@@ -55,6 +62,7 @@ export function StaffSessionProvider({ enabled, children }: { enabled: boolean; 
     const isOwner = r.owner === true || !r.staff;
     setOwner(isOwner);
     setStaff(r.staff ?? null);
+    setViewAs(r.viewAs === true);
     const role: unknown = r.role;
     setRoleName(typeof role === 'string' ? role : (role as { name?: string } | null)?.name ?? null);
     setActions(new Set(r.permissions ?? []));
@@ -76,6 +84,7 @@ export function StaffSessionProvider({ enabled, children }: { enabled: boolean; 
           if (!cancelled) {
             setOwner(true);
             setStaff(null);
+            setViewAs(false);
           }
         }
       } finally {
@@ -103,11 +112,12 @@ export function StaffSessionProvider({ enabled, children }: { enabled: boolean; 
     staff,
     roleName,
     owner,
+    viewAs,
     loading,
     can: (module, action) => owner || actions.has(`${module}:${action}`),
     canSee: (module) => owner || [...actions].some((a) => a.startsWith(`${module}:`)),
     reload: load,
-  }), [staff, roleName, owner, loading, actions, load]);
+  }), [staff, roleName, owner, viewAs, loading, actions, load]);
 
   return <StaffSessionCtx.Provider value={value}>{children}</StaffSessionCtx.Provider>;
 }

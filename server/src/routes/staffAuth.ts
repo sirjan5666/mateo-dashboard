@@ -5,7 +5,7 @@ import { z } from 'zod';
 import bcrypt from 'bcrypt';
 import rateLimit from 'express-rate-limit';
 import { env } from '../config/env.js';
-import { AUTH_COOKIE, requireAuth, setStaffAuthCookie } from '../middleware/auth.js';
+import { AUTH_COOKIE, requireAuth, setAuthCookie, setStaffAuthCookie } from '../middleware/auth.js';
 import { effectivePermissions, loadStaffContext, sessionPermissions } from '../middleware/permissions.js';
 import { StaffMember } from '../models/StaffMember.js';
 import { StaffRole } from '../models/StaffRole.js';
@@ -16,6 +16,7 @@ import { StaffToken } from '../models/StaffToken.js';
 import { User } from '../models/User.js';
 import { describeDevice, hashToken, newToken } from '../lib/staffTokens.js';
 import { grantedActions } from '../permissions/catalogue.js';
+import { recordAudit } from '../middleware/audit.js';
 import { sendStaffInviteEmail, sendStaffResetEmail } from '../lib/staffEmails.js';
 
 /**
@@ -343,7 +344,37 @@ router.get('/me', requireAuth, loadStaffContext, async (req, res) => {
     res.status(401).json({ error: 'Not authenticated' });
     return;
   }
-  res.json(payload);
+  res.json({ ...payload, viewAs: req.viewAs === true });
+});
+
+/**
+ * POST /api/staff/auth/view-as/stop — the owner returns to their own session.
+ *
+ * It lives HERE, not on the team router, on purpose: the team router is behind
+ * the `team` module guard, so a doctor viewing the panel as a receptionist —
+ * who by definition has no team access — would have been unable to get back out.
+ *
+ * Only a session carrying the `imp` claim may use it. A real staff login never
+ * carries one, so this can never be a way for staff to become the doctor.
+ */
+router.post('/view-as/stop', requireAuth, async (req, res) => {
+  if (!req.viewAs || !req.userId) {
+    res.status(400).json({ error: 'Not viewing as anyone' });
+    return;
+  }
+  const doctor = await User.findById(req.userId);
+  if (!doctor || doctor.role !== 'doctor') {
+    res.status(401).json({ error: 'Not authenticated' });
+    return;
+  }
+  await recordAudit(req, {
+    action: 'read',
+    resourceType: 'staff:view-as:stop',
+    resourceId: req.staffId,
+    outcome: 'allow',
+  }).catch(() => undefined);
+  setAuthCookie(res, doctor.id);
+  res.json({ ok: true });
 });
 
 /** The devices this staff member is signed in on, newest first. */

@@ -31,7 +31,7 @@ process.env.DATA_ENCRYPTION_KEY ||= randomBytes(32).toString('base64');
 
 const { StaffMember } = await import('../models/StaffMember.js');
 const { StaffRole } = await import('../models/StaffRole.js');
-const { loadStaffContext, guardModule, guardRoutes } = await import('../middleware/permissions.js');
+const { loadStaffContext, guardModule, guardRoutes, sessionPermissions } = await import('../middleware/permissions.js');
 const { DEFAULT_ROLES } = await import('../permissions/catalogue.js');
 
 const oid = () => new mongoose.Types.ObjectId();
@@ -252,6 +252,63 @@ d('RBAC enforcement (DB-backed)', () => {
       const req = fakeReq({ userId: doctor.toString(), staffId: staffId.toString() });
       await run(loadStaffContext, req);
       expect(req.staff?.permissions.pharmacy).toBe('view');
+    });
+  });
+
+  describe('the owner viewing the panel as a staff member', () => {
+    // "View as" is the one impersonation that can only REMOVE capability: the
+    // session's subject stays the doctor, who could already reach everything the
+    // staff member can. What must hold is that it never works the other way.
+    it('is narrowed to that role, not to the owner\'s own reach', async () => {
+      const req = fakeReq({
+        userId: doctor.toString(), staffId: staffId.toString(), viewAs: true, method: 'PATCH',
+      });
+      await run(loadStaffContext, req);
+      expect(req.staff?.roleName).toBe('Receptionist');
+      expect((await run(guardModule('settings'), req)).passed).toBe(false);
+    });
+
+    it('can preview an invitation that has not been accepted yet', async () => {
+      await StaffMember.updateOne({ _id: staffId }, { $set: { status: 'invited', active: false } });
+
+      // A real staff session with that account is refused...
+      const real = fakeReq({ userId: doctor.toString(), staffId: staffId.toString() });
+      expect((await run(loadStaffContext, real)).status).toBe(401);
+
+      // ...but the owner checking what the invitee will see is not.
+      const preview = fakeReq({ userId: doctor.toString(), staffId: staffId.toString(), viewAs: true });
+      expect((await run(loadStaffContext, preview)).passed).toBe(true);
+    });
+
+    it('will not preview a deactivated account', async () => {
+      await StaffMember.updateOne({ _id: staffId }, { $set: { status: 'disabled', active: false } });
+      const req = fakeReq({ userId: doctor.toString(), staffId: staffId.toString(), viewAs: true });
+      expect((await run(loadStaffContext, req)).status).toBe(401);
+    });
+
+    it('reports itself, so the client can offer a way back', async () => {
+      const req = fakeReq({ userId: doctor.toString(), staffId: staffId.toString(), viewAs: true });
+      await run(loadStaffContext, req);
+      expect(sessionPermissions(req).viewAs).toBe(true);
+
+      const plain = fakeReq({ userId: doctor.toString(), staffId: staffId.toString() });
+      await run(loadStaffContext, plain);
+      // A real staff login must never look like an owner-initiated view, or the
+      // exit route would hand them the doctor's session.
+      expect(sessionPermissions(plain).viewAs).toBe(false);
+    });
+
+    it('is not granted by the cookie unless the token really says so', async () => {
+      const { setStaffAuthCookie, setStaffViewAsCookie, requireAuth: auth } = await import('../middleware/auth.js');
+      const read = (setCookie: (r: Response) => void) => {
+        let token = '';
+        setCookie({ cookie: (_n: string, v: string) => { token = v; } } as unknown as Response);
+        const req = { cookies: { mateo_token: token } } as unknown as Request;
+        auth(req, fakeRes(), () => undefined);
+        return req;
+      };
+      expect(read((r) => { setStaffViewAsCookie(r, doctor.toString(), staffId.toString()); }).viewAs).toBe(true);
+      expect(read((r) => { setStaffAuthCookie(r, doctor.toString(), staffId.toString()); }).viewAs).toBeUndefined();
     });
   });
 

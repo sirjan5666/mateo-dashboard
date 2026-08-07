@@ -69,8 +69,16 @@ export async function loadStaffContext(req: Request, res: Response, next: NextFu
     return;
   }
   const staff = await StaffMember.findOne({ _id: req.staffId, doctorUserId: req.userId });
-  if (!staff || staff.status !== 'active') {
-    res.status(401).json({ error: 'This staff account is no longer active' });
+  // A real staff session needs a live account. The owner previewing a role is a
+  // different question: an invitation that has not been accepted yet is exactly
+  // the case worth checking before it is sent, so only `disabled` blocks that.
+  const usable = req.viewAs ? staff?.status !== 'disabled' : staff?.status === 'active';
+  if (!staff || !usable) {
+    res.status(401).json({
+      error: req.viewAs
+        ? 'That staff account has been deactivated'
+        : 'This staff account is no longer active',
+    });
     return;
   }
   const role = await StaffRole.findOne({ _id: staff.roleId, doctorUserId: req.userId });
@@ -210,12 +218,15 @@ export function guardRoutes(router: Router, module: ModuleId, overrides: Overrid
 }
 
 /** The permission payload the client needs to hide what a session cannot do. */
-export function sessionPermissions(req: Request): { owner: boolean; role: string | null; actions: string[] } {
-  if (!req.staff) return { owner: true, role: null, actions: [] };
+export function sessionPermissions(req: Request): {
+  owner: boolean; role: string | null; actions: string[]; viewAs: boolean;
+} {
+  if (!req.staff) return { owner: true, role: null, actions: [], viewAs: false };
   return {
     owner: false,
     role: req.staff.roleName,
     actions: grantedActions(req.staff.permissions),
+    viewAs: req.viewAs === true,
   };
 }
 

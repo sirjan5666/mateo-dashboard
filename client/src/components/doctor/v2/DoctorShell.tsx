@@ -31,6 +31,7 @@ import {
 import { useAuth } from '../../../auth/context';
 import { useStaffSession } from '../../../auth/staffSession';
 import { staffLogout } from '../../../api/staffAuth';
+import { ViewAsBanner } from './ViewAsBanner';
 import { Toaster } from '../../ui/Toaster';
 import { cn } from '../../../lib/cn';
 import { openCommand } from '../../../lib/commandPalette';
@@ -594,6 +595,7 @@ export function DoctorShell({ unread = 0, globals }: { unread?: number; globals?
         data-doctor-shell-layout
         className="min-h-screen bg-[#F6F7FB] pt-[var(--imp-bar-h)]"
       >
+        <ViewAsBanner />
         {/* Desktop rail */}
         <aside
           data-doctor-shell-chrome

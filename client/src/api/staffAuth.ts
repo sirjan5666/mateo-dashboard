@@ -6,6 +6,17 @@ import { api } from './client';
  * subject, which is why the doctor panel works for them unchanged.
  */
 
+/**
+ * End an owner's "view as" session and return to their own.
+ *
+ * Lives on the staff-auth router rather than the team router: a doctor viewing
+ * the panel as a receptionist has no team permission, so a team-guarded exit
+ * would have trapped them there.
+ */
+export function stopViewAs() {
+  return api<{ ok: true }>('/staff/auth/view-as/stop', { method: 'POST' });
+}
+
 export interface StaffSelf {
   id: string;
   name: string;
@@ -26,6 +37,8 @@ export interface StaffSessionPayload {
   permissions: string[];
   /** Present only on the doctor's own session. */
   owner?: boolean;
+  /** True when the owner is viewing the panel as this staff member. */
+  viewAs?: boolean;
 }
 
 export interface StaffDevice {
