@@ -156,6 +156,8 @@ export function useBillingClinic() {
   return {
     name: clinic?.name ?? 'Your clinic',
     address: clinic ? [clinic.addressLine, clinic.cityLine].filter(Boolean).join(', ') : 'Add a clinic in Locations',
+    phone: clinic?.phone ?? '',
+    email: clinic?.email ?? '',
     licence: clinic?.drugLicenceNo ?? '',
     gstin: clinic?.gstin ?? '',
   };
