@@ -15,8 +15,13 @@ export function ViewAsBanner() {
   const { staff, roleName, viewAs } = useStaffSession();
   const [busy, setBusy] = useState(false);
 
+  // Reserve the top bar's space ONLY while a staff view-as is active. It shares
+  // the `is-impersonating` class with the admin impersonation banner, so it must
+  // never touch that class when it is idle — doing so wiped the reservation the
+  // admin banner had set, and its bar overlapped the header.
   useEffect(() => {
-    document.body.classList.toggle('is-impersonating', viewAs);
+    if (!viewAs) return undefined;
+    document.body.classList.add('is-impersonating');
     return () => document.body.classList.remove('is-impersonating');
   }, [viewAs]);
 
