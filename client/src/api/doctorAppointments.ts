@@ -16,6 +16,8 @@ export interface Appointment {
   /** Booking-time clinical context, encrypted at rest server-side. */
   symptoms: string | null;
   notes: string | null;
+  /** Why the status is what it is — set when the status is changed. */
+  statusRemark: string | null;
   locationId: string | null;
   createdAt: string;
   updatedAt: string;
@@ -32,6 +34,24 @@ export interface CreateAppointmentInput {
 }
 export interface UpdateAppointmentInput extends Partial<CreateAppointmentInput> {
   status?: AppointmentStatus;
+  /** A short reason for the status change; '' clears it. */
+  statusRemark?: string;
+}
+
+/** Whether the doctor is physically in the clinic right now. */
+export interface DoctorPresence {
+  in: boolean;
+  since: string | null;
+  by: string | null;
+}
+
+export function getPresence() {
+  return api<{ presence: DoctorPresence }>('/doctor/presence');
+}
+
+/** Mark the doctor In (true) or Out (false). Front desk or the doctor. */
+export function setPresence(isIn: boolean) {
+  return api<{ presence: DoctorPresence }>('/doctor/presence', { method: 'POST', body: JSON.stringify({ in: isIn }) });
 }
 
 export function listSchedule(params: { from?: string; to?: string; status?: AppointmentStatus } = {}) {

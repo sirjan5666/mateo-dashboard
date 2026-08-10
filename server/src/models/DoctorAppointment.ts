@@ -20,6 +20,9 @@ export interface IDoctorAppointment {
   reason?: string; // PHI — encrypted at rest
   symptoms?: string; // PHI — encrypted at rest
   notes?: string; // PHI — encrypted at rest
+  /** Why the status is what it is — "rescheduled, doctor out", "patient no-show".
+   *  Free text a receptionist adds when they change the status. PHI, encrypted. */
+  statusRemark?: string;
   locationId?: Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
@@ -36,6 +39,7 @@ const appointmentSchema = new Schema<IDoctorAppointment>(
     reason: { type: String },
     symptoms: { type: String },
     notes: { type: String },
+    statusRemark: { type: String },
     locationId: { type: Schema.Types.ObjectId, ref: 'ClinicLocation', index: true },
   },
   { timestamps: true },
@@ -43,6 +47,6 @@ const appointmentSchema = new Schema<IDoctorAppointment>(
 // Tenant-scoped schedule queries (by time).
 appointmentSchema.index({ doctorUserId: 1, start: 1 });
 
-encryptedFields(appointmentSchema, ['reason', 'symptoms', 'notes']);
+encryptedFields(appointmentSchema, ['reason', 'symptoms', 'notes', 'statusRemark']);
 
 export const DoctorAppointment = model<IDoctorAppointment>('DoctorAppointment', appointmentSchema);

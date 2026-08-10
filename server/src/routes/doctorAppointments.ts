@@ -2,12 +2,13 @@ import { Router } from 'express';
 import { isValidObjectId } from 'mongoose';
 import type { HydratedDocument } from 'mongoose';
 import { z } from 'zod';
-import { guardRoutes } from '../middleware/permissions.js';
+import { guardRoutes, actorName } from '../middleware/permissions.js';
 import { loadOwnedPatient, scopeToDoctor } from '../middleware/loadOwnedPatient.js';
 import { auditAccess, recordAudit } from '../middleware/audit.js';
 import { requireConsent } from '../middleware/requireConsent.js';
 import { DoctorAppointment, APPOINTMENT_MODES, APPOINTMENT_STATUSES } from '../models/DoctorAppointment.js';
 import type { IDoctorAppointment } from '../models/DoctorAppointment.js';
+import { DoctorProfile } from '../models/DoctorProfile.js';
 import { ClinicLocation } from '../models/ClinicLocation.js';
 import { Patient } from '../models/Patient.js';
 import type { IPatient } from '../models/Patient.js';
@@ -19,6 +20,43 @@ const router = Router();
 // RBAC: a staff session is narrowed to what its role allows. The doctor who
 // owns the practice passes every check — see middleware/permissions.ts.
 guardRoutes(router, 'appointments');
+
+/**
+ * Doctor presence — is the doctor IN the clinic right now?
+ *
+ * A live front-desk flag, separate from the recurring working hours and from any
+ * appointment's status. The receptionist flips it when the doctor arrives and
+ * leaves; the dashboard reads it so nobody schedules a patient into a moment the
+ * doctor is not there. Stored on the doctor's own profile (one per practice).
+ */
+function presenceShape(p?: { in?: boolean; since?: Date; by?: string } | null) {
+  return { in: p?.in === true, since: p?.since ?? null, by: p?.by ?? null };
+}
+
+// GET /api/doctor/presence — current In/Out state.
+router.get('/presence', async (req, res) => {
+  const profile = await DoctorProfile.findOne({ userId: req.userId }).select('presence');
+  res.json({ presence: presenceShape(profile?.presence) });
+});
+
+// POST /api/doctor/presence — the front desk (or the doctor) flips it.
+router.post('/presence', async (req, res) => {
+  const { in: isIn } = z.object({ in: z.boolean() }).parse(req.body ?? {});
+  // Upsert: a doctor who never completed the profile form can still be marked in.
+  const profile =
+    (await DoctorProfile.findOne({ userId: req.userId })) ??
+    new DoctorProfile({ userId: req.userId, specialization: 'General', consultationFee: 0 });
+  profile.presence = { in: isIn, since: new Date(), by: actorName(req) };
+  profile.markModified('presence');
+  await profile.save();
+  // Who marked the doctor in or out, and when, is worth an audit line.
+  await recordAudit(req, {
+    action: 'update',
+    resourceType: `doctor:presence:${isIn ? 'in' : 'out'}`,
+    outcome: 'allow',
+  }).catch(() => undefined);
+  res.json({ presence: presenceShape(profile.presence) });
+});
 
 function publicAppointment(a: HydratedDocument<IDoctorAppointment>, patientName?: string) {
   return {
@@ -32,6 +70,7 @@ function publicAppointment(a: HydratedDocument<IDoctorAppointment>, patientName?
     reason: decryptOptional(a.reason || undefined) ?? null,
     symptoms: decryptOptional(a.symptoms || undefined) ?? null,
     notes: decryptOptional(a.notes || undefined) ?? null,
+    statusRemark: decryptOptional(a.statusRemark || undefined) ?? null,
     locationId: a.locationId ?? null,
     createdAt: a.createdAt,
     updatedAt: a.updatedAt,
@@ -57,7 +96,13 @@ const apptShape = {
   locationId: z.string().optional(),
 };
 const createSchema = z.object(apptShape);
-const updateSchema = z.object({ ...apptShape, start: z.string().min(1).optional(), status: z.enum(APPOINTMENT_STATUSES).optional() });
+const updateSchema = z.object({
+  ...apptShape,
+  start: z.string().min(1).optional(),
+  status: z.enum(APPOINTMENT_STATUSES).optional(),
+  // Free-text note explaining a status change; empty string clears it.
+  statusRemark: z.string().max(500).optional(),
+});
 
 /**
  * A doctor cannot be in two places at once, so an appointment may not overlap
@@ -252,6 +297,10 @@ router.patch('/appointments/:appointmentId', async (req, res) => {
   if (body.notes !== undefined) {
     appt.notes = body.notes || undefined;
     changed.push('notes');
+  }
+  if (body.statusRemark !== undefined) {
+    appt.statusRemark = body.statusRemark || undefined;
+    changed.push('statusRemark');
   }
   await appt.save();
   await recordAudit(req, {

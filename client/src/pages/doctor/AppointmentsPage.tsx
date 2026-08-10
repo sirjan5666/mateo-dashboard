@@ -16,6 +16,51 @@ import { cn } from '../../lib/cn';
 const CARD = 'rounded-[14px] border border-[#ECEEF4] bg-white shadow-[0_1px_2px_rgba(16,24,40,.04),0_8px_24px_-12px_rgba(16,24,40,.10)]';
 const STATUS_GLYPH: Record<ApptStatus, LucideIcon> = { completed: Check, confirmed: CalendarDays, pending: Hourglass, cancelled: X };
 
+type ApiStatus = Appointment['apiStatus'];
+const API_STATUS_LABEL: Record<ApiStatus, string> = {
+  scheduled: 'Scheduled', completed: 'Completed', cancelled: 'Cancelled', no_show: 'No-show',
+};
+
+/**
+ * Change an appointment's status and record WHY. Keyed by the appointment id at
+ * the call site, so it re-mounts with fresh defaults when a different one is
+ * selected — no synchronous setState-in-effect to reset it.
+ *
+ * The remark is where "doctor was out, rescheduled to Friday" or "patient did
+ * not turn up" is captured, so a cancelled or no-show slot is never a mystery.
+ */
+function StatusEditor({ appt, busy, onSave }: {
+  appt: Appointment; busy: boolean; onSave: (status: ApiStatus, remark: string) => void;
+}) {
+  const [status, setStatus] = useState<ApiStatus>(appt.apiStatus);
+  const [remark, setRemark] = useState(appt.statusRemark);
+  const dirty = status !== appt.apiStatus || remark.trim() !== appt.statusRemark.trim();
+  return (
+    <div className="mt-5 rounded-[12px] border border-[#ECEEF4] bg-[#FAFBFD] p-4">
+      <h3 className="text-[13px] font-bold text-[#0F172A]">Update Status</h3>
+      <p className="mt-0.5 text-[11.5px] text-[#64748B]">If the visit can’t go ahead, set the status and add a reason.</p>
+      <div className="mt-3 grid grid-cols-2 gap-1.5">
+        {(['scheduled', 'completed', 'cancelled', 'no_show'] as ApiStatus[]).map((s) => (
+          <button key={s} type="button" onClick={() => setStatus(s)} aria-pressed={status === s}
+            className={cn('h-9 rounded-[8px] border text-[12.5px] font-bold transition-colors',
+              status === s ? 'border-[#6366F1] bg-[#EEF0FE] text-[#3B4FE0]' : 'border-[#E2E6F0] bg-white text-[#475569] hover:bg-[#F1F3F9]')}>
+            {API_STATUS_LABEL[s]}
+          </button>
+        ))}
+      </div>
+      <label htmlFor="appt-remark" className="mt-3 block text-[12px] font-bold text-[#334155]">Remark</label>
+      <textarea id="appt-remark" value={remark} onChange={(e) => setRemark(e.target.value)} rows={2}
+        placeholder="e.g. Doctor out — rescheduled; patient no-show; cancelled by guardian"
+        className="mt-1.5 w-full rounded-[9px] border border-[#E4E8F1] bg-white px-3 py-2 text-[12.5px] text-[#0F172A] placeholder:text-[#94A3B8] focus:border-[#3B4FE0] focus:outline-none focus:ring-[3px] focus:ring-[rgba(59,79,224,.12)]" />
+      <button type="button" disabled={!dirty || busy} onClick={() => onSave(status, remark.trim())}
+        className="mt-2.5 flex h-9 w-full items-center justify-center gap-2 rounded-[9px] bg-[#3B4FE0] text-[12.5px] font-bold text-white transition-colors hover:bg-[#3538CA] disabled:opacity-50">
+        {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+        Save status
+      </button>
+    </div>
+  );
+}
+
 function StatusChip({ status }: { status: ApptStatus }) {
   const s = APPT_STATUS[status];
   const G = STATUS_GLYPH[status];
@@ -518,7 +563,8 @@ export default function AppointmentsPage() {
               <span className="mt-0.5 block text-[12.5px] text-[#64748B]">{selected.locationAddress}</span>
             </DetailRow>
             <DetailRow icon={BadgeCheck} label="Status">
-              <span className="inline-block rounded-[7px] bg-[#DCE9FE] px-2.5 py-1 text-[11px] font-bold text-[#2B6FF0]">{APPT_STATUS[selected.status].label}</span>
+              <span className="inline-block rounded-[7px] bg-[#DCE9FE] px-2.5 py-1 text-[11px] font-bold text-[#2B6FF0]">{API_STATUS_LABEL[selected.apiStatus]}</span>
+              {selected.statusRemark && <span className="mt-1 block text-[12.5px] italic text-[#64748B]">“{selected.statusRemark}”</span>}
             </DetailRow>
             <DetailRow icon={Bookmark} label="Booking Source">{selected.bookingSource}</DetailRow>
             <DetailRow icon={FileText} label="Notes">{selected.notes}</DetailRow>
@@ -540,6 +586,9 @@ export default function AppointmentsPage() {
               </button>
             ))}
           </div>
+          <StatusEditor key={selected.id} appt={selected} busy={busy}
+            onSave={(status, statusRemark) => void mutate(() => updateAppointment(selected.id, { status, statusRemark }))} />
+
           <button type="button" disabled={busy} onClick={() => void startConsultation(selected)}
             className="mt-3 h-[50px] w-full rounded-[11px] text-[14.5px] font-bold text-white shadow-[0_8px_18px_-8px_rgba(59,79,224,.65)] hover:brightness-105"
             style={{ background: 'linear-gradient(135deg, #5B5BF0 0%, #3B3FD8 100%)' }}>

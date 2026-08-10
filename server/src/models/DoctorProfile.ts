@@ -73,6 +73,22 @@ export interface IDoctorAvailability {
   slotMinutes: number;
 }
 
+/**
+ * Whether the doctor is physically IN the clinic right now — a live, operational
+ * flag the front desk flips when the doctor arrives and leaves. It is distinct
+ * from `workingHours` (the recurring schedule) and from appointment status: it
+ * answers "can a patient be seen at this moment?".
+ *
+ * `in` is the current state; `since` is when it last changed; `by` is who
+ * flipped it (the doctor themselves or a named staff member). Every change is
+ * also written to the audit log.
+ */
+export interface IDoctorPresence {
+  in: boolean;
+  since?: Date;
+  by?: string;
+}
+
 export interface IDoctorProfile {
   userId: Types.ObjectId;
   specialization: string;
@@ -89,6 +105,7 @@ export interface IDoctorProfile {
   workingHours?: IWorkingHours;
   notifications?: IDoctorNotifications;
   preferences?: IClinicPreferences;
+  presence?: IDoctorPresence;
   // Payout banking — encrypted at rest (account number is sensitive). Stored as an
   // encrypted JSON string {accountHolder,accountNumber,ifsc,bankName}; decrypted only
   // in the owner's self shaper, never sent to anyone else.
@@ -171,6 +188,12 @@ const doctorProfileSchema = new Schema<IDoctorProfile>(
     workingHours: { type: workingHoursSchema },
     notifications: { type: notificationsSchema },
     preferences: { type: preferencesSchema },
+    presence: {
+      type: new Schema<IDoctorPresence>(
+        { in: { type: Boolean, default: false }, since: { type: Date }, by: { type: String } },
+        { _id: false },
+      ),
+    },
     bankDetailsEnc: { type: String },
     // Admin-gated visibility: parents only ever see 'approved' doctors.
     status: { type: String, enum: DOCTOR_STATUSES, default: 'pending', index: true },

@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router';
 import { Loader2, Sun } from 'lucide-react';
 import { useAuth } from '../../auth/context';
 import { useActiveLocation } from '../../lib/doctorLocation';
 import { subtitleFor } from '../../data/doctorDashboard';
 import type { Kpi } from '../../data/doctorDashboard';
 import { inr } from '../../lib/doctorLocation';
+import { cn } from '../../lib/cn';
 import { getOverview } from '../../api/doctorOverview';
 import type { Overview } from '../../api/doctorOverview';
 import { KpiCard } from '../../components/doctor/v2/KpiCard';
@@ -14,8 +16,11 @@ import type { AlertRow } from '../../components/doctor/v2/panels';
 import { getAnalytics, getReport } from '../../api/doctorAnalytics';
 import type { Analytics, DoctorReport } from '../../api/doctorAnalytics';
 import { getDashboardAlerts } from '../../api/doctorDashboard';
+import { getPresence, setPresence } from '../../api/doctorAppointments';
+import type { DoctorPresence } from '../../api/doctorAppointments';
 import { RangeSelector, rangeForPreset } from '../../components/doctor/v2/RangeSelector';
 import type { DateRange, RangePreset } from '../../components/doctor/v2/RangeSelector';
+import { DoorClosed, DoorOpen } from 'lucide-react';
 
 /** First name only — "Good morning, Dr. Ananya". */
 function greetingName(fullName?: string | null): string {
@@ -42,10 +47,70 @@ function buildRangeKpis(report: DoctorReport | null, totalPatients: number | nul
   ];
 }
 
+/**
+ * The doctor's live In/Out status. Reception flips it when the doctor arrives or
+ * leaves; it is separate from the working-hours schedule and from any single
+ * appointment. When Out, a patient cannot be seen right now — the whole point.
+ */
+function InOutToggle({ presence, busy, onToggle }: {
+  presence: DoctorPresence | null; busy: boolean; onToggle: (next: boolean) => void;
+}) {
+  const isIn = presence?.in === true;
+  const sinceLabel = presence?.since
+    ? new Date(presence.since).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: 'numeric', minute: '2-digit', hour12: true })
+    : null;
+  return (
+    <div className="flex items-center gap-2.5 rounded-[11px] border border-[#E2E6F0] bg-white px-2.5 py-2">
+      <span aria-hidden="true" className={cn('grid h-8 w-8 shrink-0 place-items-center rounded-[9px]', isIn ? 'bg-[#DCF7E6]' : 'bg-[#F1F3F9]')}>
+        {isIn ? <DoorOpen className="h-[18px] w-[18px] text-[#12A150]" /> : <DoorClosed className="h-[18px] w-[18px] text-[#64748B]" />}
+      </span>
+      <span className="min-w-0">
+        <span className="flex items-center gap-1.5">
+          <span aria-hidden="true" className={cn('h-2 w-2 rounded-full', isIn ? 'bg-[#12A150]' : 'bg-[#94A3B8]')} />
+          <span className="text-[13px] font-bold text-[#0F172A]">Doctor {isIn ? 'In' : 'Out'}</span>
+        </span>
+        <span className="block text-[11px] font-medium text-[#94A3B8]">
+          {sinceLabel ? `Since ${sinceLabel}` : 'Not marked yet'}
+        </span>
+      </span>
+      <button
+        type="button"
+        onClick={() => onToggle(!isIn)}
+        disabled={busy}
+        aria-label={isIn ? 'Mark the doctor as Out' : 'Mark the doctor as In'}
+        className={cn(
+          'ml-1 flex h-8 items-center gap-1.5 rounded-[8px] px-3 text-[12.5px] font-bold text-white transition-[filter] hover:brightness-105 disabled:opacity-60',
+          isIn ? 'bg-[#E03131]' : 'bg-[#12A150]',
+        )}
+      >
+        {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+        Mark {isIn ? 'Out' : 'In'}
+      </button>
+    </div>
+  );
+}
+
 export default function Dashboard() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { activeId, active, clinics } = useActiveLocation();
   const overall = activeId === 'overall';
+
+  // The doctor's live In/Out presence — loaded once, flipped by the front desk.
+  const [presence, setPresenceState] = useState<DoctorPresence | null>(null);
+  const [presenceBusy, setPresenceBusy] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    void getPresence().then((r) => { if (!cancelled) setPresenceState(r.presence); }).catch(() => undefined);
+    return () => { cancelled = true; };
+  }, []);
+  function togglePresence(next: boolean) {
+    setPresenceBusy(true);
+    void setPresence(next)
+      .then((r) => setPresenceState(r.presence))
+      .catch(() => undefined)
+      .finally(() => setPresenceBusy(false));
+  }
 
   // Live operational panels — Today's Schedule, Alerts, and the all-time patient
   // count. These are "now", not range-scoped, so they load once.
@@ -132,14 +197,33 @@ export default function Dashboard() {
           <p className="mt-1.5 text-sm text-[#64748B]">{subtitleFor(activeId, active.name, clinics.length)}</p>
         </div>
 
-        <div className="flex shrink-0 flex-col items-end gap-1.5">
-          <div className="flex items-center gap-2">
-            {reportLoading && <Loader2 aria-label="Updating" className="h-4 w-4 animate-spin text-[#94A3B8]" />}
-            <RangeSelector preset={preset} range={range} onChange={(p, r) => { setReportLoading(true); setPreset(p); setRange(r); }} />
+        <div className="flex shrink-0 flex-wrap items-start justify-end gap-3">
+          <InOutToggle presence={presence} busy={presenceBusy} onToggle={togglePresence} />
+          <div className="flex flex-col items-end gap-1.5">
+            <div className="flex items-center gap-2">
+              {reportLoading && <Loader2 aria-label="Updating" className="h-4 w-4 animate-spin text-[#94A3B8]" />}
+              <RangeSelector preset={preset} range={range} onChange={(p, r) => { setReportLoading(true); setPreset(p); setRange(r); }} />
+            </div>
+            <span className="text-[11.5px] font-medium text-[#94A3B8]">{today}</span>
           </div>
-          <span className="text-[11.5px] font-medium text-[#94A3B8]">{today}</span>
         </div>
       </div>
+
+      {/* When the doctor is out, patients cannot be seen — say so loudly, and
+          point the front desk at the schedule to reschedule what's affected. */}
+      {presence && !presence.in && (
+        <div role="status" className="flex flex-wrap items-center gap-2.5 rounded-[12px] border border-[#F8D9B4] bg-[#FEF6E9] px-4 py-3">
+          <DoorClosed aria-hidden="true" className="h-[18px] w-[18px] shrink-0 text-[#B45309]" />
+          <p className="text-[13px] font-medium text-[#8A5A0B]">
+            The doctor is currently marked <strong>Out</strong>. Patients cannot be seen right now — appointments in this
+            time may need to be rescheduled or have their status updated.
+          </p>
+          <button type="button" onClick={() => navigate('/doctor/appointments')}
+            className="ml-auto h-8 rounded-[8px] border border-[#E8C98A] bg-white px-3 text-[12.5px] font-bold text-[#8A5A0B] hover:bg-[#FFFBF3]">
+            Open schedule
+          </button>
+        </div>
+      )}
 
       {/* KPI row — figures for the selected range (Total Patients is all-time). */}
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">

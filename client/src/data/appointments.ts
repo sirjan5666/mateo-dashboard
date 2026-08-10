@@ -23,6 +23,12 @@ export interface Appointment {
   phone: string;
   type: string;
   status: ApptStatus;
+  /** The server's own status ('scheduled'|'completed'|'cancelled'|'no_show') —
+   *  what the status-change control edits, since the display `status` collapses
+   *  no_show into "pending". */
+  apiStatus: 'scheduled' | 'completed' | 'cancelled' | 'no_show';
+  /** Why the status is what it is, if a remark was added. */
+  statusRemark: string;
   tone: BlockTone;
   duration: string;
   location: string;
@@ -49,14 +55,14 @@ const CLINIC = 'Greenview Children Clinic';
 const CLINIC_ADDR = '23, Green Park Main, New Delhi, Delhi 110016';
 
 export const APPOINTMENTS: Appointment[] = [
-  { id: 'A1', startISO: '', dayKey: '', hour: '09:00 AM', start: '09:00 AM', end: '09:30 AM', patient: 'Aarav Mehta', patientId: 'PT-0002486', age: '4y 2m', sex: 'Male', phone: '+91 98765 43210', type: 'Follow-up', status: 'completed', tone: 'green', duration: '30 Minutes', location: CLINIC, locationAddress: CLINIC_ADDR, bookingSource: 'Walk-in', notes: 'Review after fever.', createdOn: '09 May 2025, 11:20 AM by Receptionist' },
-  { id: 'A2', startISO: '', dayKey: '', hour: '10:00 AM', start: '10:00 AM', end: '10:30 AM', patient: 'Myra Kapoor', patientId: 'PT-0002485', age: '2y 11m', sex: 'Female', phone: '+91 91234 56789', type: 'General Consultation', status: 'confirmed', tone: 'blue', duration: '30 Minutes', location: CLINIC, locationAddress: CLINIC_ADDR, bookingSource: 'Online Booking', notes: 'Child has mild cough and cold.', createdOn: '10 May 2025, 06:15 PM by Receptionist' },
-  { id: 'A3', startISO: '', dayKey: '', hour: '11:00 AM', start: '11:00 AM', end: '11:30 AM', patient: 'Kabir Singh', patientId: 'PT-0002484', age: '6y 5m', sex: 'Male', phone: '+91 99887 77665', type: 'Vaccination', status: 'pending', tone: 'amber', duration: '30 Minutes', location: CLINIC, locationAddress: CLINIC_ADDR, bookingSource: 'Phone', notes: 'DPT booster due.', createdOn: '11 May 2025, 09:40 AM by Reception' },
-  { id: 'A4', startISO: '', dayKey: '', hour: '12:00 PM', start: '12:00 PM', end: '12:30 PM', patient: 'Siya Verma', patientId: 'PT-0002483', age: '3y 4m', sex: 'Female', phone: '+91 90123 44556', type: 'Follow-up', status: 'confirmed', tone: 'violet', duration: '30 Minutes', location: CLINIC, locationAddress: CLINIC_ADDR, bookingSource: 'Online Booking', notes: 'Rash improving.', createdOn: '10 May 2025, 02:10 PM by Receptionist' },
-  { id: 'A5', startISO: '', dayKey: '', hour: '02:00 PM', start: '02:00 PM', end: '02:30 PM', patient: 'Ishaan Gupta', patientId: 'PT-0002482', age: '5y 0m', sex: 'Male', phone: '+91 98712 33445', type: 'General Consultation', status: 'confirmed', tone: 'blue', duration: '30 Minutes', location: CLINIC, locationAddress: CLINIC_ADDR, bookingSource: 'Online Booking', notes: 'Routine review.', createdOn: '11 May 2025, 04:05 PM by Receptionist' },
-  { id: 'A6', startISO: '', dayKey: '', hour: '03:00 PM', start: '03:00 PM', end: '03:30 PM', patient: 'Anaya Reddy', patientId: 'PT-0002481', age: '1y 8m', sex: 'Female', phone: '+91 88990 11223', type: 'Well Baby Checkup', status: 'confirmed', tone: 'green', duration: '30 Minutes', location: CLINIC, locationAddress: CLINIC_ADDR, bookingSource: 'Online Booking', notes: 'First well-baby visit at this clinic.', createdOn: '09 May 2025, 05:30 PM by Receptionist' },
-  { id: 'A7', startISO: '', dayKey: '', hour: '04:00 PM', start: '04:00 PM', end: '04:30 PM', patient: 'Vivaan Patel', patientId: 'PT-0002480', age: '7y 3m', sex: 'Male', phone: '+91 93211 55667', type: 'Follow-up', status: 'cancelled', tone: 'red', duration: '30 Minutes', location: CLINIC, locationAddress: CLINIC_ADDR, bookingSource: 'Phone', notes: 'Cancelled by guardian.', createdOn: '08 May 2025, 12:00 PM by Reception' },
-  { id: 'A8', startISO: '', dayKey: '', hour: '05:00 PM', start: '05:00 PM', end: '05:30 PM', patient: 'Avni Sharma', patientId: 'PT-0002479', age: '4y 9m', sex: 'Female', phone: '+91 98123 77889', type: 'Vaccination', status: 'confirmed', tone: 'blue', duration: '30 Minutes', location: CLINIC, locationAddress: CLINIC_ADDR, bookingSource: 'Online Booking', notes: 'Typhoid dose.', createdOn: '10 May 2025, 10:45 AM by Receptionist' },
+  { id: 'A1', startISO: '', dayKey: '', hour: '09:00 AM', start: '09:00 AM', end: '09:30 AM', patient: 'Aarav Mehta', patientId: 'PT-0002486', age: '4y 2m', sex: 'Male', phone: '+91 98765 43210', type: 'Follow-up', status: 'completed', apiStatus: 'completed', statusRemark: '', tone: 'green', duration: '30 Minutes', location: CLINIC, locationAddress: CLINIC_ADDR, bookingSource: 'Walk-in', notes: 'Review after fever.', createdOn: '09 May 2025, 11:20 AM by Receptionist' },
+  { id: 'A2', startISO: '', dayKey: '', hour: '10:00 AM', start: '10:00 AM', end: '10:30 AM', patient: 'Myra Kapoor', patientId: 'PT-0002485', age: '2y 11m', sex: 'Female', phone: '+91 91234 56789', type: 'General Consultation', status: 'confirmed', apiStatus: 'scheduled', statusRemark: '', tone: 'blue', duration: '30 Minutes', location: CLINIC, locationAddress: CLINIC_ADDR, bookingSource: 'Online Booking', notes: 'Child has mild cough and cold.', createdOn: '10 May 2025, 06:15 PM by Receptionist' },
+  { id: 'A3', startISO: '', dayKey: '', hour: '11:00 AM', start: '11:00 AM', end: '11:30 AM', patient: 'Kabir Singh', patientId: 'PT-0002484', age: '6y 5m', sex: 'Male', phone: '+91 99887 77665', type: 'Vaccination', status: 'pending', apiStatus: 'scheduled', statusRemark: '', tone: 'amber', duration: '30 Minutes', location: CLINIC, locationAddress: CLINIC_ADDR, bookingSource: 'Phone', notes: 'DPT booster due.', createdOn: '11 May 2025, 09:40 AM by Reception' },
+  { id: 'A4', startISO: '', dayKey: '', hour: '12:00 PM', start: '12:00 PM', end: '12:30 PM', patient: 'Siya Verma', patientId: 'PT-0002483', age: '3y 4m', sex: 'Female', phone: '+91 90123 44556', type: 'Follow-up', status: 'confirmed', apiStatus: 'scheduled', statusRemark: '', tone: 'violet', duration: '30 Minutes', location: CLINIC, locationAddress: CLINIC_ADDR, bookingSource: 'Online Booking', notes: 'Rash improving.', createdOn: '10 May 2025, 02:10 PM by Receptionist' },
+  { id: 'A5', startISO: '', dayKey: '', hour: '02:00 PM', start: '02:00 PM', end: '02:30 PM', patient: 'Ishaan Gupta', patientId: 'PT-0002482', age: '5y 0m', sex: 'Male', phone: '+91 98712 33445', type: 'General Consultation', status: 'confirmed', apiStatus: 'scheduled', statusRemark: '', tone: 'blue', duration: '30 Minutes', location: CLINIC, locationAddress: CLINIC_ADDR, bookingSource: 'Online Booking', notes: 'Routine review.', createdOn: '11 May 2025, 04:05 PM by Receptionist' },
+  { id: 'A6', startISO: '', dayKey: '', hour: '03:00 PM', start: '03:00 PM', end: '03:30 PM', patient: 'Anaya Reddy', patientId: 'PT-0002481', age: '1y 8m', sex: 'Female', phone: '+91 88990 11223', type: 'Well Baby Checkup', status: 'confirmed', apiStatus: 'scheduled', statusRemark: '', tone: 'green', duration: '30 Minutes', location: CLINIC, locationAddress: CLINIC_ADDR, bookingSource: 'Online Booking', notes: 'First well-baby visit at this clinic.', createdOn: '09 May 2025, 05:30 PM by Receptionist' },
+  { id: 'A7', startISO: '', dayKey: '', hour: '04:00 PM', start: '04:00 PM', end: '04:30 PM', patient: 'Vivaan Patel', patientId: 'PT-0002480', age: '7y 3m', sex: 'Male', phone: '+91 93211 55667', type: 'Follow-up', status: 'cancelled', apiStatus: 'cancelled', statusRemark: '', tone: 'red', duration: '30 Minutes', location: CLINIC, locationAddress: CLINIC_ADDR, bookingSource: 'Phone', notes: 'Cancelled by guardian.', createdOn: '08 May 2025, 12:00 PM by Reception' },
+  { id: 'A8', startISO: '', dayKey: '', hour: '05:00 PM', start: '05:00 PM', end: '05:30 PM', patient: 'Avni Sharma', patientId: 'PT-0002479', age: '4y 9m', sex: 'Female', phone: '+91 98123 77889', type: 'Vaccination', status: 'confirmed', apiStatus: 'scheduled', statusRemark: '', tone: 'blue', duration: '30 Minutes', location: CLINIC, locationAddress: CLINIC_ADDR, bookingSource: 'Online Booking', notes: 'Typhoid dose.', createdOn: '10 May 2025, 10:45 AM by Receptionist' },
 ];
 
 export const TONE_STYLE: Record<BlockTone, { bar: string; bg: string }> = {
@@ -138,6 +144,8 @@ export function appointmentFromApi(a: ApiAppointment, idx = 0): Appointment {
     phone: '',
     type: a.reason || MODE_LABEL[a.mode] || 'Consultation',
     status: STATUS_MAP[a.status] ?? 'pending',
+    apiStatus: a.status,
+    statusRemark: a.statusRemark ?? '',
     tone: a.status === 'completed' ? 'green' : a.status === 'cancelled' ? 'red' : TONES[idx % TONES.length],
     duration: `${a.durationMin} min`,
     location: '',
