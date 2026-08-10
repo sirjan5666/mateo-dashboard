@@ -50,7 +50,7 @@ import ReportsAnalytics from './pages/doctor/ReportsAnalytics';
 import BillingInvoices from './pages/doctor/BillingInvoices';
 import InvoicePrint from './pages/doctor/InvoicePrint';
 import AppointmentsPage from './pages/doctor/AppointmentsPage';
-import BookAppointment from './pages/doctor/BookAppointment';
+import AppointmentEntry from './pages/doctor/AppointmentEntry';
 import DoctorMessages from './pages/doctor/Messages';
 import MyHealth from './pages/portal/MyHealth';
 import MyMessages from './pages/portal/MyMessages';
@@ -141,7 +141,7 @@ function AppRoutes() {
           <Route path="/doctor/patients/new" element={<RegisterNewPatient />} />
           <Route path="/doctor/patients/:id" element={<PatientWorkspace />} />
           <Route path="/doctor/appointments" element={<AppointmentsPage />} />
-          <Route path="/doctor/appointments/new" element={<BookAppointment />} />
+          <Route path="/doctor/appointments/new" element={<AppointmentEntry />} />
           <Route path="/doctor/messages" element={<DoctorMessages />} />
           <Route path="/doctor/analytics" element={<ReportsAnalytics />} />
           <Route path="/doctor/reports" element={<ReportsAnalytics />} />

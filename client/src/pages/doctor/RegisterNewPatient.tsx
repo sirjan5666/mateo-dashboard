@@ -1,11 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { createPatient, getPatient, listTemplates, updatePatient } from '../../api/doctorPatients';
+import { createAppointment } from '../../api/doctorAppointments';
+import { ApiError } from '../../api/client';
 import { useActiveLocation } from '../../lib/doctorLocation';
-import { ArrowLeft, Building2, Calendar, ChevronDown, Info, Loader2, ShieldCheck, UploadCloud, X } from 'lucide-react';
+import { ArrowLeft, Building2, CalendarClock, Calendar, ChevronDown, Info, Loader2, ShieldCheck, UploadCloud, X } from 'lucide-react';
 import { BLOOD_GROUPS, DELIVERY_TYPES, MARITAL_STATUSES, RELATIONSHIPS, STATES } from '../../data/geo';
 import { FieldError, INPUT, INPUT_ERR, Label, PhoneNumberInput } from '../../components/doctor/v2/subuser/fields';
 import { cn } from '../../lib/cn';
+
+/** Common paediatric booking reasons; "Other" reveals a free-text field. */
+const REASONS = ['Fever', 'Cough & Cold', 'Vaccination', 'Well-baby checkup', 'Follow-up', 'Growth review', 'Rash / skin', 'Other'];
+const DURATIONS = [15, 30, 45, 60];
 
 const CARD =
   'rounded-[14px] border border-[#ECEEF4] bg-white px-[22px] pb-6 pt-5 shadow-[0_1px_2px_rgba(16,24,40,.04),0_8px_24px_-12px_rgba(16,24,40,.10)]';
@@ -52,11 +58,17 @@ const SEX_OF = { Male: 'male', Female: 'female', Other: 'other' } as Record<stri
  * Registers a NEW patient, and — with `?edit=<id>` — re-opens the same form
  * filled in so it can be corrected. Deliberately the same form: a separate
  * "edit patient" screen would be a second place for these fields to drift.
+ *
+ * In `book` mode this SAME form is the appointment-booking entry: it adds an
+ * Appointment section and, on submit, registers the patient (issuing a new
+ * patient number) and then books the appointment for them in one step — so a
+ * walk-in is registered and scheduled without a separate booking screen.
  */
-export default function RegisterNewPatient() {
+export default function RegisterNewPatient({ book = false }: { book?: boolean }) {
   const navigate = useNavigate();
   const [search] = useSearchParams();
-  const editId = search.get('edit');
+  // Booking is only ever for a brand-new patient; an edit is never a booking.
+  const editId = book ? null : search.get('edit');
   const [loading, setLoading] = useState(!!editId);
   const [loadError, setLoadError] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
@@ -68,6 +80,10 @@ export default function RegisterNewPatient() {
   const locationId = pickedLocation || clinics.find((c) => c.primary)?.id || clinics[0]?.id || '';
   const [saving, setSaving] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  // In book mode, the patient is created before the appointment. If booking then
+  // fails (a clash, say), this remembers the new patient so a retry only re-books
+  // instead of registering a duplicate.
+  const [bookedPatientId, setBookedPatientId] = useState<string | null>(null);
 
   const [f, setF] = useState({
     fullName: '', dob: '', gender: 'Male', bloodGroup: '', maritalStatus: '',
@@ -80,6 +96,11 @@ export default function RegisterNewPatient() {
   const [errors, setErrors] = useState<Errors>({});
   const [files, setFiles] = useState<File[]>([]);
   const [dragging, setDragging] = useState(false);
+
+  // Appointment fields — only used, shown and validated in `book` mode.
+  const todayIso = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+  const [appt, setAppt] = useState({ date: todayIso, time: '', durationMin: 30, reason: '', reasonOther: '' });
+  const setA = <K extends keyof typeof appt>(k: K, v: (typeof appt)[K]) => setAppt((p) => ({ ...p, [k]: v }));
 
   // Load the existing record into the shape the form already uses.
   useEffect(() => {
@@ -147,6 +168,14 @@ export default function RegisterNewPatient() {
     if (!phone10(f.emergencyPhone)) e.emergencyPhone = 'Enter a 10-digit mobile number.';
     if (f.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email)) e.email = 'Enter a valid email address.';
     if (f.guardianEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.guardianEmail)) e.guardianEmail = 'Enter a valid email address.';
+    // Booking adds the appointment's own required fields.
+    if (book) {
+      if (!appt.date) e.apptDate = 'Pick a date.';
+      else if (appt.date < todayIso) e.apptDate = 'The date cannot be in the past.';
+      if (!appt.time) e.apptTime = 'Pick a time.';
+      if (!appt.reason) e.apptReason = 'Choose a reason.';
+      else if (appt.reason === 'Other' && !appt.reasonOther.trim()) e.apptReason = 'Describe the reason.';
+    }
     return e;
   }
 
@@ -205,20 +234,53 @@ export default function RegisterNewPatient() {
           return;
         }
 
-        const { templates } = await listTemplates();
-        const template = templates[0];
-        if (!template) {
-          setSubmitError('No specialty template exists yet — one is needed before patients can be registered.');
-          setSaving(false);
+        // Register the patient once (or reuse the one a failed booking left behind).
+        let pid = bookedPatientId;
+        if (!pid) {
+          const { templates } = await listTemplates();
+          const template = templates[0];
+          if (!template) {
+            setSubmitError('No specialty template exists yet — one is needed before patients can be registered.');
+            setSaving(false);
+            return;
+          }
+          const { patient } = await createPatient({ templateId: template.id, ...core, ...demographics });
+          pid = patient.id;
+        }
+
+        // Booking: the patient now exists with a fresh number, so schedule their
+        // appointment in the same step. The server guards against a past time or
+        // a clash and returns the message, which is surfaced below. If it fails,
+        // the patient is remembered so a retry only re-books.
+        if (book) {
+          setBookedPatientId(pid);
+          const reason = appt.reason === 'Other' ? appt.reasonOther.trim() : appt.reason;
+          // IST wall-clock → instant (India has no DST, so the offset is fixed).
+          const start = new Date(`${appt.date}T${appt.time}:00+05:30`).toISOString();
+          await createAppointment(pid, {
+            start,
+            durationMin: appt.durationMin,
+            mode: 'in_person',
+            reason: reason || undefined,
+            locationId: locationId || undefined,
+          });
+          navigate(`/doctor/patients/${pid}`);
           return;
         }
-        await createPatient({ templateId: template.id, ...core, ...demographics });
+
         // Uploaded documents are held client-side only — the workspace Documents
         // tab is where they belong, so they are not claimed as saved here.
         navigate('/doctor/patients');
       } catch (err) {
-        const fallback = editId ? 'Could not save this patient' : 'Could not register this patient';
-        setSubmitError(err instanceof Error ? err.message : fallback);
+        const why = err instanceof ApiError || err instanceof Error ? err.message : null;
+        if (book && bookedPatientId) {
+          // The patient exists; only the appointment failed. Say both, so a retry
+          // (which only re-books) makes sense to the doctor.
+          setSubmitError(`The patient is registered, but the appointment could not be booked${why ? ` — ${why}` : ''}. Adjust the time and try again.`);
+        } else {
+          const fallback = book ? 'Could not register and book' : editId ? 'Could not save this patient' : 'Could not register this patient';
+          setSubmitError(why ?? fallback);
+        }
         setSaving(false);
       }
     })();
@@ -253,10 +315,16 @@ export default function RegisterNewPatient() {
     );
   }
 
+  const backTo = book ? '/doctor/appointments' : '/doctor/patients';
+  const title = book ? 'Book Appointment' : editId ? 'Edit Patient' : 'Register New Patient';
+  const subtitle = book
+    ? 'Register the patient and book their appointment in one step \u2014 a new patient ID is created automatically.'
+    : editId ? 'Update this patient\u2019s details.' : 'Enter patient details to create a new patient record.';
+
   return (
     <form id="register-patient" ref={formRef} onSubmit={onSubmit} noValidate>
       {/* Back */}
-      <button type="button" onClick={() => navigate('/doctor/patients')} className="mb-3 flex items-center gap-2 text-[13.5px] font-semibold text-[#3B4FE0] hover:underline">
+      <button type="button" onClick={() => navigate(backTo)} className="mb-3 flex items-center gap-2 text-[13.5px] font-semibold text-[#3B4FE0] hover:underline">
         <ArrowLeft className="h-[17px] w-[17px]" />
         Back
       </button>
@@ -266,14 +334,14 @@ export default function RegisterNewPatient() {
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-[15px]">
             <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[11px]" style={{ background: 'linear-gradient(135deg, #4F63F5 0%, #3B3FE0 100%)' }}>
-              <Building2 className="h-[21px] w-[21px] text-white" />
+              {book ? <CalendarClock className="h-[21px] w-[21px] text-white" /> : <Building2 className="h-[21px] w-[21px] text-white" />}
             </span>
-            <h1 className="font-display text-[26px] font-extrabold leading-tight tracking-[-0.02em] text-[#0F172A]">{editId ? 'Edit Patient' : 'Register New Patient'}</h1>
+            <h1 className="font-display text-[26px] font-extrabold leading-tight tracking-[-0.02em] text-[#0F172A]">{title}</h1>
           </div>
-          <p className="mt-[7px] text-sm text-[#64748B] sm:pl-[55px]">{editId ? 'Update this patient\u2019s details.' : 'Enter patient details to create a new patient record.'}</p>
+          <p className="mt-[7px] text-sm text-[#64748B] sm:pl-[55px]">{subtitle}</p>
         </div>
         <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto">
-          <button type="button" onClick={() => navigate('/doctor/patients')} className="h-12 flex-1 rounded-[11px] border border-[#E2E6F0] bg-white px-[34px] text-[14.5px] font-bold text-[#1E2A5A] transition-colors hover:bg-[#F7F8FC] sm:flex-none">
+          <button type="button" onClick={() => navigate(backTo)} className="h-12 flex-1 rounded-[11px] border border-[#E2E6F0] bg-white px-[34px] text-[14.5px] font-bold text-[#1E2A5A] transition-colors hover:bg-[#F7F8FC] sm:flex-none">
             Cancel
           </button>
           {clinics.length > 0 && (
@@ -286,7 +354,7 @@ export default function RegisterNewPatient() {
             </span>
           )}
           <button type="submit" disabled={saving} className="h-12 flex-1 rounded-[11px] px-7 text-[14.5px] font-bold text-white shadow-[0_8px_18px_-8px_rgba(59,79,224,.65)] transition-[filter] hover:brightness-105 disabled:opacity-60 sm:flex-none" style={{ background: 'linear-gradient(135deg, #5B5BF0 0%, #3B3FD8 100%)' }}>
-            {saving ? 'Saving…' : editId ? 'Save changes' : 'Save & Continue'}
+            {saving ? 'Saving…' : book ? 'Register & Book' : editId ? 'Save changes' : 'Save & Continue'}
           </button>
         </div>
       </div>
@@ -295,6 +363,50 @@ export default function RegisterNewPatient() {
         <p role="alert" className="mb-4 rounded-[10px] border border-[#F8D4D4] bg-[#FDF0F0] px-4 py-3 text-[13px] font-medium text-[#B42318]">
           {submitError}
         </p>
+      )}
+
+      {/* Appointment (book mode only) — kept at the top so the reason for the
+          visit is filled before the demographics. */}
+      {book && (
+        <section className={cn(CARD, 'mb-5')}>
+          <div className="flex items-center gap-2.5">
+            <CalendarClock className="h-[19px] w-[19px] text-[#3B4FE0]" />
+            <h2 className={TITLE}>Appointment Details</h2>
+          </div>
+          <div className="mt-[18px] grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div>
+              <Label htmlFor="apptDate" required>Date</Label>
+              <div className="relative">
+                <Calendar aria-hidden="true" className="pointer-events-none absolute left-4 top-1/2 h-[17px] w-[17px] -translate-y-1/2 text-[#64748B]" />
+                <input id="apptDate" type="date" min={todayIso} value={appt.date} onChange={(e) => setA('date', e.target.value)}
+                  aria-invalid={errors.apptDate ? true : undefined} className={cn(INPUT, 'pl-[42px]', errors.apptDate && INPUT_ERR)} />
+              </div>
+              <FieldError id="apptDate-error" message={errors.apptDate} />
+            </div>
+            <div>
+              <Label htmlFor="apptTime" required>Time</Label>
+              <input id="apptTime" type="time" value={appt.time} onChange={(e) => setA('time', e.target.value)}
+                aria-invalid={errors.apptTime ? true : undefined} className={cn(INPUT, errors.apptTime && INPUT_ERR)} />
+              <FieldError id="apptTime-error" message={errors.apptTime} />
+            </div>
+            <div>
+              <Label htmlFor="apptDuration">Duration</Label>
+              <Select id="apptDuration" value={`${appt.durationMin} min`} onChange={(v) => setA('durationMin', Number(v.replace(/\D/g, '')) || 30)}
+                placeholder="Duration" options={DURATIONS.map((d) => `${d} min`)} />
+            </div>
+            <div>
+              <Label htmlFor="apptReason" required>Reason</Label>
+              <Select id="apptReason" value={appt.reason} onChange={(v) => setA('reason', v)} placeholder="Select reason" options={REASONS} error={!!errors.apptReason} />
+              <FieldError id="apptReason-error" message={errors.apptReason} />
+            </div>
+            {appt.reason === 'Other' && (
+              <div className="sm:col-span-2 lg:col-span-4">
+                <Label htmlFor="apptReasonOther" required>Describe the reason</Label>
+                <input id="apptReasonOther" value={appt.reasonOther} onChange={(e) => setA('reasonOther', e.target.value)} placeholder="What is the visit for?" className={INPUT} />
+              </div>
+            )}
+          </div>
+        </section>
       )}
 
       {/* Columns */}
