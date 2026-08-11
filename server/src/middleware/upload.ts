@@ -37,3 +37,27 @@ export const uploadImage = multer({
   fileFilter,
   limits: { fileSize: 5 * 1024 * 1024, files: 1 },
 }).single('image');
+
+// Patient documents accept PDFs and Office files as well as images — a lab
+// report is usually a PDF. Same disk storage and 5 MB cap; the extension comes
+// from the allow-list, never from the client-supplied filename.
+const DOC_EXT_BY_MIME: Record<string, string> = {
+  ...EXT_BY_MIME,
+  'application/pdf': '.pdf',
+  'application/msword': '.doc',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
+};
+
+function docFilter(_req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback): void {
+  if (DOC_EXT_BY_MIME[file.mimetype]) cb(null, true);
+  else cb(new Error('Only PDF, Word, JPEG, PNG or WebP files are allowed'));
+}
+
+export const uploadDocument = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, uploadsDir),
+    filename: (_req, file, cb) => cb(null, `${randomUUID()}${DOC_EXT_BY_MIME[file.mimetype] ?? ''}`),
+  }),
+  fileFilter: docFilter,
+  limits: { fileSize: 5 * 1024 * 1024, files: 1 },
+}).single('file');

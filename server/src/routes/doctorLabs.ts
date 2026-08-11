@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { requireAuth, requireRole } from '../middleware/auth.js';
+import { guardRoutes } from '../middleware/permissions.js';
 import { LAB_ANALYTES, LAB_DATA_STATUS, flagValue, labById } from '../labs/reference.js';
 
 // Doctor-side lab-results INTERPRETER. Decision support only:
@@ -9,7 +9,9 @@ import { LAB_ANALYTES, LAB_DATA_STATUS, flagValue, labById } from '../labs/refer
 //  - CLAUDE.md hard rule 1 — it reports low/normal/high vs an indicative range,
 //    never a diagnosis. The reference data is DRAFT and carries that status.
 const router = Router();
-router.use(requireAuth, requireRole('doctor'));
+// RBAC: a staff session is narrowed to what its role allows. The doctor who
+// owns the practice passes every check — see middleware/permissions.ts.
+guardRoutes(router, 'consultations');
 
 router.get('/labs/catalog', (_req, res) => {
   res.json({ status: LAB_DATA_STATUS, analytes: LAB_ANALYTES });

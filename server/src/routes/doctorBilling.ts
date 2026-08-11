@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { Types, isValidObjectId } from 'mongoose';
 import type { HydratedDocument } from 'mongoose';
 import { z } from 'zod';
-import { requireAuth, requireRole } from '../middleware/auth.js';
+import { guardRoutes } from '../middleware/permissions.js';
 import { auditAccess, recordAudit } from '../middleware/audit.js';
 import { scopeToDoctor } from '../middleware/loadOwnedPatient.js';
 import { Invoice, INVOICE_STATUSES } from '../models/Invoice.js';
@@ -18,7 +18,11 @@ import { istDateString } from '../lib/ist.js';
 // doctor (verified in-query via scopeToDoctor). Line items + notes decrypt only in
 // the shaper. Money totals are plain so collection totals aggregate in the DB.
 const router = Router();
-router.use(requireAuth, requireRole('doctor'));
+// RBAC: a staff session is narrowed to what its role allows. The doctor who
+// owns the practice passes every check — see middleware/permissions.ts.
+guardRoutes(router, 'billing', [
+  { match: '/refund', action: 'refund' },
+]);
 
 const DAY_MS = 86_400_000;
 function istDayStartUTC(d: Date): Date {
@@ -65,6 +69,29 @@ function fullShape(inv: HydratedDocument<IInvoice>, patientName: string) {
   };
 }
 
+/**
+ * The patient details a printed invoice's "Bill To" block needs — real, decrypted
+ * demographics, never invented. `dob` is returned so the client computes the age
+ * against today (ages are never stored). Absent fields come back null and the
+ * document simply omits that line.
+ */
+type PatientDoc = Awaited<ReturnType<typeof Patient.findOne>>;
+function billingPatient(p: NonNullable<PatientDoc>) {
+  const addr = [
+    decryptOptional(p.address),
+    decryptOptional(p.addressLine2),
+    [decryptOptional(p.city), decryptOptional(p.state), decryptOptional(p.pincode)].filter(Boolean).join(', '),
+  ].filter(Boolean);
+  return {
+    name: decryptField(p.displayName),
+    code: p.code != null ? String(p.code).padStart(5, '0') : null,
+    sex: p.sex,
+    dob: decryptOptional(p.dob) ?? null,
+    phone: decryptOptional(p.phone) ?? null,
+    address: addr.length ? addr : null,
+  };
+}
+
 // Decrypt patient display names for a set of invoices — one tenant-scoped fetch.
 async function namesFor(req: Parameters<typeof scopeToDoctor>[0], invoices: HydratedDocument<IInvoice>[]) {
   const ids = [...new Set(invoices.map((i) => i.patientId.toString()))];
@@ -81,15 +108,35 @@ const createSchema = z.object({
 });
 const patchSchema = z.object({ status: z.enum(['paid', 'unpaid', 'cancelled']) });
 
-// GET /api/doctor/billing/invoices?status= — all of the doctor's invoices.
+// GET /api/doctor/billing/invoices?status=&patientId= — the doctor's invoices.
+//
+// When patientId is given the result set is one patient's history (the Patient
+// Workspace's Invoices tab), so it is small enough to decrypt the first line
+// item of each as a `summary`. The unfiltered list can be 200 rows and stays
+// summary-free — that column is only rendered in the per-patient view.
 router.get('/billing/invoices', auditAccess('invoice'), async (req, res) => {
   const q = req.query.status;
   const status = typeof q === 'string' && (INVOICE_STATUSES as string[]).includes(q) ? (q as InvoiceStatus) : undefined;
-  const invoices = await Invoice.find(scopeToDoctor(req, status ? { status } : {}))
+  const pid = req.query.patientId;
+  const filter: Record<string, unknown> = status ? { status } : {};
+  if (typeof pid === 'string' && pid) {
+    if (!isValidObjectId(pid)) {
+      res.json({ invoices: [] });
+      return;
+    }
+    filter.patientId = pid;
+  }
+  const invoices = await Invoice.find(scopeToDoctor(req, filter))
     .sort({ date: -1, createdAt: -1 })
     .limit(200);
   const names = await namesFor(req, invoices);
-  res.json({ invoices: invoices.map((i) => listShape(i, names.get(i.patientId.toString()) ?? 'Patient')) });
+  const perPatient = typeof pid === 'string' && !!pid;
+  res.json({
+    invoices: invoices.map((i) => {
+      const base = listShape(i, names.get(i.patientId.toString()) ?? 'Patient');
+      return perPatient ? { ...base, summary: parseItems(i.itemsEnc)[0]?.description ?? null } : base;
+    }),
+  });
 });
 
 // GET /api/doctor/billing/invoices/:id — full invoice (decrypts line items).
@@ -100,8 +147,13 @@ router.get('/billing/invoices/:id', auditAccess('invoice'), async (req, res) => 
     res.status(404).json({ error: 'Invoice not found' });
     return;
   }
-  const names = await namesFor(req, [inv]);
-  res.json({ invoice: fullShape(inv, names.get(inv.patientId.toString()) ?? 'Patient') });
+  const patient = await Patient.findOne(scopeToDoctor(req, { _id: inv.patientId }));
+  const name = patient ? decryptField(patient.displayName) : 'Patient';
+  res.json({
+    invoice: fullShape(inv, name),
+    // The printable invoice's Bill To block — real demographics or nulls.
+    patient: patient ? billingPatient(patient) : null,
+  });
 });
 
 // POST /api/doctor/billing/invoices — create. Patient ownership verified in-query.

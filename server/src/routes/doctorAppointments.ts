@@ -2,12 +2,14 @@ import { Router } from 'express';
 import { isValidObjectId } from 'mongoose';
 import type { HydratedDocument } from 'mongoose';
 import { z } from 'zod';
-import { requireAuth, requireRole } from '../middleware/auth.js';
+import { guardRoutes, actorName } from '../middleware/permissions.js';
 import { loadOwnedPatient, scopeToDoctor } from '../middleware/loadOwnedPatient.js';
 import { auditAccess, recordAudit } from '../middleware/audit.js';
 import { requireConsent } from '../middleware/requireConsent.js';
 import { DoctorAppointment, APPOINTMENT_MODES, APPOINTMENT_STATUSES } from '../models/DoctorAppointment.js';
 import type { IDoctorAppointment } from '../models/DoctorAppointment.js';
+import { DoctorProfile } from '../models/DoctorProfile.js';
+import { ClinicLocation } from '../models/ClinicLocation.js';
 import { Patient } from '../models/Patient.js';
 import type { IPatient } from '../models/Patient.js';
 import { decryptField, decryptOptional } from '../lib/crypto/fieldCipher.js';
@@ -15,7 +17,51 @@ import { decryptField, decryptOptional } from '../lib/crypto/fieldCipher.js';
 // Doctor's own scheduling for their patients. Tenant-scoped; `reason` decrypted only
 // in the shaper. Schedule responses attach the (decrypted) patient name.
 const router = Router();
-router.use(requireAuth, requireRole('doctor'));
+// RBAC: a staff session is narrowed to what its role allows. The doctor who
+// owns the practice passes every check — see middleware/permissions.ts.
+guardRoutes(router, 'appointments');
+
+/**
+ * Doctor presence — is the doctor IN the clinic right now?
+ *
+ * A live front-desk flag, separate from the recurring working hours and from any
+ * appointment's status. The receptionist flips it when the doctor arrives and
+ * leaves; the dashboard reads it so nobody schedules a patient into a moment the
+ * doctor is not there. Stored on the doctor's own profile (one per practice).
+ */
+function presenceShape(p?: { in?: boolean; since?: Date; by?: string } | null) {
+  return { in: p?.in === true, since: p?.since ?? null, by: p?.by ?? null };
+}
+
+// GET /api/doctor/presence — current In/Out state.
+router.get('/presence', async (req, res) => {
+  const profile = await DoctorProfile.findOne({ userId: req.userId }).select('presence');
+  res.json({ presence: presenceShape(profile?.presence) });
+});
+
+// POST /api/doctor/presence — the front desk (or the doctor) flips it.
+router.post('/presence', async (req, res) => {
+  const { in: isIn } = z.object({ in: z.boolean() }).parse(req.body ?? {});
+  // Upsert: a doctor who never completed the profile form can still be marked in.
+  const profile =
+    (await DoctorProfile.findOne({ userId: req.userId })) ??
+    new DoctorProfile({ userId: req.userId, specialization: 'General', consultationFee: 0 });
+  profile.presence = { in: isIn, since: new Date(), by: actorName(req) };
+  profile.markModified('presence');
+  await profile.save();
+  // Who marked the doctor in or out, and when, is worth an audit line.
+  await recordAudit(req, {
+    action: 'update',
+    resourceType: `doctor:presence:${isIn ? 'in' : 'out'}`,
+    outcome: 'allow',
+  }).catch(() => undefined);
+  res.json({ presence: presenceShape(profile.presence) });
+});
+
+/** True for a Mongo duplicate-key error — the concurrent same-slot booking guard. */
+function isDuplicateSlot(e: unknown): boolean {
+  return !!e && typeof e === 'object' && (e as { code?: number }).code === 11000;
+}
 
 function publicAppointment(a: HydratedDocument<IDoctorAppointment>, patientName?: string) {
   return {
@@ -27,6 +73,10 @@ function publicAppointment(a: HydratedDocument<IDoctorAppointment>, patientName?
     mode: a.mode,
     status: a.status,
     reason: decryptOptional(a.reason || undefined) ?? null,
+    symptoms: decryptOptional(a.symptoms || undefined) ?? null,
+    notes: decryptOptional(a.notes || undefined) ?? null,
+    statusRemark: decryptOptional(a.statusRemark || undefined) ?? null,
+    locationId: a.locationId ?? null,
     createdAt: a.createdAt,
     updatedAt: a.updatedAt,
   };
@@ -45,14 +95,75 @@ const apptShape = {
   durationMin: z.number().int().min(5).max(480).optional(),
   mode: z.enum(APPOINTMENT_MODES).optional(),
   reason: z.string().max(500).optional(),
+  // Booking-time clinical context. PHI, encrypted at rest like `reason`.
+  symptoms: z.string().max(1000).optional(),
+  notes: z.string().max(1000).optional(),
+  locationId: z.string().optional(),
 };
 const createSchema = z.object(apptShape);
 const updateSchema = z.object({
+  ...apptShape,
   start: z.string().min(1).optional(),
-  durationMin: z.number().int().min(5).max(480).optional(),
-  mode: z.enum(APPOINTMENT_MODES).optional(),
   status: z.enum(APPOINTMENT_STATUSES).optional(),
-  reason: z.string().max(500).optional(),
+  // Free-text note explaining a status change; empty string clears it.
+  statusRemark: z.string().max(500).optional(),
+});
+
+/**
+ * A doctor cannot be in two places at once, so an appointment may not overlap
+ * another SCHEDULED one. Cancelled/completed/no-show slots are free again.
+ *
+ * The client greys out taken slots, but that is cosmetic — a stale tab, two
+ * browser windows or a direct API call would all double-book without this.
+ * `ignoreId` lets a reschedule move an appointment without colliding with itself.
+ */
+async function findClash(
+  req: Parameters<typeof scopeToDoctor>[0],
+  start: Date,
+  durationMin: number,
+  ignoreId?: string,
+) {
+  const end = new Date(start.getTime() + durationMin * 60_000);
+  const filter = scopeToDoctor(req, {
+    status: 'scheduled',
+    // Any appointment starting before this one ends; the overlap test below
+    // then rules out those that finish before it starts.
+    start: { $lt: end },
+  });
+  if (ignoreId) filter._id = { $ne: ignoreId };
+  const near = await DoctorAppointment.find(filter).sort({ start: -1 }).limit(50);
+  return near.find((a) => new Date(a.start.getTime() + a.durationMin * 60_000) > start) ?? null;
+}
+
+/** Doctor-facing, so the clashing time is IST wall-clock, not a raw ISO string. */
+const IST_TIME = new Intl.DateTimeFormat('en-IN', {
+  timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true,
+});
+const clashMessage = (a: HydratedDocument<IDoctorAppointment>) =>
+  `That slot overlaps an appointment already booked for ${IST_TIME.format(a.start)}`;
+
+/** Bookings are for the future. A small grace window covers walk-ins being
+ *  entered a few minutes after the patient actually arrived. */
+const BACKDATE_GRACE_MS = 60 * 60_000;
+
+function tooFarInThePast(start: Date): boolean {
+  return start.getTime() < Date.now() - BACKDATE_GRACE_MS;
+}
+
+// GET /api/doctor/appointments/:appointmentId — one appointment.
+// The reschedule form loads from here; scanning a date window instead would
+// silently show a blank form for anything outside it.
+router.get('/appointments/:appointmentId', auditAccess('appointment'), async (req, res) => {
+  const { appointmentId } = req.params;
+  const appt = isValidObjectId(appointmentId)
+    ? await DoctorAppointment.findOne(scopeToDoctor(req, { _id: appointmentId }))
+    : null;
+  if (!appt) {
+    res.status(404).json({ error: 'Appointment not found' });
+    return;
+  }
+  const [shaped] = await withPatients(req, [appt]);
+  res.json({ appointment: shaped });
 });
 
 // GET /api/doctor/appointments?from=&to=&status= — the doctor's schedule.
@@ -81,15 +192,48 @@ router.get('/patients/:id/appointments', auditAccess('appointment'), loadOwnedPa
 router.post('/patients/:id/appointments', loadOwnedPatient, requireConsent('treatment'), async (req, res) => {
   const patient = req.patient as HydratedDocument<IPatient>;
   const body = createSchema.parse(req.body);
+  const locationId = body.locationId && isValidObjectId(body.locationId)
+    ? (await ClinicLocation.findOne(scopeToDoctor(req, { _id: body.locationId })))?._id ?? null
+    : null;
+
+  const start = new Date(body.start);
+  const durationMin = body.durationMin ?? 30;
+  if (Number.isNaN(start.getTime())) {
+    res.status(400).json({ error: 'That date and time could not be read' });
+    return;
+  }
+  if (tooFarInThePast(start)) {
+    res.status(400).json({ error: 'Appointments cannot be booked in the past' });
+    return;
+  }
+  const clash = await findClash(req, start, durationMin);
+  if (clash) {
+    res.status(409).json({ error: clashMessage(clash) });
+    return;
+  }
+
   const appt = new DoctorAppointment({
     doctorUserId: req.userId,
     patientId: patient._id,
-    start: new Date(body.start),
-    durationMin: body.durationMin ?? 30,
+    start,
+    durationMin,
     mode: body.mode ?? 'in_person',
     reason: body.reason || undefined,
+    symptoms: body.symptoms || undefined,
+    notes: body.notes || undefined,
+    // Validated against the doctor's own clinics — never trusted from the client.
+    locationId: locationId ?? undefined,
   });
-  await appt.save();
+  try {
+    await appt.save();
+  } catch (e) {
+    // The unique index caught a concurrent booking of the same scheduled slot.
+    if (isDuplicateSlot(e)) {
+      res.status(409).json({ error: 'That slot was just taken — please pick another time.' });
+      return;
+    }
+    throw e;
+  }
   await recordAudit(req, {
     action: 'create',
     resourceType: 'appointment',
@@ -113,8 +257,35 @@ router.patch('/appointments/:appointmentId', async (req, res) => {
   }
   const body = updateSchema.parse(req.body);
   const changed: string[] = [];
+
+  // A move has to clear the same guards as a fresh booking — otherwise the
+  // reschedule path is a hole straight through them. Checked BEFORE anything is
+  // mutated, so a rejected move leaves the appointment exactly as it was.
+  const movingTo = body.start !== undefined ? new Date(body.start) : appt.start;
+  const movingDuration = body.durationMin ?? appt.durationMin;
+  if (Number.isNaN(movingTo.getTime())) {
+    res.status(400).json({ error: 'That date and time could not be read' });
+    return;
+  }
+  const rescheduling = body.start !== undefined || body.durationMin !== undefined;
+  // Status-only writes (cancel, mark completed) must never be blocked by these.
+  if (rescheduling) {
+    if (tooFarInThePast(movingTo)) {
+      res.status(400).json({ error: 'Appointments cannot be moved into the past' });
+      return;
+    }
+    // A cancelled appointment being revived still must not land on a taken slot.
+    if ((body.status ?? appt.status) === 'scheduled') {
+      const clash = await findClash(req, movingTo, movingDuration, appt.id as string);
+      if (clash) {
+        res.status(409).json({ error: clashMessage(clash) });
+        return;
+      }
+    }
+  }
+
   if (body.start !== undefined) {
-    appt.start = new Date(body.start);
+    appt.start = movingTo;
     changed.push('start');
   }
   if (body.durationMin !== undefined) {
@@ -133,7 +304,28 @@ router.patch('/appointments/:appointmentId', async (req, res) => {
     appt.reason = body.reason || undefined;
     changed.push('reason');
   }
-  await appt.save();
+  if (body.symptoms !== undefined) {
+    appt.symptoms = body.symptoms || undefined;
+    changed.push('symptoms');
+  }
+  if (body.notes !== undefined) {
+    appt.notes = body.notes || undefined;
+    changed.push('notes');
+  }
+  if (body.statusRemark !== undefined) {
+    appt.statusRemark = body.statusRemark || undefined;
+    changed.push('statusRemark');
+  }
+  try {
+    await appt.save();
+  } catch (e) {
+    // Rescheduling (or reviving) onto a slot another booking just took.
+    if (isDuplicateSlot(e)) {
+      res.status(409).json({ error: 'That slot was just taken — please pick another time.' });
+      return;
+    }
+    throw e;
+  }
   await recordAudit(req, {
     action: 'update',
     resourceType: 'appointment',

@@ -16,6 +16,12 @@ declare module 'express-serve-static-core' {
     // When an admin is impersonating another user, the cookie's session is the
     // target user (userId) but carries the admin's id here (the JWT `act` claim).
     impersonatorId?: string;
+    /**
+     * True when the practice OWNER is viewing the panel as one of their own
+     * staff (the JWT `imp` claim). A real staff login never carries it, which is
+     * what stops a staff member from using the exit route to become the doctor.
+     */
+    viewAs?: boolean;
   }
 }
 
@@ -24,6 +30,61 @@ declare module 'express-serve-static-core' {
 export function setAuthCookie(res: Response, userId: string, actorId?: string): void {
   const token = jwt.sign(actorId ? { act: actorId } : {}, env.JWT_SECRET, {
     subject: userId,
+    expiresIn: `${SESSION_DAYS}d`,
+  });
+  res.cookie(AUTH_COOKIE, token, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: env.NODE_ENV === 'production',
+    maxAge: SESSION_DAYS * 24 * 60 * 60 * 1000,
+    path: '/',
+  });
+}
+
+/**
+ * Issue the auth cookie for a STAFF session.
+ *
+ * The subject is the DOCTOR, not the staff member. That is deliberate and is
+ * what lets staff use the doctor panel without touching a single tenant-scoped
+ * query: `req.userId` stays the practice owner everywhere. The staff id rides
+ * along in `stf`, and middleware/permissions.ts narrows the session from there.
+ *
+ * Short-lived on purpose — the refresh token (StaffSession) is the revocable
+ * half, so a deactivated account loses access in minutes, not days.
+ */
+export const STAFF_ACCESS_MINUTES = 30;
+
+export function setStaffAuthCookie(res: Response, doctorUserId: string, staffId: string): void {
+  const token = jwt.sign({ stf: staffId }, env.JWT_SECRET, {
+    subject: doctorUserId,
+    expiresIn: `${STAFF_ACCESS_MINUTES}m`,
+  });
+  res.cookie(AUTH_COOKIE, token, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: env.NODE_ENV === 'production',
+    maxAge: STAFF_ACCESS_MINUTES * 60 * 1000,
+    path: '/',
+  });
+}
+
+/**
+ * Issue a "view as" cookie: the practice owner, seeing the panel as one of their
+ * own staff members.
+ *
+ * This is the one impersonation that can only ever REMOVE capability. The
+ * subject stays the doctor — the same subject their own session already carries —
+ * so nothing is unlocked that the owner could not already reach; the `stf` claim
+ * narrows them to that role's permissions. `imp` marks the session as
+ * owner-initiated, and only a session carrying it may drop back to the owner.
+ *
+ * Full session length, not the 30 minutes a real staff login gets: the identity
+ * underneath is the doctor's own, and expiring it early would sign the doctor
+ * out of their own practice mid-task.
+ */
+export function setStaffViewAsCookie(res: Response, doctorUserId: string, staffId: string): void {
+  const token = jwt.sign({ stf: staffId, imp: true }, env.JWT_SECRET, {
+    subject: doctorUserId,
     expiresIn: `${SESSION_DAYS}d`,
   });
   res.cookie(AUTH_COOKIE, token, {
@@ -50,6 +111,11 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
     }
     req.userId = payload.sub;
     if (typeof payload.act === 'string') req.impersonatorId = payload.act;
+    // A staff session: the subject is the practice owner, so everything scoped by
+    // req.userId keeps working; loadStaffContext then attaches the permissions.
+    if (typeof payload.stf === 'string') req.staffId = payload.stf;
+    // Owner-initiated "view as". Only meaningful alongside `stf`.
+    if (payload.imp === true && req.staffId) req.viewAs = true;
     next();
   } catch {
     res.status(401).json({ error: 'Session expired, please log in again' });

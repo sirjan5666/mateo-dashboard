@@ -1,4 +1,6 @@
 import express from 'express';
+import { requireAuth, requireRole } from './middleware/auth.js';
+import { loadStaffContext } from './middleware/permissions.js';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import authRouter from './routes/auth.js';
@@ -40,6 +42,15 @@ import doctorLabsRouter from './routes/doctorLabs.js';
 import doctorBillingRouter from './routes/doctorBilling.js';
 import doctorPrescriptionsRouter from './routes/doctorPrescriptions.js';
 import doctorMessagesRouter from './routes/doctorMessages.js';
+import doctorLocationsRouter from './routes/doctorLocations.js';
+import doctorTeamRouter from './routes/doctorTeam.js';
+import doctorSettingsRouter from './routes/doctorSettings.js';
+import pharmacyRouter from './routes/pharmacy.js';
+import doctorLogsRouter from './routes/doctorLogs.js';
+import doctorDashboardRouter from './routes/doctorDashboard.js';
+import doctorPatientClinicalRouter from './routes/doctorPatientClinical.js';
+import doctorPrescriptionDocsRouter from './routes/doctorPrescriptionDocs.js';
+import staffAuthRouter from './routes/staffAuth.js';
 import portalRouter from './routes/portal.js';
 import { errorHandler } from './middleware/error.js';
 
@@ -61,6 +72,9 @@ export function createApp() {
   });
 
   app.use('/api/auth', authRouter);
+  // Staff sign-in. Separate from /api/auth because staff are not User rows, but
+  // it issues the SAME cookie with the doctor as subject — see middleware/permissions.ts.
+  app.use('/api/staff/auth', staffAuthRouter);
   app.use('/api/babies', babiesRouter);
   app.use('/api/overview', overviewRouter);
   // GET /api/babies/:id/vaccines and PATCH /api/vaccines/:doseId
@@ -110,6 +124,15 @@ export function createApp() {
   app.use('/api', subscriptionRouter);
   // Pediatric dose-check (doctor decision-support) — catalog + deterministic check
   app.use('/api/dosing', dosingRouter);
+  /**
+   * Every doctor-panel router below is mounted at the SAME path, so the session
+   * work is done once here rather than nineteen times over. Each router then
+   * guards only its own routes (guardRoutes) — a router-level `use()` guard
+   * would also fire for requests belonging to a different router at this mount.
+   */
+  app.use('/api/doctor', requireAuth, requireRole('doctor'), loadStaffContext);
+  app.use('/api/pharmacy', requireAuth, requireRole('doctor'), loadStaffContext);
+
   // Doctor EHR: single-doctor patient management (doctor-owned, tenant-scoped PHI)
   app.use('/api/doctor', doctorPatientsRouter);
   // Doctor EHR: clinical encounters (SOAP visit notes), same tenant scoping
@@ -134,6 +157,23 @@ export function createApp() {
   app.use('/api/doctor', doctorPrescriptionsRouter);
   // Doctor EHR: doctor<->patient care messages (doctor side)
   app.use('/api/doctor', doctorMessagesRouter);
+
+  app.use('/api/doctor', doctorLocationsRouter);
+
+  app.use('/api/doctor', doctorTeamRouter);
+
+  app.use('/api/doctor', doctorSettingsRouter);
+
+  app.use('/api/pharmacy', pharmacyRouter);
+
+  app.use('/api/doctor', doctorLogsRouter);
+
+  app.use('/api/doctor', doctorDashboardRouter);
+
+  // Per-patient growth records, notes, documents and immunisations.
+  app.use('/api/doctor', doctorPatientClinicalRouter);
+  // Printable prescription documents (header + the medication rows that point at it)
+  app.use('/api/doctor', doctorPrescriptionDocsRouter);
   // Patient portal: read-only record + care messaging (patient role, strictly scoped)
   app.use('/api/portal', portalRouter);
 

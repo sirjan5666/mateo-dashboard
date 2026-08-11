@@ -24,8 +24,21 @@ export interface EncounterInput {
   plan?: string;
 }
 
+export interface EncounterPatient {
+  id: string;
+  displayName: string;
+  dob: string | null;
+  sex: string;
+  phone: string | null;
+}
+
 export function listEncounters(patientId: string) {
   return api<{ encounters: Encounter[] }>(`/doctor/patients/${patientId}/encounters`);
+}
+
+/** One visit note plus the identity needed to head the page. */
+export function getEncounter(encounterId: string) {
+  return api<{ encounter: Encounter; patient: EncounterPatient | null }>(`/doctor/encounters/${encounterId}`);
 }
 
 export function createEncounter(patientId: string, body: EncounterInput) {

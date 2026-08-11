@@ -43,14 +43,52 @@ export interface Template {
   isGlobal: boolean;
 }
 
-export interface Patient {
+/**
+ * Core demographics the registration form collects. They live on the patient,
+ * not in a specialty template — every clinic needs a guardian, an address and
+ * an emergency contact — and they are what makes "Edit Patient" able to show
+ * the form as it was filled in.
+ */
+export interface PatientDemographics {
+  address?: string | null;
+  addressLine2?: string | null;
+  city?: string | null;
+  state?: string | null;
+  pincode?: string | null;
+  email?: string | null;
+  bloodGroup?: string | null;
+  guardianName?: string | null;
+  guardianRelationship?: string | null;
+  guardianPhone?: string | null;
+  guardianEmail?: string | null;
+  emergencyName?: string | null;
+  emergencyRelationship?: string | null;
+  emergencyPhone?: string | null;
+  birthWeightKg?: number | null;
+  birthHeightCm?: number | null;
+  deliveryType?: string | null;
+  gestationalAgeWeeks?: number | null;
+}
+
+/** The same fields on the way IN — no nulls, undefined means "leave alone". */
+export type PatientDemographicsInput = {
+  [K in keyof PatientDemographics]: NonNullable<PatientDemographics[K]> | undefined;
+};
+
+export interface Patient extends PatientDemographics {
   id: string;
+  /** Five-digit patient number, sequential per doctor. Null on legacy rows. */
+  code: string | null;
   displayName: string;
   dob?: string | null;
   sex: string;
   phone?: string | null;
   status: string;
   specialtyTemplateId: string;
+  /** Which of the doctor's clinics the patient is registered at. */
+  locationId?: string | null;
+  /** Most recent encounter; null when the patient has never been seen. */
+  lastVisitAt?: string | null;
   archivedAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -65,22 +103,34 @@ export interface RecordData {
   updatedAt: string;
 }
 
-export interface CreatePatientInput {
+export interface CreatePatientInput extends PatientDemographicsInput {
   templateId: string;
   displayName: string;
   dob?: string;
   sex?: string;
   phone?: string;
   status?: string;
+  /** Which of the doctor's clinics the patient registered at. */
+  locationId?: string;
 }
 
-export interface UpdatePatientInput {
+export interface UpdatePatientInput extends PatientDemographicsInput {
   displayName?: string;
   dob?: string;
   sex?: string;
   phone?: string;
   status?: string;
+  locationId?: string;
 }
+
+/**
+ * The patient number as it is shown and printed — five digits.
+ *
+ * ONE definition, used by every screen. Previously the workspace printed
+ * `PT-` plus six characters of the ObjectId and the prescription printed
+ * `PID-` plus four, so the same child carried two different "patient IDs".
+ */
+export const patientNumber = (code: string | null | undefined) => code ?? '—';
 
 export function listTemplates() {
   return api<{ templates: Template[] }>('/doctor/templates');

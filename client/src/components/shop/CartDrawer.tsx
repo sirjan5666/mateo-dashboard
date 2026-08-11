@@ -25,7 +25,7 @@ export function CartDrawer() {
   }
 
   return (
-    <div className={cn('fixed inset-0 z-[60]', drawerOpen ? '' : 'pointer-events-none')} aria-hidden={!drawerOpen}>
+    <div id="cart-drawer" className={cn('fixed inset-0 z-[60]', drawerOpen ? '' : 'pointer-events-none')} aria-hidden={!drawerOpen}>
       <div onClick={closeDrawer} className={cn('absolute inset-0 bg-stone-900/40 transition-opacity duration-300', drawerOpen ? 'opacity-100' : 'opacity-0')} />
       <aside
         role="dialog"

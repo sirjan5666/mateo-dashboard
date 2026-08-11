@@ -2,19 +2,22 @@ import { Router } from 'express';
 import { isValidObjectId } from 'mongoose';
 import type { HydratedDocument } from 'mongoose';
 import { z } from 'zod';
-import { requireAuth, requireRole } from '../middleware/auth.js';
+import { guardRoutes } from '../middleware/permissions.js';
 import { loadOwnedPatient, scopeToDoctor } from '../middleware/loadOwnedPatient.js';
 import { auditAccess, recordAudit } from '../middleware/audit.js';
 import { requireConsent } from '../middleware/requireConsent.js';
 import { DoctorPrescription, RX_STATUSES } from '../models/DoctorPrescription.js';
 import type { IDoctorPrescription } from '../models/DoctorPrescription.js';
 import { decryptField, decryptOptional } from '../lib/crypto/fieldCipher.js';
+import { Patient } from '../models/Patient.js';
 import type { IPatient } from '../models/Patient.js';
 
 // Prescriptions (one medication per row). Doctor-role-gated + tenant-scoped; the
 // medication free-text is decrypted only in the shaper. Writes require treatment consent.
 const router = Router();
-router.use(requireAuth, requireRole('doctor'));
+// RBAC: a staff session is narrowed to what its role allows. The doctor who
+// owns the practice passes every check — see middleware/permissions.ts.
+guardRoutes(router, 'prescriptions');
 
 function publicRx(p: HydratedDocument<IDoctorPrescription>) {
   return {
@@ -52,6 +55,29 @@ router.get('/patients/:id/prescriptions', auditAccess('prescription'), loadOwned
   const patient = req.patient as HydratedDocument<IPatient>;
   const list = await DoctorPrescription.find(scopeToDoctor(req, { patientId: patient._id })).sort({ date: -1 });
   res.json({ prescriptions: list.map(publicRx) });
+});
+
+/**
+ * GET /api/doctor/prescriptions?status= — every medication the doctor has
+ * prescribed, across their own patients, newest first. Powers the clinic-wide
+ * Prescriptions screen. Patient names come from ONE extra tenant-scoped fetch
+ * rather than a populate, so the tenancy filter is never bypassed.
+ */
+router.get('/prescriptions', auditAccess('prescription'), async (req, res) => {
+  const q = req.query.status;
+  const status = typeof q === 'string' && (RX_STATUSES as readonly string[]).includes(q) ? q : undefined;
+  const list = await DoctorPrescription.find(scopeToDoctor(req, status ? { status } : {}))
+    .sort({ date: -1, createdAt: -1 })
+    .limit(300);
+  const ids = [...new Set(list.map((p) => p.patientId.toString()))];
+  const patients = await Patient.find(scopeToDoctor(req, { _id: { $in: ids } }));
+  const names = new Map(patients.map((p) => [p._id.toString(), decryptField(p.displayName)]));
+  res.json({
+    prescriptions: list.map((p) => ({
+      ...publicRx(p),
+      patientName: names.get(p.patientId.toString()) ?? 'Patient',
+    })),
+  });
 });
 
 // POST /api/doctor/patients/:id/prescriptions — prescribe a medication.

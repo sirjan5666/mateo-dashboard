@@ -683,3 +683,207 @@ html.lenis body {
   font-variant-numeric: tabular-nums lining-nums;
   font-feature-settings: 'tnum' 1, 'lnum' 1;
 }
+
+/* ============================================================
+   CLINIC OS (doctor panel rebuild)
+   Additive only. The display face moves to Plus Jakarta Sans inside the doctor
+   subtree; Admin and the Patient portal never set data-panel="doctor", so their
+   type stays exactly as it was.
+   ============================================================ */
+[data-theme='pro'][data-panel='doctor'] {
+  --font-display: 'Plus Jakarta Sans', 'Inter Tight', 'Inter', ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Horizontal bar grow-in (Top 5 Visit Reasons). Paired with origin-left so the
+   inline width stays the target and the keyframe only scales into it. */
+@keyframes dashbar {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+/* Switch Location modal — scrim fade + panel entry. Both are wrapped in
+   motion-safe: at the call site, so reduced-motion users get neither. */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes modalIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* ── Printed documents (prescription sheet, consultation note) ────────────────
+   Printing IS the download path: the browser's print dialog offers "Save as
+   PDF", so one layout serves both. A separate PDF generator would be a second
+   layout free to drift from what the doctor actually saw on screen.
+
+   Three things make an A4 page out of an app screen:
+
+   1. `@page { margin: 0 }`. A non-zero page margin is what makes Chrome stamp
+      its own header and footer — the date, the tab title and the localhost URL
+      — onto a prescription. With zero margin it has nowhere to put them, so the
+      sheet supplies its own padding instead.
+   2. The shell's layout wrappers keep a 234px sidebar gutter, page padding and
+      the impersonation bar's top offset even after the chrome itself is hidden.
+      Left alone they squeeze the sheet into a narrow column on the right.
+   3. The medications table lives in a horizontal scroll box with a min-width.
+      There is nothing to scroll on paper, so the last column was cut off.
+
+   The geometry is authored under `.rx-print-geometry` rather than inside the
+   media query, because it has to be applied on screen for a moment before
+   printing so the sheet can be MEASURED — see PrescriptionPrint's fit-to-page.
+   The media query then applies the same class-independent rules as a fallback
+   for anyone who prints with JavaScript disabled. */
+
+.rx-print-geometry [data-doctor-shell-layout],
+.rx-print-geometry .rx-print-page,
+.rx-print-geometry .consultation-print {
+  margin: 0 !important;
+  padding: 0 !important;
+  min-height: 0 !important;
+  overflow: visible !important;
+  background: #fff !important;
+}
+
+.rx-print-geometry #rx-sheet {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 9mm 8mm !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+/* No scroll box on paper: the table lays out to the page width instead of being
+   clipped at its on-screen min-width. */
+.rx-print-geometry #rx-sheet .overflow-x-auto {
+  overflow: visible !important;
+}
+.rx-print-geometry #rx-sheet table {
+  min-width: 0 !important;
+  width: 100% !important;
+  table-layout: fixed;
+}
+.rx-print-geometry #rx-sheet th,
+.rx-print-geometry #rx-sheet td {
+  /* Long medicine names wrap rather than forcing the table wider than A4. */
+  overflow-wrap: anywhere;
+}
+
+/* Tightened rhythm, measured rather than guessed: the screen layout of a real
+   three-medicine prescription came to 1232px against 1123px of A4, and the
+   excess was almost entirely whitespace. Type sizes are untouched — a
+   pharmacist reads this. */
+.rx-print-geometry #rx-sheet .mt-6 { margin-top: 0.6rem !important; }
+.rx-print-geometry #rx-sheet .mt-5 { margin-top: 0.55rem !important; }
+.rx-print-geometry #rx-sheet .mt-3\.5 { margin-top: 0.5rem !important; }
+.rx-print-geometry #rx-sheet .pt-7 { padding-top: 0.9rem !important; }
+.rx-print-geometry #rx-sheet .py-5 { padding-top: 0.7rem !important; padding-bottom: 0.7rem !important; }
+.rx-print-geometry #rx-sheet .py-4 { padding-top: 0.55rem !important; padding-bottom: 0.55rem !important; }
+.rx-print-geometry #rx-sheet .pt-5 { padding-top: 0.7rem !important; }
+.rx-print-geometry #rx-sheet tbody th,
+.rx-print-geometry #rx-sheet tbody td { padding-top: 0.4rem !important; padding-bottom: 0.4rem !important; }
+
+@media print {
+  @page {
+    size: A4;
+    /* Zero — see (1). The sheet pads itself. */
+    margin: 0;
+  }
+
+  html,
+  body {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+  }
+
+  /* App chrome — sidebar, topbar, toolbars, impersonation bar, cart drawer. */
+  .no-print,
+  [data-doctor-shell-chrome],
+  #cart-drawer {
+    display: none !important;
+  }
+
+  /* Same geometry as the class above, so printing still works if the
+     fit-to-page script never ran. */
+  [data-doctor-shell-layout],
+  .rx-print-page,
+  .consultation-print {
+    margin: 0 !important;
+    padding: 0 !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+
+  #rx-sheet {
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 9mm 8mm !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+
+    /*
+      Fit to ONE page whatever the prescription contains. `--rx-print-scale` is
+      measured and set by PrescriptionPrint before the dialog opens; it stays 1
+      when the sheet already fits, so a normal prescription is never shrunk.
+      The compensating width keeps the scaled sheet spanning the full page
+      rather than leaving a gap on the right.
+    */
+    transform: scale(var(--rx-print-scale, 1));
+    transform-origin: top left;
+    width: calc(100% / var(--rx-print-scale, 1)) !important;
+  }
+
+  #rx-sheet .overflow-x-auto {
+    overflow: visible !important;
+  }
+  #rx-sheet table {
+    min-width: 0 !important;
+    width: 100% !important;
+    table-layout: fixed;
+  }
+  #rx-sheet th,
+  #rx-sheet td {
+    overflow-wrap: anywhere;
+  }
+
+  /* The navy table header and footer band are the document's identity — keep
+     them in browsers that drop backgrounds by default. */
+  #rx-sheet,
+  #rx-sheet * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Scaled to fit, so nothing should break across pages — but if a browser
+     ignores the transform, keep rows and cards whole rather than split. */
+  #rx-sheet section,
+  #rx-sheet header,
+  #rx-sheet footer,
+  #rx-sheet tr {
+    break-inside: avoid;
+  }
+  #rx-sheet thead {
+    display: table-header-group;
+  }
+}

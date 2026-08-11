@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { requireAuth, requireRole } from '../middleware/auth.js';
+import { guardRoutes } from '../middleware/permissions.js';
 import {
   addDays,
   ageLabelForOffsetDays,
@@ -18,7 +18,9 @@ import {
 //    derivations (src/vaccines/schedule.ts) as the parent vaccine tracker.
 //  - Stores nothing and returns no PHI. "Given" ticking lives in the client only.
 const router = Router();
-router.use(requireAuth, requireRole('doctor'));
+// RBAC: a staff session is narrowed to what its role allows. The doctor who
+// owns the practice passes every check — see middleware/permissions.ts.
+guardRoutes(router, 'vaccinations');
 
 const schema = z.object({
   dob: z.coerce.date(),

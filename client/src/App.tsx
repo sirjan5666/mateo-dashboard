@@ -1,6 +1,6 @@
 import { lazy, useEffect, useState } from 'react';
 import { Navigate, Route, Routes } from 'react-router';
-import { BarChart3, CalendarClock, CreditCard, FileText, HeartPulse, MessageSquare, Stethoscope, UserCog, Users } from 'lucide-react';
+import { HeartPulse, MessageSquare } from 'lucide-react';
 import { AuthProvider } from './auth/AuthProvider';
 import { useAuth } from './auth/context';
 import { AppShell } from './components/layout/AppShell';
@@ -28,15 +28,29 @@ import ConsultationDetail from './pages/ConsultationDetail';
 import ReferEarn from './pages/ReferEarn';
 import Community from './pages/Community';
 import Report from './pages/Report';
-import DoctorHome from './pages/doctor/DoctorHome';
+import DoctorDashboard from './pages/doctor/Dashboard';
+import LocationsManagement from './pages/doctor/LocationsManagement';
+import TeamAndRoles from './pages/doctor/TeamAndRoles';
+import CreateSubUser from './pages/doctor/CreateSubUser';
+import PatientsList from './pages/doctor/PatientsList';
+import PatientWorkspace from './pages/doctor/PatientWorkspace';
+import PrescriptionsPage from './pages/doctor/PrescriptionsPage';
+import PrescriptionPrint from './pages/doctor/PrescriptionPrint';
+import ConsultationDetails from './pages/doctor/ConsultationDetails';
+import RegisterNewPatient from './pages/doctor/RegisterNewPatient';
+import SettingsPage from './pages/doctor/SettingsPage';
+import AuditLogs from './pages/doctor/AuditLogs';
+import EmailLogs from './pages/doctor/EmailLogs';
+import PharmacyInventory from './pages/pharmacy/Inventory';
+import NewPurchaseEntry from './pages/pharmacy/NewPurchaseEntry';
+import NewBill from './pages/pharmacy/NewBill';
+import BillSuccess from './pages/pharmacy/BillSuccess';
 import DoctorProfileForm from './pages/doctor/DoctorProfileForm';
-import Appointments from './pages/doctor/Appointments';
-import Patients from './pages/doctor/Patients';
-import PatientDetail from './pages/doctor/PatientDetail';
-import AnalyticsPage from './pages/doctor/Analytics';
-import Reports from './pages/doctor/Reports';
-import Billing from './pages/doctor/Billing';
-import Schedule from './pages/doctor/Schedule';
+import ReportsAnalytics from './pages/doctor/ReportsAnalytics';
+import BillingInvoices from './pages/doctor/BillingInvoices';
+import InvoicePrint from './pages/doctor/InvoicePrint';
+import AppointmentsPage from './pages/doctor/AppointmentsPage';
+import AppointmentEntry from './pages/doctor/AppointmentEntry';
 import DoctorMessages from './pages/doctor/Messages';
 import MyHealth from './pages/portal/MyHealth';
 import MyMessages from './pages/portal/MyMessages';
@@ -59,25 +73,15 @@ import { CartProvider } from './shop/CartProvider';
 import { CartDrawer } from './components/shop/CartDrawer';
 import { CartToast } from './components/shop/CartToast';
 import { SmoothScroll } from './components/SmoothScroll';
-import { DoctorTopBar } from './components/doctor/DoctorTopBar';
 import { CommandPalette } from './components/doctor/CommandPalette';
+import { DoctorShell } from './components/doctor/v2/DoctorShell';
+import { StaffSessionProvider } from './auth/staffSession';
+import { StaffActivate, StaffForgot, StaffLogin, StaffReset } from './pages/staff/StaffAuthPages';
 // Growth pulls in recharts (~350 kB) — code-split so it stays out of the initial bundle.
 const Growth = lazy(() => import('./pages/Growth'));
 
-// Grouped doctor navigation (labels + section headings are i18n keys resolved in
-// PanelShell). Sections: Today · Patients · Practice. The clinical decision-support
-// tools now live inside each patient (PatientDetail → Tools), not as sidebar pages.
-const DOCTOR_NAV: PanelNavItem[] = [
-  { to: '/doctor', label: 'doctor.nav.home', icon: Stethoscope, end: true, section: 'doctor.section.today' },
-  { to: '/doctor/patients', label: 'doctor.nav.patients', icon: Users, section: 'doctor.section.patients' },
-  { to: '/doctor/messages', label: 'doctor.nav.messages', icon: MessageSquare, section: 'doctor.section.patients' },
-  { to: '/doctor/appointments', label: 'doctor.nav.consultations', icon: CalendarClock, section: 'doctor.section.patients' },
-  { to: '/doctor/analytics', label: 'doctor.nav.analytics', icon: BarChart3, section: 'doctor.section.practice' },
-  { to: '/doctor/reports', label: 'doctor.nav.reports', icon: FileText, section: 'doctor.section.practice' },
-  { to: '/doctor/billing', label: 'doctor.nav.billing', icon: CreditCard, section: 'doctor.section.practice' },
-  { to: '/doctor/profile', label: 'doctor.nav.profile', icon: UserCog, section: 'doctor.section.practice' },
-];
-
+// The doctor panel's navigation now lives inside DoctorShell (Clinic OS rebuild).
+// PanelShell + PanelNavItem still serve the Patient portal below, unchanged.
 const PORTAL_NAV: PanelNavItem[] = [
   { to: '/portal', label: 'My Health', icon: HeartPulse, end: true },
   { to: '/portal/messages', label: 'Messages', icon: MessageSquare },
@@ -116,30 +120,63 @@ function AppRoutes() {
     return (
       <Routes>
         <Route path="/login" element={<Login />} />
+        {/* Reachable with no session at all — an invitation link is followed by
+            someone who does not have an account yet. */}
+        <Route path="/staff/login" element={<StaffLogin />} />
+        <Route path="/staff/activate" element={<StaffActivate />} />
+        <Route path="/staff/forgot" element={<StaffForgot />} />
+        <Route path="/staff/reset" element={<StaffReset />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     );
   }
 
   if (user.role === 'doctor') {
-    const nav = doctorUnread ? DOCTOR_NAV.map((it) => (it.to === '/doctor/messages' ? { ...it, badge: doctorUnread } : it)) : DOCTOR_NAV;
     return (
+      <StaffSessionProvider enabled>
       <Routes>
-        <Route element={<PanelShell panelLabel="Doctor" navItems={nav} topBar={<DoctorTopBar />} globals={<CommandPalette />} />}>
-          <Route path="/doctor" element={<DoctorHome />} />
-          <Route path="/doctor/patients" element={<Patients />} />
-          <Route path="/doctor/patients/:id" element={<PatientDetail />} />
-          <Route path="/doctor/analytics" element={<AnalyticsPage />} />
-          <Route path="/doctor/reports" element={<Reports />} />
-          <Route path="/doctor/billing" element={<Billing />} />
-          <Route path="/doctor/schedule" element={<Schedule />} />
+        <Route element={<DoctorShell unread={doctorUnread} globals={<CommandPalette />} />}>
+          <Route path="/doctor" element={<DoctorDashboard />} />
+          <Route path="/doctor/patients" element={<PatientsList />} />
+          <Route path="/doctor/patients/new" element={<RegisterNewPatient />} />
+          <Route path="/doctor/patients/:id" element={<PatientWorkspace />} />
+          <Route path="/doctor/appointments" element={<AppointmentsPage />} />
+          <Route path="/doctor/appointments/new" element={<AppointmentEntry />} />
           <Route path="/doctor/messages" element={<DoctorMessages />} />
-          <Route path="/doctor/appointments" element={<Appointments />} />
-          <Route path="/doctor/consultations/:id" element={<ConsultationDetail />} />
+          <Route path="/doctor/analytics" element={<ReportsAnalytics />} />
+          <Route path="/doctor/reports" element={<ReportsAnalytics />} />
           <Route path="/doctor/profile" element={<DoctorProfileForm />} />
+          <Route path="/doctor/settings" element={<SettingsPage />} />
+          <Route path="/doctor/prescriptions" element={<PrescriptionsPage />} />
+          <Route path="/doctor/prescriptions/:id" element={<PrescriptionPrint />} />
+          <Route path="/doctor/consultations/:id" element={<ConsultationDetails />} />
+          <Route path="/doctor/charts" element={<ReportsAnalytics />} />
+          <Route path="/doctor/pharmacy" element={<PharmacyInventory />} />
+          <Route path="/doctor/pharmacy/purchase" element={<NewPurchaseEntry />} />
+          <Route path="/doctor/pharmacy/billing" element={<NewBill />} />
+          <Route path="/doctor/pharmacy/billing/success" element={<BillSuccess />} />
+          <Route path="/doctor/revenue" element={<BillingInvoices />} />
+          <Route path="/doctor/invoices/:id/print" element={<InvoicePrint />} />
+          {/* Staff IS Team & Roles — one page, not two. */}
+          <Route path="/doctor/staff" element={<Navigate to="/doctor/team" replace />} />
+          <Route path="/doctor/locations" element={<LocationsManagement />} />
+          <Route path="/doctor/team" element={<TeamAndRoles />} />
+          <Route path="/doctor/team/new" element={<CreateSubUser />} />
+          <Route path="/doctor/audit" element={<AuditLogs />} />
+          <Route path="/doctor/email-logs" element={<EmailLogs />} />
         </Route>
+        {/* The staff sign-in pages stay reachable even when a session already
+            exists in this browser — the doctor's, or another staff member's on a
+            shared clinic PC. Bouncing them to the dashboard makes an invitation
+            link look broken, and leaves someone who just set their password with
+            nowhere to sign in. */}
+        <Route path="/staff/login" element={<StaffLogin />} />
+        <Route path="/staff/activate" element={<StaffActivate />} />
+        <Route path="/staff/forgot" element={<StaffForgot />} />
+        <Route path="/staff/reset" element={<StaffReset />} />
         <Route path="*" element={<Navigate to="/doctor" replace />} />
       </Routes>
+      </StaffSessionProvider>
     );
   }
 

@@ -13,6 +13,12 @@ export interface Appointment {
   mode: AppointmentMode;
   status: AppointmentStatus;
   reason: string | null;
+  /** Booking-time clinical context, encrypted at rest server-side. */
+  symptoms: string | null;
+  notes: string | null;
+  /** Why the status is what it is — set when the status is changed. */
+  statusRemark: string | null;
+  locationId: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -22,13 +28,30 @@ export interface CreateAppointmentInput {
   durationMin?: number;
   mode?: AppointmentMode;
   reason?: string;
+  symptoms?: string;
+  notes?: string;
+  locationId?: string;
 }
-export interface UpdateAppointmentInput {
-  start?: string;
-  durationMin?: number;
-  mode?: AppointmentMode;
+export interface UpdateAppointmentInput extends Partial<CreateAppointmentInput> {
   status?: AppointmentStatus;
-  reason?: string;
+  /** A short reason for the status change; '' clears it. */
+  statusRemark?: string;
+}
+
+/** Whether the doctor is physically in the clinic right now. */
+export interface DoctorPresence {
+  in: boolean;
+  since: string | null;
+  by: string | null;
+}
+
+export function getPresence() {
+  return api<{ presence: DoctorPresence }>('/doctor/presence');
+}
+
+/** Mark the doctor In (true) or Out (false). Front desk or the doctor. */
+export function setPresence(isIn: boolean) {
+  return api<{ presence: DoctorPresence }>('/doctor/presence', { method: 'POST', body: JSON.stringify({ in: isIn }) });
 }
 
 export function listSchedule(params: { from?: string; to?: string; status?: AppointmentStatus } = {}) {
@@ -38,6 +61,14 @@ export function listSchedule(params: { from?: string; to?: string; status?: Appo
   if (params.status) qs.set('status', params.status);
   const suffix = qs.toString() ? `?${qs.toString()}` : '';
   return api<{ appointments: Appointment[] }>(`/doctor/appointments${suffix}`);
+}
+
+/**
+ * One appointment by id. The reschedule form loads from here — scanning a date
+ * window instead silently produced a blank form for anything outside it.
+ */
+export function getAppointment(appointmentId: string) {
+  return api<{ appointment: Appointment }>(`/doctor/appointments/${appointmentId}`);
 }
 
 export function listPatientAppointments(patientId: string) {

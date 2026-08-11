@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { requireAuth, requireRole } from '../middleware/auth.js';
+import { guardRoutes } from '../middleware/permissions.js';
 import { milestones, milestoneStatus } from '../milestones/milestones.js';
 
 // Doctor-side developmental-milestone SCREENING aid. Decision support only:
@@ -11,7 +11,9 @@ import { milestones, milestoneStatus } from '../milestones/milestones.js';
 //  - CLAUDE.md hard rule 1 — a "watch" (past-window, unachieved) item is a prompt
 //    to consider a developmental review, NEVER a diagnosis. Wording stays neutral.
 const router = Router();
-router.use(requireAuth, requireRole('doctor'));
+// RBAC: a staff session is narrowed to what its role allows. The doctor who
+// owns the practice passes every check — see middleware/permissions.ts.
+guardRoutes(router, 'growth');
 
 const schema = z.object({ ageMonths: z.number().min(0).max(72) });
 

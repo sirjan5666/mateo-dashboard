@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { Types } from 'mongoose';
 import type { HydratedDocument } from 'mongoose';
 import { z } from 'zod';
-import { requireAuth, requireRole } from '../middleware/auth.js';
+import { guardRoutes } from '../middleware/permissions.js';
 import { loadOwnedPatient, scopeToDoctor } from '../middleware/loadOwnedPatient.js';
 import { auditAccess, recordAudit } from '../middleware/audit.js';
 import { CareMessage } from '../models/CareMessage.js';
@@ -14,7 +14,9 @@ import type { IPatient } from '../models/Patient.js';
 // Doctor side of the doctor<->patient care thread. Tenant-scoped; message bodies
 // decrypted only in the shaper. Reading marks the patient's messages as read.
 const router = Router();
-router.use(requireAuth, requireRole('doctor'));
+// RBAC: a staff session is narrowed to what its role allows. The doctor who
+// owns the practice passes every check — see middleware/permissions.ts.
+guardRoutes(router, 'consultations');
 
 function shape(m: HydratedDocument<ICareMessage>) {
   return {
