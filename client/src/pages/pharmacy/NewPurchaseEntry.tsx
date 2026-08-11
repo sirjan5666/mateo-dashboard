@@ -58,6 +58,9 @@ export default function NewPurchaseEntry() {
   const [saved, setSaved] = useState<string | null>(null);
   const [ledger, setLedger] = useState<LedgerResponse | null>(null);
   const [newDistName, setNewDistName] = useState('');
+  const [newDistPhone, setNewDistPhone] = useState('');
+  const [newDistGstin, setNewDistGstin] = useState('');
+  const [newDistAddress, setNewDistAddress] = useState('');
   const [addingDist, setAddingDist] = useState(false);
 
   useEffect(() => {
@@ -133,14 +136,20 @@ export default function NewPurchaseEntry() {
 
   async function addDistributor() {
     const name = newDistName.trim();
-    if (name.length < 2) return;
+    const phone = newDistPhone.trim();
+    const gstin = newDistGstin.trim();
+    const addressLine = newDistAddress.trim();
+    if (name.length < 2) { setError('Distributor name is required (min 2 chars).'); return; }
+    if (!phone) { setError('Distributor phone number is required.'); return; }
+    if (!gstin) { setError('Distributor GST number is required.'); return; }
+    if (!addressLine) { setError('Distributor address is required.'); return; }
     setError(null);
     try {
-      const { distributor } = await createDistributor({ name });
+      const { distributor } = await createDistributor({ name, phone, gstin, addressLine });
       const fresh = await listDistributors();
       setDistributors(fresh.distributors);
       setDistributorId(distributor.id);
-      setNewDistName('');
+      setNewDistName(''); setNewDistPhone(''); setNewDistGstin(''); setNewDistAddress('');
       setAddingDist(false);
     } catch (e) {
       setError(e instanceof ApiError && e.status === 409 ? 'That distributor already exists.' : 'Could not add the distributor');
@@ -307,14 +316,25 @@ export default function NewPurchaseEntry() {
                 </select>
               )}
               {addingDist ? (
-                <div className="mt-2 flex gap-2">
+                <div className="mt-2 space-y-2">
                   <input value={newDistName} onChange={(e) => setNewDistName(e.target.value)}
-                    placeholder="Distributor name" aria-label="New distributor name"
-                    className="h-9 min-w-0 flex-1 rounded-[8px] border border-[#E4E8F1] px-3 text-[12.5px] focus:border-[#3B4FE0] focus:outline-none" />
-                  <button type="button" onClick={() => void addDistributor()}
-                    className="h-9 shrink-0 rounded-[8px] bg-[#3B4FE0] px-3 text-[12px] font-bold text-white">Add</button>
-                  <button type="button" onClick={() => setAddingDist(false)}
-                    className="h-9 shrink-0 rounded-[8px] border border-[#E2E6F0] px-3 text-[12px] font-bold text-[#334155]">Cancel</button>
+                    placeholder="Distributor name *" aria-label="New distributor name"
+                    className="h-9 w-full rounded-[8px] border border-[#E4E8F1] px-3 text-[12.5px] focus:border-[#3B4FE0] focus:outline-none" />
+                  <input value={newDistPhone} onChange={(e) => setNewDistPhone(e.target.value)}
+                    placeholder="Phone number *" aria-label="Distributor phone number"
+                    className="h-9 w-full rounded-[8px] border border-[#E4E8F1] px-3 text-[12.5px] focus:border-[#3B4FE0] focus:outline-none" />
+                  <input value={newDistGstin} onChange={(e) => setNewDistGstin(e.target.value)}
+                    placeholder="GST number *" aria-label="Distributor GST number"
+                    className="h-9 w-full rounded-[8px] border border-[#E4E8F1] px-3 text-[12.5px] uppercase focus:border-[#3B4FE0] focus:outline-none" />
+                  <input value={newDistAddress} onChange={(e) => setNewDistAddress(e.target.value)}
+                    placeholder="Address *" aria-label="Distributor address"
+                    className="h-9 w-full rounded-[8px] border border-[#E4E8F1] px-3 text-[12.5px] focus:border-[#3B4FE0] focus:outline-none" />
+                  <div className="flex gap-2">
+                    <button type="button" onClick={() => void addDistributor()}
+                      className="h-9 shrink-0 rounded-[8px] bg-[#3B4FE0] px-3 text-[12px] font-bold text-white">Add</button>
+                    <button type="button" onClick={() => setAddingDist(false)}
+                      className="h-9 shrink-0 rounded-[8px] border border-[#E2E6F0] px-3 text-[12px] font-bold text-[#334155]">Cancel</button>
+                  </div>
                 </div>
               ) : (
                 <button type="button" onClick={() => setAddingDist(true)}

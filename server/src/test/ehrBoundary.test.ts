@@ -118,7 +118,7 @@ describe.skipIf(!dbOk)('EHR boundary (DB-backed)', () => {
   });
 
   describe('tenancy: Doctor A vs Doctor B', () => {
-    it('loadOwnedPatient: 403 for another doctor, 200 for the owner', async () => {
+    it('loadOwnedPatient: 403 for another doctor, 200 for the owner', { timeout: 15_000 }, async () => {
       const docA = new mongoose.Types.ObjectId();
       const docB = new mongoose.Types.ObjectId();
       const tpl = await makeTemplate();

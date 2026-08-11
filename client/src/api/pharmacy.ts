@@ -148,7 +148,7 @@ export function listDistributors() {
   return api<{ distributors: DistributorDto[] }>('/pharmacy/distributors');
 }
 
-export function createDistributor(body: { name: string; contactPerson?: string; phone?: string; email?: string; gstin?: string; addressLine?: string }) {
+export function createDistributor(body: { name: string; contactPerson?: string; phone: string; email?: string; gstin: string; addressLine: string }) {
   return api<{ distributor: { id: string; name: string } }>('/pharmacy/distributors', {
     method: 'POST',
     body: JSON.stringify(body),
