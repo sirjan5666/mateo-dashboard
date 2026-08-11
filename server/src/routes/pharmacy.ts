@@ -432,15 +432,15 @@ router.post('/distributors', auditAccess('pharmacy'), async (req, res) => {
   const body = z.object({
     name: z.string().trim().min(2).max(120),
     contactPerson: z.string().trim().max(120).optional().or(z.literal('')),
-    phone: z.string().trim().max(24).optional().or(z.literal('')),
+    phone: z.string().trim().min(1, 'Phone number is required').max(24),
     email: z.string().trim().email().max(160).optional().or(z.literal('')),
-    gstin: z.string().trim().max(20).optional().or(z.literal('')),
-    addressLine: z.string().trim().max(240).optional().or(z.literal('')),
+    gstin: z.string().trim().min(1, 'GST number is required').max(20),
+    addressLine: z.string().trim().min(1, 'Address is required').max(240),
   }).parse(req.body);
   const d = await Distributor.create({
     doctorUserId: req.userId, name: body.name,
-    contactPerson: body.contactPerson || undefined, phone: body.phone || undefined,
-    email: body.email || undefined, gstin: body.gstin || undefined, addressLine: body.addressLine || undefined,
+    contactPerson: body.contactPerson || undefined, phone: body.phone,
+    email: body.email || undefined, gstin: body.gstin, addressLine: body.addressLine,
   });
   res.status(201).json({ distributor: { id: d._id, name: d.name } });
 });

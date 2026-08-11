@@ -22,10 +22,10 @@ export interface IDistributor {
   doctorUserId: Types.ObjectId; // TENANT
   name: string;
   contactPerson?: string;
-  phone?: string;
+  phone: string;
   email?: string;
-  gstin?: string;
-  addressLine?: string;
+  gstin: string;
+  addressLine: string;
   active: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -36,10 +36,10 @@ const distributorSchema = new Schema<IDistributor>(
     doctorUserId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     name: { type: String, required: true, trim: true, maxlength: 120 },
     contactPerson: { type: String, trim: true, maxlength: 120 },
-    phone: { type: String, trim: true, maxlength: 24 },
+    phone: { type: String, required: true, trim: true, maxlength: 24 },
     email: { type: String, trim: true, lowercase: true, maxlength: 160 },
-    gstin: { type: String, trim: true, uppercase: true, maxlength: 20 },
-    addressLine: { type: String, trim: true, maxlength: 240 },
+    gstin: { type: String, required: true, trim: true, uppercase: true, maxlength: 20 },
+    addressLine: { type: String, required: true, trim: true, maxlength: 240 },
     active: { type: Boolean, default: true },
   },
   { timestamps: true },
