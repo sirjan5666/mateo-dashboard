@@ -34,7 +34,6 @@ import TeamAndRoles from './pages/doctor/TeamAndRoles';
 import CreateSubUser from './pages/doctor/CreateSubUser';
 import PatientsList from './pages/doctor/PatientsList';
 import PatientWorkspace from './pages/doctor/PatientWorkspace';
-import PrescriptionsPage from './pages/doctor/PrescriptionsPage';
 import PrescriptionPrint from './pages/doctor/PrescriptionPrint';
 import ConsultationDetails from './pages/doctor/ConsultationDetails';
 import RegisterNewPatient from './pages/doctor/RegisterNewPatient';
@@ -51,7 +50,6 @@ import BillingInvoices from './pages/doctor/BillingInvoices';
 import InvoicePrint from './pages/doctor/InvoicePrint';
 import AppointmentsPage from './pages/doctor/AppointmentsPage';
 import AppointmentEntry from './pages/doctor/AppointmentEntry';
-import DoctorMessages from './pages/doctor/Messages';
 import MyHealth from './pages/portal/MyHealth';
 import MyMessages from './pages/portal/MyMessages';
 import AdminHome from './pages/admin/AdminHome';
@@ -142,12 +140,10 @@ function AppRoutes() {
           <Route path="/doctor/patients/:id" element={<PatientWorkspace />} />
           <Route path="/doctor/appointments" element={<AppointmentsPage />} />
           <Route path="/doctor/appointments/new" element={<AppointmentEntry />} />
-          <Route path="/doctor/messages" element={<DoctorMessages />} />
           <Route path="/doctor/analytics" element={<ReportsAnalytics />} />
           <Route path="/doctor/reports" element={<ReportsAnalytics />} />
           <Route path="/doctor/profile" element={<DoctorProfileForm />} />
           <Route path="/doctor/settings" element={<SettingsPage />} />
-          <Route path="/doctor/prescriptions" element={<PrescriptionsPage />} />
           <Route path="/doctor/prescriptions/:id" element={<PrescriptionPrint />} />
           <Route path="/doctor/consultations/:id" element={<ConsultationDetails />} />
           <Route path="/doctor/charts" element={<ReportsAnalytics />} />

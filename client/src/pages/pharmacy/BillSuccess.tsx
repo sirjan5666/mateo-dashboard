@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { ArrowLeft, Check, CircleCheck, Download, Loader2, Mail, Maximize2, Plus, Printer, X } from 'lucide-react';
 import { amt } from '../../data/pharmacy';
@@ -8,6 +8,9 @@ import {
   CARD, ChangeStrip, GHOST_BTN, H2, MateoMark, MetaRow, OUTLINE_BTN, PRIMARY_BG, PRIMARY_BTN,
   Tile, WhatsAppIcon, useBillingClinic,
 } from '../../components/doctor/v2/pharmacy/shared';
+import { InvoiceDocument } from '../../components/doctor/v2/pharmacy/InvoiceDocument';
+import type { InvoiceLine } from '../../components/doctor/v2/pharmacy/InvoiceDocument';
+import { fitSheetToOnePage, watchPrint } from '../../lib/fitToPage';
 import { cn } from '../../lib/cn';
 
 /** The saved bill, plus the patient block the detail endpoint resolves. */
@@ -224,6 +227,18 @@ export default function BillSuccess() {
     };
   }, [full]);
 
+  useEffect(() => {
+    if (!bill) return undefined;
+    const t = setTimeout(() => fitSheetToOnePage(), 0);
+    const stop = watchPrint(() => fitSheetToOnePage());
+    return () => { clearTimeout(t); stop(); };
+  }, [bill]);
+
+  const printInvoice = useCallback(() => {
+    fitSheetToOnePage();
+    window.print();
+  }, []);
+
   if (missingId) {
     return (
       <div className={`${CARD} mx-auto max-w-md px-6 py-14 text-center`}>
@@ -263,8 +278,27 @@ export default function BillSuccess() {
 
   const paid = bill.status === 'paid';
 
+  const invoiceLines: InvoiceLine[] = bill.items.map((it) => ({
+    sku: it.sku, name: it.name, batch: it.batch, qty: it.qty,
+    mrp: it.mrp, disc: it.discPct, gstPct: it.gstPct,
+  }));
+  const invoiceTotals = {
+    count: bill.items.length, subtotal: bill.subtotal, discount: bill.discount,
+    taxable: bill.taxable, gst: bill.gstAmount, payable: bill.payable,
+    received: bill.amountReceived, change: bill.changeReturned,
+  };
+  const invoiceMeta = {
+    invoiceNo: bill.number,
+    date: fmtDate(bill.createdAt),
+    time: fmtTime(bill.createdAt),
+    cashier: bill.patient?.name ?? bill.customer,
+    pid: bill.patient?.id,
+    phone: bill.patient?.phone ?? undefined,
+  };
+
   return (
-    <div className="grid grid-cols-1 items-start gap-5 2xl:grid-cols-[1fr_520px]">
+    <div className="rx-print-page">
+    <div className="no-print grid grid-cols-1 items-start gap-5 2xl:grid-cols-[1fr_520px]">
       <div className="flex min-w-0 flex-col">
         <h1 className="font-display text-[23px] font-extrabold tracking-[-0.02em] text-[#0F172A]">Pharmacy Billing</h1>
         <p className="mt-1 text-[13px] font-medium text-[#64748B]">Invoice Generated Successfully</p>
@@ -412,7 +446,7 @@ export default function BillSuccess() {
             </p>
             <div className="mt-3.5 flex flex-col gap-2.5">
               {[
-                { icon: <Printer className="h-4 w-4 text-[#334155]" />, label: 'Print Receipt', act: () => window.print() },
+                { icon: <Printer className="h-4 w-4 text-[#334155]" />, label: 'Print Receipt', act: () => printInvoice() },
                 { icon: <WhatsAppIcon />, label: 'Send on WhatsApp', act: () => window.open(shareLink('whatsapp'), '_blank', 'noopener') },
                 { icon: <Mail className="h-4 w-4 text-[#334155]" />, label: 'Email Receipt', act: () => { window.location.href = shareLink('email'); } },
               ].map((b) => (
@@ -459,12 +493,12 @@ export default function BillSuccess() {
         <div className="mt-3.5"><ReceiptDocument bill={bill} /></div>
 
         <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <button type="button" onClick={() => window.print()} aria-label={`Download PDF for invoice ${bill.number}`}
+          <button type="button" onClick={() => printInvoice()} aria-label={`Download PDF for invoice ${bill.number}`}
             className={cn(GHOST_BTN, 'h-12')}>
             <Download className="h-4 w-4 text-[#334155]" />
             <span className="text-[13.5px] font-bold text-[#1E2A5A]">Download PDF</span>
           </button>
-          <button type="button" onClick={() => window.print()} aria-label={`Print receipt for invoice ${bill.number}`}
+          <button type="button" onClick={() => printInvoice()} aria-label={`Print receipt for invoice ${bill.number}`}
             className={cn(GHOST_BTN, 'h-12')}>
             <Printer className="h-4 w-4 text-[#334155]" />
             <span className="text-[13.5px] font-bold text-[#1E2A5A]">Print Receipt</span>
@@ -485,6 +519,12 @@ export default function BillSuccess() {
           </div>
         </div>
       )}
+    </div>
+    {/* Print-only: the same InvoiceDocument format as the billing preview,
+        rendered inside #rx-sheet so the print CSS scales it to one A4 page. */}
+    <div id="rx-sheet" className="hidden">
+      <InvoiceDocument items={invoiceLines} totals={invoiceTotals} customer={bill.customer} meta={invoiceMeta} />
+    </div>
     </div>
   );
 }

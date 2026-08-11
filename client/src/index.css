@@ -761,6 +761,7 @@ html.lenis body {
 }
 
 .rx-print-geometry #rx-sheet {
+  display: block !important;
   width: 100% !important;
   max-width: none !important;
   margin: 0 !important;
@@ -834,6 +835,7 @@ html.lenis body {
   }
 
   #rx-sheet {
+    display: block !important;
     width: 100% !important;
     max-width: none !important;
     margin: 0 !important;
