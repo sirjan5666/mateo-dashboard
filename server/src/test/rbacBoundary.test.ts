@@ -28,6 +28,7 @@ try {
 }
 
 process.env.DATA_ENCRYPTION_KEY ||= randomBytes(32).toString('base64');
+process.env.JWT_SECRET ||= randomBytes(32).toString('base64');
 
 const { StaffMember } = await import('../models/StaffMember.js');
 const { StaffRole } = await import('../models/StaffRole.js');
