@@ -4,7 +4,7 @@ import { Area, AreaChart, CartesianGrid, LabelList, ResponsiveContainer, XAxis, 
 import {
   ArrowLeft,
   Loader2, CalendarDays, CalendarPlus, ChevronRight, FileText, Mail,
-  MessageSquare, Pencil, Phone, Pill, Plus, ShieldCheck, Stethoscope, Syringe,
+  Pencil, Phone, Pill, Plus, ShieldCheck, Stethoscope, Syringe,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { getPatient, patientNumber } from '../../api/doctorPatients';
@@ -18,6 +18,7 @@ import { ageParts, formatDate } from '../../data/patients';
 import { MedicalHistoryPanel } from '../../components/doctor/v2/workspace/MedicalHistoryPanel';
 import { DocumentsPanel, InvoicesPanel, NotesPanel, VisitsPanel } from '../../components/doctor/v2/workspace/TablePanels';
 import { GrowthChartsPanel, PrescriptionsPanel } from '../../components/doctor/v2/workspace/GrowthPrescriptionPanels';
+import { IssuePrescriptionModal } from '../../components/doctor/v2/IssuePrescriptionModal';
 import { PanelState, fieldText, swatch, useLoad, wsDate, wsTime } from '../../components/doctor/v2/workspace/shared';
 import type { WorkspacePanelProps } from '../../components/doctor/v2/workspace/shared';
 import { cn } from '../../lib/cn';
@@ -49,6 +50,7 @@ function OverviewTab({
 }: WorkspacePanelProps & { phone?: string | null; patientCode?: string | null; portal?: PortalStatus; parentAccess?: PortalStatus }) {
   const navigate = useNavigate();
   const [metric, setMetric] = useState<OverviewMetric>('Weight');
+  const [rxModal, setRxModal] = useState(false);
 
   const { data, loading, error } = useLoad(
     async () => {
@@ -355,8 +357,8 @@ function OverviewTab({
           <ul className="mt-3">
             {([
               [CalendarPlus, 'Book Appointment', () => navigate(`/doctor/appointments/new?patient=${patientId}`)],
+              [Pill, 'Create Prescription', () => setRxModal(true)],
               [FileText, 'Create Invoice', () => navigate(`/doctor/revenue?patient=${patientId}`)],
-              [MessageSquare, 'Send Message', () => navigate('/doctor/messages')],
             ] as const).map(([Icon, label, onSelect]) => (
               <li key={label}>
                 <button type="button" aria-label={label} onClick={onSelect}
@@ -369,6 +371,14 @@ function OverviewTab({
             ))}
           </ul>
         </section>
+        {rxModal && (
+          <IssuePrescriptionModal
+            patientId={patientId}
+            patientName={patientName}
+            onClose={() => setRxModal(false)}
+            onIssued={(docId) => { setRxModal(false); navigate(`/doctor/prescriptions/${docId}`); }}
+          />
+        )}
       </div>
     </div>
   );
