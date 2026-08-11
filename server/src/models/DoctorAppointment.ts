@@ -47,6 +47,25 @@ const appointmentSchema = new Schema<IDoctorAppointment>(
 // Tenant-scoped schedule queries (by time).
 appointmentSchema.index({ doctorUserId: 1, start: 1 });
 
+/**
+ * Two patients cannot hold the SAME scheduled start with one doctor. The route's
+ * `findClash` check catches this sequentially, but two simultaneous bookings both
+ * read "no clash" before either inserts (a TOCTOU race) — so a real double-book
+ * slipped through. This partial unique index is the atomic backstop: the second
+ * concurrent insert fails with E11000 and the route turns that into a 409.
+ *
+ * `status` is part of the KEY (not just the partial filter) purely so this index
+ * has a different key spec from the plain `{doctorUserId, start}` above —
+ * MongoDB refuses two indexes with an identical key, and the plain one is still
+ * needed for range queries across ALL statuses. Inside the partial index every
+ * doc has status 'scheduled', so uniqueness is effectively on (doctor, start).
+ * Partial so a cancelled/completed/no-show slot can be rebooked.
+ */
+appointmentSchema.index(
+  { doctorUserId: 1, start: 1, status: 1 },
+  { unique: true, partialFilterExpression: { status: 'scheduled' } },
+);
+
 encryptedFields(appointmentSchema, ['reason', 'symptoms', 'notes', 'statusRemark']);
 
 export const DoctorAppointment = model<IDoctorAppointment>('DoctorAppointment', appointmentSchema);

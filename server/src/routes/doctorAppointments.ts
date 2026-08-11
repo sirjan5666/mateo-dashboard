@@ -58,6 +58,11 @@ router.post('/presence', async (req, res) => {
   res.json({ presence: presenceShape(profile.presence) });
 });
 
+/** True for a Mongo duplicate-key error — the concurrent same-slot booking guard. */
+function isDuplicateSlot(e: unknown): boolean {
+  return !!e && typeof e === 'object' && (e as { code?: number }).code === 11000;
+}
+
 function publicAppointment(a: HydratedDocument<IDoctorAppointment>, patientName?: string) {
   return {
     id: a._id,
@@ -219,7 +224,16 @@ router.post('/patients/:id/appointments', loadOwnedPatient, requireConsent('trea
     // Validated against the doctor's own clinics — never trusted from the client.
     locationId: locationId ?? undefined,
   });
-  await appt.save();
+  try {
+    await appt.save();
+  } catch (e) {
+    // The unique index caught a concurrent booking of the same scheduled slot.
+    if (isDuplicateSlot(e)) {
+      res.status(409).json({ error: 'That slot was just taken — please pick another time.' });
+      return;
+    }
+    throw e;
+  }
   await recordAudit(req, {
     action: 'create',
     resourceType: 'appointment',
@@ -302,7 +316,16 @@ router.patch('/appointments/:appointmentId', async (req, res) => {
     appt.statusRemark = body.statusRemark || undefined;
     changed.push('statusRemark');
   }
-  await appt.save();
+  try {
+    await appt.save();
+  } catch (e) {
+    // Rescheduling (or reviving) onto a slot another booking just took.
+    if (isDuplicateSlot(e)) {
+      res.status(409).json({ error: 'That slot was just taken — please pick another time.' });
+      return;
+    }
+    throw e;
+  }
   await recordAudit(req, {
     action: 'update',
     resourceType: 'appointment',
