@@ -20,8 +20,6 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
 const MODES: { id: PaymentMode; label: string; icon: string; color: string }[] = [
   { id: 'upi', label: 'UPI', icon: 'Smartphone', color: '#4F46E5' },
   { id: 'cash', label: 'Cash', icon: 'Banknote', color: '#12A150' },
-  { id: 'card', label: 'Card', icon: 'CreditCard', color: '#2B6FF0' },
-  { id: 'cheque', label: 'Cheque', icon: 'FileText', color: '#334155' },
   { id: 'credit', label: 'Credit', icon: 'CreditCard', color: '#F59E0B' },
 ];
 
@@ -374,7 +372,7 @@ export default function NewBill() {
                 <div>
                   <label htmlFor="b-ref" className={LABEL}>Payment Reference</label>
                   <input id="b-ref" value={reference} onChange={(e) => setReference(e.target.value)}
-                    placeholder="UPI ID / Txn ID / Cheque No." className={cn(INPUT, 'h-[46px]')} />
+                    placeholder="UPI ID / Txn ID" className={cn(INPUT, 'h-[46px]')} />
                 </div>
               )}
             </div>

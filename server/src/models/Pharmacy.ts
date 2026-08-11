@@ -148,8 +148,8 @@ export const StockMovement = model<IStockMovement>('StockMovement', stockMovemen
 
 // ── Purchase (stock in, from a distributor) ──────────────────────────────────
 
-export type PaymentMode = 'cash' | 'upi' | 'card' | 'cheque' | 'credit';
-export const PAYMENT_MODES: PaymentMode[] = ['cash', 'upi', 'card', 'cheque', 'credit'];
+export type PaymentMode = 'cash' | 'upi' | 'credit';
+export const PAYMENT_MODES: PaymentMode[] = ['cash', 'upi', 'credit'];
 
 export interface IPurchaseItem {
   medicineId?: Types.ObjectId;

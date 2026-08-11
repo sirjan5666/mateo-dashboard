@@ -1,7 +1,7 @@
 import { api } from './client';
 
 export type StockStatus = 'In Stock' | 'Low Stock' | 'Out of Stock';
-export type PaymentMode = 'cash' | 'upi' | 'card' | 'cheque' | 'credit';
+export type PaymentMode = 'cash' | 'upi' | 'credit';
 
 export const MEDICINE_CATEGORIES = [
   'Antibiotics', 'Analgesics', 'Vitamins', 'Respiratory', 'Topicals', 'Others',
