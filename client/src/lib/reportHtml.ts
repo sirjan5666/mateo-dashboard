@@ -22,6 +22,7 @@ function fmtDate(iso?: string | null): string {
 }
 const kg = (g?: number) => (typeof g === 'number' ? `${(g / 1000).toFixed(2)} kg` : '—');
 const cm = (v?: number) => (typeof v === 'number' ? `${v} cm` : '—');
+const toothLabel = (id: string) => id.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 
 // Per-section accent colour so the report reads as a colourful, designed booklet.
 type Accent = { bar: string; text: string; soft: string };
@@ -35,6 +36,7 @@ const ACCENTS: Record<string, Accent> = {
   skin: { bar: '#e85aa0', text: '#c43d82', soft: '#fdeaf4' },
   records: { bar: '#0aa2b8', text: '#077e90', soft: '#e4f7fa' },
   appointments: { bar: '#e0556b', text: '#bb3a50', soft: '#fdecef' },
+  teeth: { bar: '#4da6c9', text: '#2d7fa3', soft: '#e6f4fa' },
 };
 
 // A titled section card with an accent header and either a zebra table or an
@@ -97,6 +99,7 @@ export function buildReportHtml(report: BabyReport): string {
   ]);
   const sleepRows = report.sleep.map((s) => [fmtDate(s.loggedAt), esc(s.kind), `${Math.floor(s.durationMin / 60)}h ${s.durationMin % 60}m`, esc(s.quality || '—')]);
   const milestoneRows = report.milestones.map((m) => [`<strong>${esc(m.label)}</strong>`, fmtDate(m.achievedOn)]);
+  const teethRows = report.teeth.map((t) => [`<strong>${esc(toothLabel(t.toothId))}</strong>`, fmtDate(t.appearedOn)]);
   const skinRows = report.skin.map((s) => [fmtDate(s.loggedAt), esc(s.area), esc(s.severity), esc(s.description || '—')]);
   const recordRows = report.records.map((r) => [fmtDate(r.recordDate), esc(r.recordType), esc(r.title), esc(r.provider || '—')]);
   const apptRows = report.appointments.map((a) => [fmtDate(a.scheduledAt), esc(a.reason || '—'), a.completed ? 'Completed' : 'Upcoming']);
@@ -281,6 +284,7 @@ export function buildReportHtml(report: BabyReport): string {
     ${section('food', 'Feeding', ['Date', 'Meal', 'Food', 'Reaction'], foodRows)}
     ${section('sleep', 'Sleep', ['Date', 'Type', 'Duration', 'Quality'], sleepRows)}
     ${section('milestones', 'Milestones', ['Milestone', 'Achieved on'], milestoneRows)}
+    ${section('teeth', 'Dental (Teeth)', ['Tooth', 'Appeared on'], teethRows)}
     ${section('skin', 'Skin', ['Date', 'Area', 'Severity', 'Notes'], skinRows)}
     ${section('records', 'Health records', ['Date', 'Type', 'Title', 'Provider'], recordRows)}
     ${section('appointments', 'Appointments', ['Date', 'Reason', 'Status'], apptRows)}

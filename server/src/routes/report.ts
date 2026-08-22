@@ -10,6 +10,7 @@ import { SleepLog } from '../models/SleepLog.js';
 import { MilestoneAchievement } from '../models/MilestoneAchievement.js';
 import { HealthRecord } from '../models/HealthRecord.js';
 import { Appointment } from '../models/Appointment.js';
+import { ToothLog } from '../models/ToothLog.js';
 import { User } from '../models/User.js';
 import { doseStatus, istToday } from '../vaccines/schedule.js';
 import { milestoneById } from '../milestones/milestones.js';
@@ -24,7 +25,7 @@ const emptyCounts = (): Counts => ({ done: 0, due: 0, overdue: 0, upcoming: 0, t
 router.get('/babies/:id/report', requireAuth, requireSubscription, loadOwnedBaby, async (req, res) => {
   const baby = req.baby!;
   const today = istToday();
-  const [parent, doses, growth, skin, food, sleep, milestones, records, appointments] = await Promise.all([
+  const [parent, doses, growth, skin, food, sleep, milestones, records, appointments, teeth] = await Promise.all([
     User.findById(req.userId).select('name'),
     VaccineDose.find({ babyId: baby._id }).sort({ dueDate: 1 }),
     GrowthLog.find({ babyId: baby._id }).sort({ loggedAt: 1 }),
@@ -34,6 +35,7 @@ router.get('/babies/:id/report', requireAuth, requireSubscription, loadOwnedBaby
     MilestoneAchievement.find({ babyId: baby._id }).sort({ achievedOn: 1 }),
     HealthRecord.find({ babyId: baby._id }).sort({ recordDate: -1 }),
     Appointment.find({ babyId: baby._id }).sort({ scheduledAt: -1 }),
+    ToothLog.find({ babyId: baby._id }).sort({ appearedOn: 1 }),
   ]);
 
   const summary = emptyCounts();
@@ -64,6 +66,7 @@ router.get('/babies/:id/report', requireAuth, requireSubscription, loadOwnedBaby
     milestones: milestones.map((m) => ({ id: m.id, milestoneId: m.milestoneId, label: milestoneById.get(m.milestoneId)?.label ?? m.milestoneId, achievedOn: m.achievedOn })),
     records: records.map((r) => ({ id: r.id, recordType: r.recordType, title: r.title, recordDate: r.recordDate, provider: r.provider ?? null, notes: r.notes ?? null })),
     appointments: appointments.map((a) => ({ id: a.id, scheduledAt: a.scheduledAt, reason: a.reason, completed: a.completed })),
+    teeth: teeth.map((t) => ({ id: t.id, toothId: t.toothId, appearedOn: t.appearedOn })),
   });
 });
 
