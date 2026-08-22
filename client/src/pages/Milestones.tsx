@@ -247,7 +247,7 @@ export default function Milestones() {
       {items === null || summary === null ? (
         <MilestonesSkeleton />
       ) : (
-        <div className="mt-5 grid items-start gap-5 lg:mt-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-6">
+        <div className="mt-5 grid grid-cols-1 items-start gap-5 lg:mt-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-6">
           {/* ── Main column ── */}
           <div className="min-w-0 space-y-6">
             {/* KPIs */}
@@ -314,7 +314,7 @@ export default function Milestones() {
             </div>
 
             {/* Milestone cards */}
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3" data-reveal="">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3" data-reveal="">
               {cards.map((m) => (
                 <MilestoneCard key={m.id} m={m} pending={pendingId === m.id} onToggle={toggle} showAsk={Boolean(id)} askHref={id ? askAssistantLink(id, `My baby hasn't reached "${m.label}" yet. Is that okay at their age, and what can I do to gently help?`) : '#'} />
               ))}
@@ -710,7 +710,7 @@ function DevMilestonesSection({
       {/* Per-domain progress bars */}
       <Card className="mb-5 p-5" data-reveal="">
         <h3 className="mb-4 font-bold text-stone-800">Progress by domain</h3>
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {activeDomains.map((d) => {
             const meta = DEV_DOMAIN_META[d.domain];
             const w = d.total > 0 ? Math.round((d.achieved / d.total) * 100) : 0;
@@ -787,7 +787,7 @@ function DevMilestonesSection({
       )}
 
       {/* Dev milestone cards */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" data-reveal="">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3" data-reveal="">
         {sorted.map((m) => (
           <DevMilestoneCard
             key={m.id}
@@ -951,7 +951,7 @@ function DevMilestoneCard({
 
 function MilestonesSkeleton() {
   return (
-    <div className="mt-5 grid items-start gap-5 lg:mt-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-6">
+    <div className="mt-5 grid grid-cols-1 items-start gap-5 lg:mt-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-6">
       <div className="space-y-6">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {Array.from({ length: 4 }).map((_, i) => (
@@ -959,7 +959,7 @@ function MilestonesSkeleton() {
           ))}
         </div>
         <Card className="p-5"><Skeleton className="h-24 w-full" /></Card>
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
             <Card key={i} className="p-0"><Skeleton className="h-48 w-full" /></Card>
           ))}

@@ -889,3 +889,61 @@ html.lenis body {
     display: table-header-group;
   }
 }
+
+/* ============================================================
+   Horizontal-scroll containers clip their own overflow 📐
+   A `min-w-[…]` table inside `overflow-x-auto` scrolls fine, but any
+   ABSOLUTELY-positioned descendant (notably Tailwind's `.sr-only`, which
+   is `position:absolute`) sits at its static offset deep inside the wide
+   table and is NOT clipped by the scroller — because the scroller isn't
+   its containing block. That phantom element then extends the PAGE width,
+   producing a horizontal scrollbar into blank space on mobile.
+   Giving every horizontal scroller `position:relative` makes it the
+   containing block, so those descendants are clipped by it instead of
+   escaping. `:where()` keeps specificity at 0 so an explicit Tailwind
+   position utility (`absolute`/`sticky`/…) on the same element still wins.
+   ============================================================ */
+:where(.overflow-x-auto, .overflow-x-scroll) {
+  position: relative;
+}
+
+/* ============================================================
+   Touch-device ergonomics 👆
+   This dashboard is being packaged as a mobile app, so on COARSE
+   pointers (real touch screens / phones / tablets) every interactive
+   control gets a ≥44px tap target — the WCAG 2.5.5, Apple HIG and
+   Material minimum. Fine-pointer (mouse) desktop is deliberately left
+   untouched, so dense data tables keep their compact rows on the web.
+
+   We use `min-height` (a floor), never `height`: it lifts small
+   controls up to 44px without shrinking anything already taller, and
+   — being a different property from Tailwind's `h-*` (height) utilities
+   — it always applies regardless of class specificity. Checkbox / radio
+   / range / hidden inputs are excluded so they keep their native size.
+   ============================================================ */
+@media (pointer: coarse) {
+  button,
+  [role="button"],
+  a[href],
+  select,
+  textarea,
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="hidden"]) {
+    min-height: 44px;
+  }
+  /* `a[href]` above is broad ON PURPOSE: `min-height` is inert on
+     `display:inline` elements, so inline text links (breadcrumbs, "read
+     more") keep their natural size, while button-, card- and tile-style
+     links (flex / block / inline-block) — many of which are inline-styled
+     with no utility class — get lifted to a 44px tap target. */
+
+  /* Square icon-only buttons (h-7/h-8 w-7/w-8) get a matching 44px-wide
+     hit area so they aren't a sliver to tap. Width-constrained utilities
+     set `width`, so a `min-width` floor lifts them the same way. Buttons
+     that stretch (w-full / flex-1) or carry text are left to the layout. */
+  button[class*="w-7"]:not([class*="w-full"]),
+  button[class*="w-8"]:not([class*="w-full"]),
+  button[class*="w-9"]:not([class*="w-full"]),
+  [role="button"][class*="w-8"] {
+    min-width: 44px;
+  }
+}

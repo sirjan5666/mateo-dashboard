@@ -49,7 +49,7 @@ export function QuickViewModal({ product, onClose, onAdd }: { product: ShopProdu
 
   return createPortal(
     <div onClick={onClose} className="fixed inset-0 z-[80] grid place-items-center bg-stone-900/50 p-5" role="dialog" aria-modal="true" aria-label={`Quick view: ${product.name}`}>
-      <div ref={panelRef} onClick={(e) => e.stopPropagation()} className="animate-popin relative grid w-full max-w-[560px] gap-5 rounded-[26px] bg-white p-5 shadow-lift sm:grid-cols-[200px_minmax(0,1fr)] sm:p-6">
+      <div ref={panelRef} onClick={(e) => e.stopPropagation()} className="animate-popin relative grid w-full max-w-[560px] grid-cols-1 gap-5 rounded-[26px] bg-white p-5 shadow-lift sm:grid-cols-[200px_minmax(0,1fr)] sm:p-6">
         <button type="button" onClick={onClose} aria-label="Close" className="absolute right-3 top-3 z-[1] grid h-8 w-8 place-items-center rounded-full bg-white/85 text-stone-600 shadow-soft backdrop-blur transition-colors hover:bg-white">
           <X className="h-4 w-4" />
         </button>

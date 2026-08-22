@@ -163,7 +163,7 @@ export default function AdminParents() {
       {showForm && (
         <Card className="mt-5 p-5">
           <h2 className="font-bold text-stone-800">{editingId ? 'Edit parent' : 'New parent account'}</h2>
-          <form onSubmit={handleSubmit} className="mt-3 grid gap-3 sm:grid-cols-2">
+          <form onSubmit={handleSubmit} className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label htmlFor="pname" className="block text-sm font-medium text-stone-700">Name</label>
               <input id="pname" required value={name} onChange={(e) => setName(e.target.value)} className={inputCls} />

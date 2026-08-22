@@ -224,7 +224,7 @@ export default function AdminDoctors() {
         <Card className="mt-5 p-5">
           <h2 className="font-bold text-stone-800">{editingId ? 'Edit doctor' : 'New doctor account'}</h2>
           <form onSubmit={handleSubmit} className="mt-3 space-y-4">
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <label htmlFor="dname" className="block text-sm font-medium text-stone-700">Name</label>
                 <input id="dname" required value={name} onChange={(e) => setName(e.target.value)} className={inputCls} />

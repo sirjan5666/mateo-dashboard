@@ -81,12 +81,12 @@ export default function MyHealth() {
     return (
       <div className="space-y-5">
         <Skeleton className="h-32 w-full rounded-[var(--card-radius)]" />
-        <div className="grid gap-3.5 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-3">
           {[0, 1, 2].map((i) => (
             <Skeleton key={i} className="h-24 w-full rounded-[var(--card-radius)]" />
           ))}
         </div>
-        <div className="grid gap-5 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
           <Card className="p-5 sm:p-6 lg:col-span-2">
             <SkeletonRows n={4} />
           </Card>
@@ -130,7 +130,7 @@ export default function MyHealth() {
       </Card>
 
       {/* Quick stats */}
-      <div className="grid gap-3.5 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-3">
         <StatTile
           icon={CalendarClock}
           label="Next appointment"
@@ -148,7 +148,7 @@ export default function MyHealth() {
         <StatTile icon={Stethoscope} label="Visit notes" value={`${encounters.length} recorded`} sub={encounters[0] ? `Last on ${fmtDate(encounters[0].date)}` : 'No visits yet'} tone="emerald" />
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
         {/* Left: medications + visit notes */}
         <div className="min-w-0 space-y-5 lg:col-span-2">
           <SectionCard title="My medications" icon={PillIcon}>
