@@ -2,17 +2,43 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { env } from '../config/env.js';
 import { hasActiveSubscription } from '../models/User.js';
-import type { SubscriptionPlan } from '../models/User.js';
+import type { IUser, SubscriptionPlan } from '../models/User.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { createRazorpayOrder, razorpayConfigured, verifyPaymentSignature } from '../lib/razorpay.js';
+import { Baby } from '../models/Baby.js';
 
 // The Mateo plan — prices are PLACEHOLDERS to be replaced with the real MRP
 // (same convention as the shop catalog). Amounts live ONLY on the server; the
 // client never supplies a price.
-export const SUBSCRIPTION_PLANS: Record<SubscriptionPlan, { amountInr: number; days: number; label: string }> = {
-  monthly: { amountInr: 199, days: 30, label: 'Monthly' },
-  yearly: { amountInr: 1499, days: 365, label: 'Yearly' },
+export const SUBSCRIPTION_PLANS: Record<SubscriptionPlan, { amountInr: number; days: number; label: string; maxBabies: number }> = {
+  monthly: { amountInr: 199, days: 30, label: 'Monthly', maxBabies: 1 },
+  yearly: { amountInr: 1499, days: 365, label: 'Yearly', maxBabies: 3 },
 };
+
+/** Baby limit for grandfathered (no subscription sub-doc) and mateo-source accounts. */
+export const GRANDFATHERED_MAX_BABIES = 5;
+
+/**
+ * Determine the maximum number of babies a user may add.
+ * - Doctors and admins: unlimited (returns Infinity).
+ * - Parents with no subscription sub-doc (grandfathered): GRANDFATHERED_MAX_BABIES.
+ * - Parents with an active plan: the plan's maxBabies.
+ * - Parents with an inactive/expired plan: monthly limit (1) as the baseline.
+ */
+export function getMaxBabies(user: Pick<IUser, 'role' | 'subscription'>): number {
+  if (user.role !== 'parent') return Infinity;
+  const sub = user.subscription;
+  // Grandfathered — pre-paywall account (no subscription sub-doc at all)
+  if (!sub) return GRANDFATHERED_MAX_BABIES;
+  // Mateo-source active accounts get the grandfathered limit
+  if (sub.source === 'mateo' && hasActiveSubscription(user)) return GRANDFATHERED_MAX_BABIES;
+  // Active plan with a known tier
+  if (hasActiveSubscription(user) && sub.plan) {
+    return SUBSCRIPTION_PLANS[sub.plan]?.maxBabies ?? SUBSCRIPTION_PLANS.monthly.maxBabies;
+  }
+  // Inactive or no plan — baseline
+  return SUBSCRIPTION_PLANS.monthly.maxBabies;
+}
 
 const checkoutSchema = z.object({ plan: z.enum(['monthly', 'yearly']) });
 const verifySchema = z.object({
@@ -33,12 +59,16 @@ function publicSubscription(user: { role: 'parent' | 'doctor' | 'admin' | 'patie
 const router = Router();
 
 // Current subscription state + the plan table the subscribe page renders.
-router.get('/subscription', requireAuth, requireRole('parent', 'admin'), (req, res) => {
+router.get('/subscription', requireAuth, requireRole('parent', 'admin'), async (req, res) => {
   const user = req.authUser!;
+  const maxBabies = getMaxBabies(user);
+  const currentBabyCount = user.role === 'parent' ? await Baby.countDocuments({ userId: req.userId }) : 0;
   res.json({
     subscription: publicSubscription(user),
     plans: SUBSCRIPTION_PLANS,
     razorpayConfigured: razorpayConfigured(),
+    maxBabies: Number.isFinite(maxBabies) ? maxBabies : null,
+    currentBabyCount,
   });
 });
 

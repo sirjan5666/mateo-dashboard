@@ -27,6 +27,8 @@ export interface IConsultation {
   reason: string;
   status: ConsultationStatus;
   payment: IConsultationPayment;
+  // Parent-attached photo (e.g. rash/symptom snapshot) — local-disk filename.
+  photoFile?: string;
   // Doctor-supplied video-call link (e.g. Google Meet). Parent gets a "Join now".
   meetLink?: string;
   createdAt: Date;
@@ -54,6 +56,7 @@ const consultationSchema = new Schema<IConsultation>(
     slotStart: { type: Date, required: true },
     slotEnd: { type: Date, required: true },
     reason: { type: String, default: '', trim: true },
+    photoFile: { type: String, trim: true },
     status: { type: String, enum: CONSULTATION_STATUSES, default: 'booked', index: true },
     payment: { type: paymentSchema, required: true },
     meetLink: { type: String, trim: true },

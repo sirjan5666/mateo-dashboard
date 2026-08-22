@@ -21,6 +21,10 @@ export function getSubscription() {
     subscription: SubscriptionState;
     plans: Record<SubscriptionPlanKey, SubscriptionPlanInfo>;
     razorpayConfigured: boolean;
+    /** Max babies the user's plan allows; null for non-parents / unlimited. */
+    maxBabies: number | null;
+    /** How many babies this user currently has. */
+    currentBabyCount: number;
   }>('/subscription');
 }
 

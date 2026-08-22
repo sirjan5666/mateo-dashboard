@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import {
   AlertTriangle,
@@ -16,6 +16,7 @@ import {
   Sparkles,
   Star,
   Stethoscope,
+  X,
 } from 'lucide-react';
 import { getDoctorReviews, getDoctorSlots, listDoctors } from '../api/doctors';
 import type { DaySlots, DoctorAvailability, DoctorListing, DoctorReview } from '../api/doctors';
@@ -392,6 +393,8 @@ export default function FindDoctor() {
 
   const [concern, setConcern] = useState<ConcernCheck | null>(null);
   const [checking, setChecking] = useState(false);
+  const [photo, setPhoto] = useState<File | null>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -543,7 +546,7 @@ export default function FindDoctor() {
           /* concern check unavailable — proceed; the server backstop re-checks */
         }
       }
-      await bookConsultation({ doctorId: selectedId, babyId: babyId || undefined, slotStart: slot, reason: reason.slice(0, REASON_MAX) });
+      await bookConsultation({ doctorId: selectedId, babyId: babyId || undefined, slotStart: slot, reason: reason.slice(0, REASON_MAX), photo: photo ?? undefined });
       navigate('/consultations');
     } catch (e) {
       if (e instanceof ApiError && e.status === 422) {
@@ -785,14 +788,65 @@ export default function FindDoctor() {
                 className={cn(inputCls, 'resize-none')}
               />
               <div className="mt-1.5 flex items-center justify-between">
-                <button type="button" disabled title="Photo upload coming soon" className="inline-flex cursor-not-allowed items-center gap-1 text-xs text-stone-300">
-                  <Paperclip className="h-3.5 w-3.5" />
-                  Attach photo
-                </button>
+                <div className="flex items-center gap-2">
+                  <input
+                    ref={photoInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        if (file.size > 5 * 1024 * 1024) {
+                          setBookError('Photo must be under 5 MB');
+                          e.target.value = '';
+                          return;
+                        }
+                        setPhoto(file);
+                      }
+                      e.target.value = '';
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => photoInputRef.current?.click()}
+                    className="inline-flex items-center gap-1 text-xs text-stone-500 transition-colors hover:text-stone-800"
+                  >
+                    <Paperclip className="h-3.5 w-3.5" />
+                    {photo ? 'Change photo' : 'Attach photo'}
+                  </button>
+                  {photo && (
+                    <button
+                      type="button"
+                      onClick={() => setPhoto(null)}
+                      className="inline-flex items-center gap-0.5 text-xs text-rose-500 transition-colors hover:text-rose-700"
+                    >
+                      <X className="h-3 w-3" />
+                      Remove
+                    </button>
+                  )}
+                </div>
                 <span className={cn('text-xs tabular-nums', overCap ? 'text-rose-600' : nearCap ? 'text-amber-600' : 'text-stone-400')}>
                   {chars}/{REASON_MAX}
                 </span>
               </div>
+              {photo && (
+                <div className="relative mt-2 inline-block">
+                  <img
+                    src={URL.createObjectURL(photo)}
+                    alt="Attached photo preview"
+                    className="h-20 w-20 rounded-lg border border-stone-200 object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setPhoto(null)}
+                    className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-stone-700 text-white shadow-sm transition-colors hover:bg-rose-600"
+                    aria-label="Remove photo"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              )}
               <p className="mt-1.5 flex items-center gap-1 text-xs text-stone-400">
                 <ShieldCheck className="h-3 w-3" />
                 {checking ? 'Checking your note for anything urgent…' : 'We quietly check your note for anything that needs urgent care.'}

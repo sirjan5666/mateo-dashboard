@@ -1,4 +1,4 @@
-import { api } from './client';
+import { api, apiForm } from './client';
 
 export type ConsultationStatus = 'booked' | 'completed' | 'cancelled';
 
@@ -10,6 +10,7 @@ export interface Consultation {
   status: ConsultationStatus;
   payment: { amount: number; status: 'paid' | 'pending'; method: string; paidAt?: string };
   meetLink: string | null;
+  photoUrl: string | null;
   doctor: { profileId: string; name: string };
   parent: { name: string };
   baby: { id: string; name: string | null } | null;
@@ -21,10 +22,25 @@ export interface BookInput {
   babyId?: string;
   slotStart: string; // ISO
   reason?: string;
+  photo?: File;
 }
 
 export function bookConsultation(input: BookInput) {
-  return api<{ consultation: Consultation }>('/consultations', { method: 'POST', body: JSON.stringify(input) });
+  // When a photo is attached, send multipart/form-data instead of JSON.
+  if (input.photo) {
+    const form = new FormData();
+    form.append('doctorId', input.doctorId);
+    if (input.babyId) form.append('babyId', input.babyId);
+    form.append('slotStart', input.slotStart);
+    if (input.reason) form.append('reason', input.reason);
+    form.append('photo', input.photo);
+    return apiForm<{ consultation: Consultation }>('/consultations', form);
+  }
+  // No photo — plain JSON (backward-compatible path).
+  const body: Record<string, unknown> = { doctorId: input.doctorId, slotStart: input.slotStart };
+  if (input.babyId) body.babyId = input.babyId;
+  if (input.reason) body.reason = input.reason;
+  return api<{ consultation: Consultation }>('/consultations', { method: 'POST', body: JSON.stringify(body) });
 }
 
 export interface ConcernCheck {

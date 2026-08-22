@@ -79,12 +79,13 @@ export async function eraseUserData(userId: string): Promise<void> {
   await DoctorProfile.deleteOne({ userId });
 
   // Consultations the user is part of (parent or doctor) + their chat + Rx.
-  const myConsults = await Consultation.find({ $or: [{ parentUserId: userId }, { doctorUserId: userId }] }).select('_id');
+  const myConsults = await Consultation.find({ $or: [{ parentUserId: userId }, { doctorUserId: userId }] }).select('_id photoFile');
   const consultIds = myConsults.map((c) => c._id);
   const chatMsgs = await ConsultationMessage.find({ consultationId: { $in: consultIds } });
-  await Promise.all(
-    chatMsgs.filter((m) => m.imageFile).map((m) => unlink(path.join(uploadsDir, m.imageFile!)).catch(() => {})),
-  );
+  await Promise.all([
+    ...chatMsgs.filter((m) => m.imageFile).map((m) => unlink(path.join(uploadsDir, m.imageFile!)).catch(() => {})),
+    ...myConsults.filter((c) => c.photoFile).map((c) => unlink(path.join(uploadsDir, c.photoFile!)).catch(() => {})),
+  ]);
   await ConsultationMessage.deleteMany({ consultationId: { $in: consultIds } });
   await Prescription.deleteMany({ $or: [{ parentUserId: userId }, { doctorUserId: userId }] });
   await DoctorReview.deleteMany({ $or: [{ parentUserId: userId }, { doctorUserId: userId }] });

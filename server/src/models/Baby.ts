@@ -23,6 +23,10 @@ export interface IBaby {
   knownAllergies?: string[];
   pediatricianName?: string;
   pediatricianPhone?: string;
+  // Parent heights for mid-parental height (MPH) growth reference. Stored per baby
+  // because each child can have a different co-parent. Range 100-250 cm.
+  motherHeightCm?: number;
+  fatherHeightCm?: number;
   // Onboarding feeding baseline: the date solids were first introduced. Absent means
   // "not started" (exclusively breastfeeding). Drives the nutrition journey + the
   // 6-month "ready to start solids?" nudge. Guidance stays breastfeeding-first / IMS-compliant.
@@ -47,6 +51,8 @@ const babySchema = new Schema<IBaby>(
     knownAllergies: { type: [String], default: undefined },
     pediatricianName: { type: String, trim: true },
     pediatricianPhone: { type: String, trim: true },
+    motherHeightCm: { type: Number, min: 100, max: 250 },
+    fatherHeightCm: { type: Number, min: 100, max: 250 },
     solidsStartedOn: { type: Date },
   },
   { timestamps: { createdAt: true, updatedAt: false } },

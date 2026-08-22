@@ -110,6 +110,7 @@ export default function BabyOnboarding() {
   const [babyId, setBabyId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [errorCode, setErrorCode] = useState<string | undefined>();
   const [softNote, setSoftNote] = useState<string | null>(null);
 
   // Step 0 — basics
@@ -273,6 +274,7 @@ export default function BabyOnboarding() {
       setStep((n) => Math.min(n + 1, STEPS.length - 1));
     } catch (err) {
       setError(msg(err));
+      setErrorCode(err instanceof ApiError ? err.code : undefined);
     } finally {
       setBusy(false);
     }
@@ -629,7 +631,16 @@ export default function BabyOnboarding() {
           </div>
         )}
 
-        {error && <p className="mt-4 text-sm text-rose-600">{error}</p>}
+        {error && (
+          <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50/60 px-4 py-3">
+            <p className="text-sm font-medium text-rose-700">{error}</p>
+            {errorCode === 'baby_limit_reached' && (
+              <Link to="/subscribe" className="mt-1.5 inline-flex items-center gap-1 text-sm font-bold hover:underline" style={{ color: 'var(--primary)' }}>
+                View plans &rarr;
+              </Link>
+            )}
+          </div>
+        )}
         {softNote && <p className="mt-4 rounded-xl bg-amber-50 px-3.5 py-2.5 text-sm text-amber-800">{softNote}</p>}
 
         {/* Nav */}
