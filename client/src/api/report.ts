@@ -37,6 +37,7 @@ export interface BabyReport {
   milestones: { id: string; milestoneId: string; label: string; achievedOn: string }[];
   records: { id: string; recordType: string; title: string; recordDate: string; provider: string | null; notes: string | null }[];
   appointments: { id: string; scheduledAt: string; reason: string; completed: boolean }[];
+  teeth: { id: string; toothId: string; appearedOn: string }[];
 }
 
 export function getBabyReport(babyId: string) {
