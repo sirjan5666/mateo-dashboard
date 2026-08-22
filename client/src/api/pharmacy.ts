@@ -173,9 +173,11 @@ export interface PurchaseLineInput {
   batch: string;
   expiry?: string;
   qty: number;
+  freeQty?: number;
   rate: number;
   mrp: number;
   gstPct: number;
+  discPct?: number;
 }
 
 export interface PurchaseInput {

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Loader2, Sun } from 'lucide-react';
+import { Loader2, Stethoscope, Sun } from 'lucide-react';
 import { useAuth } from '../../auth/context';
 import { useActiveLocation } from '../../lib/doctorLocation';
 import { subtitleFor } from '../../data/doctorDashboard';
@@ -238,6 +238,27 @@ export default function Dashboard() {
         <NewVsReturning data={visitTrend} />
         <div className="flex flex-col gap-5">
           <TodaysSchedule rows={overview?.today ?? []} />
+          {/* Consultation summary alongside today's schedule */}
+          {overview && (
+            <div className="rounded-[14px] border border-[#ECEEF4] bg-white px-5 py-4 shadow-[0_1px_2px_rgba(16,24,40,.04)]">
+              <div className="flex items-center gap-2">
+                <Stethoscope className="h-4 w-4 text-[#4F46E5]" />
+                <h2 className="font-display text-[15px] font-bold tracking-[-0.01em] text-[#0F172A]">Consultations</h2>
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-3">
+                <div className="rounded-[10px] bg-[#F0EFFE] px-3.5 py-2.5">
+                  <p className="text-[20px] font-extrabold text-[#4F46E5]">{overview.counts.weekEncounters}</p>
+                  <p className="mt-0.5 text-[11px] font-medium text-[#64748B]">This week</p>
+                </div>
+                <div className="rounded-[10px] bg-[#ECFAF1] px-3.5 py-2.5">
+                  <p className="text-[20px] font-extrabold text-[#12A150]">
+                    {overview.statusBreakdown.find((s) => s.status === 'completed')?.count ?? 0}
+                  </p>
+                  <p className="mt-0.5 text-[11px] font-medium text-[#64748B]">Completed today</p>
+                </div>
+              </div>
+            </div>
+          )}
           <AlertsReminders alerts={alerts} />
         </div>
       </div>

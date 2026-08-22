@@ -15,6 +15,7 @@ export interface ClinicLocationDto {
   /** Statutory identifiers printed on pharmacy invoices; null when unset. */
   drugLicenceNo: string | null;
   gstin: string | null;
+  upiVpa: string | null;
   isPrimary: boolean;
   active: boolean;
   hue: string;
@@ -39,6 +40,7 @@ export interface LocationInput {
   openingHours?: string;
   drugLicenceNo?: string;
   gstin?: string;
+  upiVpa?: string;
   isPrimary?: boolean;
 }
 

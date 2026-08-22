@@ -133,9 +133,6 @@ export function AlertsReminders({ alerts }: { alerts: AlertRow[] }) {
       <div className="flex items-center gap-2.5 px-5 pt-5">
         <BellRing className="h-4 w-4 shrink-0 text-[#EF4444]" />
         <h2 className="font-display text-[15px] font-bold leading-5 tracking-[-0.01em] text-[#0F172A]">Alerts &amp; Reminders</h2>
-        <span className="ml-auto">
-          <LinkArrow to="/doctor/appointments" label="View all" />
-        </span>
       </div>
 
       {alerts.length === 0 && (

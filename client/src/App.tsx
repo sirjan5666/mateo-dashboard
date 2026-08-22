@@ -46,6 +46,7 @@ import NewBill from './pages/pharmacy/NewBill';
 import BillSuccess from './pages/pharmacy/BillSuccess';
 import DoctorProfileForm from './pages/doctor/DoctorProfileForm';
 import ReportsAnalytics from './pages/doctor/ReportsAnalytics';
+import LabOrders from './pages/doctor/LabOrders';
 import BillingInvoices from './pages/doctor/BillingInvoices';
 import InvoicePrint from './pages/doctor/InvoicePrint';
 import AppointmentsPage from './pages/doctor/AppointmentsPage';
@@ -147,6 +148,7 @@ function AppRoutes() {
           <Route path="/doctor/prescriptions/:id" element={<PrescriptionPrint />} />
           <Route path="/doctor/consultations/:id" element={<ConsultationDetails />} />
           <Route path="/doctor/charts" element={<ReportsAnalytics />} />
+          <Route path="/doctor/lab" element={<LabOrders />} />
           <Route path="/doctor/pharmacy" element={<PharmacyInventory />} />
           <Route path="/doctor/pharmacy/purchase" element={<NewPurchaseEntry />} />
           <Route path="/doctor/pharmacy/billing" element={<NewBill />} />

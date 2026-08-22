@@ -490,9 +490,11 @@ const purchaseSchema = z.object({
     batch: z.string().trim().min(1).max(40),
     expiry: z.string().max(20).optional().or(z.literal('')),
     qty: z.number().int().min(1).max(1_000_000),
+    freeQty: z.number().int().min(0).max(1_000_000).optional(),
     rate: z.number().min(0).max(1_000_000),
     mrp: z.number().min(0).max(1_000_000),
     gstPct: z.number().min(0).max(28),
+    discPct: z.number().min(0).max(100).optional(),
   })).min(1).max(100),
   discount: z.number().min(0).max(10_000_000).optional(),
   amountPaid: z.number().min(0).max(10_000_000).optional(),
@@ -539,8 +541,8 @@ router.post('/purchases', auditAccess('pharmacy'), async (req, res) => {
    * which is tax-inclusive, so tax is EXTRACTED there. Both are correct; do not
    * "align" them.
    */
-  const subtotal = round2(body.items.reduce((t, i) => t + i.qty * i.rate, 0));
-  const gstAmount = round2(body.items.reduce((t, i) => t + (i.qty * i.rate * i.gstPct) / 100, 0));
+  const subtotal = round2(body.items.reduce((t, i) => t + i.qty * i.rate * (1 - (i.discPct ?? 0) / 100), 0));
+  const gstAmount = round2(body.items.reduce((t, i) => t + (i.qty * i.rate * (1 - (i.discPct ?? 0) / 100) * i.gstPct) / 100, 0));
   const discount = round2(body.discount ?? 0);
   const grandTotal = round2(subtotal + gstAmount - discount);
   if (grandTotal < 0) {
@@ -560,7 +562,8 @@ router.post('/purchases', auditAccess('pharmacy'), async (req, res) => {
     items: body.items.map((i) => ({
       sku: i.sku.toUpperCase(), name: i.name, batch: i.batch.toUpperCase(),
       expiry: i.expiry ? new Date(i.expiry) : undefined,
-      qty: i.qty, rate: i.rate, mrp: i.mrp, gstPct: i.gstPct,
+      qty: i.qty, freeQty: i.freeQty ?? 0, rate: i.rate, mrp: i.mrp, gstPct: i.gstPct,
+      discPct: i.discPct ?? 0,
     })),
     subtotal, gstAmount, discount, grandTotal, amountPaid,
     paymentMode: body.paymentMode ?? 'cash',
@@ -574,7 +577,7 @@ router.post('/purchases', auditAccess('pharmacy'), async (req, res) => {
     const med = await Medicine.findOneAndUpdate(
       scopeToDoctor(req, { sku: line.sku, batch: line.batch }),
       {
-        $inc: { qtyInStock: line.qty },
+        $inc: { qtyInStock: line.qty + line.freeQty },
         $set: {
           name: line.name, purchaseRate: line.rate, mrp: line.mrp, gstPct: line.gstPct,
           distributorId: distributor._id, active: true,
@@ -590,7 +593,7 @@ router.post('/purchases', auditAccess('pharmacy'), async (req, res) => {
       await med.save();
     }
     await StockMovement.create({
-      doctorUserId: req.userId, medicineId: med._id, delta: line.qty,
+      doctorUserId: req.userId, medicineId: med._id, delta: line.qty + line.freeQty,
       balanceAfter: med.qtyInStock, reason: 'purchase', refType: 'purchase', refId: purchase._id,
       note: `Purchase ${purchase.invoiceNo}`,
     });

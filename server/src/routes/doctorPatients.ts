@@ -83,6 +83,7 @@ function publicPatient(p: HydratedDocument<IPatient>) {
     emergencyPhone: decryptOptional(p.emergencyPhone) ?? null,
     birthWeightKg: p.birthWeightKg ?? null,
     birthHeightCm: p.birthHeightCm ?? null,
+    birthHeadCircumferenceCm: p.birthHeadCircumferenceCm ?? null,
     deliveryType: p.deliveryType ?? null,
     gestationalAgeWeeks: p.gestationalAgeWeeks ?? null,
     status: p.status,
@@ -143,7 +144,7 @@ const DEMOGRAPHIC_TEXT = [
   'guardianName', 'guardianRelationship', 'guardianPhone', 'guardianEmail',
   'emergencyName', 'emergencyRelationship', 'emergencyPhone', 'deliveryType',
 ] as const;
-const DEMOGRAPHIC_NUM = ['birthWeightKg', 'birthHeightCm', 'gestationalAgeWeeks'] as const;
+const DEMOGRAPHIC_NUM = ['birthWeightKg', 'birthHeightCm', 'birthHeadCircumferenceCm', 'gestationalAgeWeeks'] as const;
 
 const demographicSchema = {
   address: z.string().max(300).optional(),
@@ -162,6 +163,7 @@ const demographicSchema = {
   emergencyPhone: z.string().max(40).optional(),
   birthWeightKg: z.number().min(0).max(12).optional(),
   birthHeightCm: z.number().min(0).max(80).optional(),
+  birthHeadCircumferenceCm: z.number().min(0).max(60).optional(),
   deliveryType: z.string().max(40).optional(),
   gestationalAgeWeeks: z.number().min(20).max(45).optional(),
 };

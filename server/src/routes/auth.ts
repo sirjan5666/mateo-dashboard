@@ -3,6 +3,7 @@ import bcrypt from 'bcrypt';
 import { z } from 'zod';
 import { User, hasActiveSubscription } from '../models/User.js';
 import type { IUser } from '../models/User.js';
+import { DoctorProfile } from '../models/DoctorProfile.js';
 import { AUTH_COOKIE, requireAuth, setAuthCookie } from '../middleware/auth.js';
 import { loginRateLimiter } from '../middleware/security.js';
 
@@ -11,22 +12,25 @@ const loginSchema = z.object({
   password: z.string().min(1),
 });
 
-function publicUser(user: IUser & { id: string }, impersonating = false) {
+async function publicUser(user: IUser & { id: string }, impersonating = false) {
+  let specialization: string | undefined;
+  if (user.role === 'doctor') {
+    const profile = await DoctorProfile.findOne({ userId: user.id }).select('specialization').lean();
+    if (profile) specialization = profile.specialization;
+  }
   return {
     id: user.id,
     name: user.name,
     email: user.email,
     role: user.role,
     consentAcceptedAt: user.consentAcceptedAt,
-    // DPDP: doctor-invited parents confirm consent on first login before the app
-    // shows any of the child's data.
     consentPending: user.consentPending === true,
-    // Paid-plan state the client gates trackers on (server enforces separately).
     subscribed: hasActiveSubscription(user),
     subscriptionSource: user.subscription?.source ?? (user.role === 'parent' ? 'mateo' : undefined),
     subscriptionPlan: user.subscription?.plan,
     subscriptionExpiresAt: user.subscription?.expiresAt,
     createdAt: user.createdAt,
+    specialization,
     impersonating,
   };
 }
@@ -48,7 +52,7 @@ router.post('/login', loginRateLimiter, async (req, res) => {
     return;
   }
   setAuthCookie(res, user.id);
-  res.json({ user: publicUser(user) });
+  res.json({ user: await publicUser(user) });
 });
 
 router.post('/logout', (_req, res) => {
@@ -62,10 +66,9 @@ router.get('/me', requireAuth, async (req, res) => {
     res.status(401).json({ error: 'Not authenticated' });
     return;
   }
-  res.json({ user: publicUser(user, !!req.impersonatorId) });
+  res.json({ user: await publicUser(user, !!req.impersonatorId) });
 });
 
-// End an admin impersonation session — re-issue the admin's own session.
 router.post('/stop-impersonating', requireAuth, async (req, res) => {
   if (!req.impersonatorId) {
     res.status(400).json({ error: 'Not impersonating' });
@@ -77,7 +80,7 @@ router.post('/stop-impersonating', requireAuth, async (req, res) => {
     return;
   }
   setAuthCookie(res, admin.id);
-  res.json({ user: publicUser(admin) });
+  res.json({ user: await publicUser(admin) });
 });
 
 export default router;

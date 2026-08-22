@@ -160,5 +160,6 @@ export function useBillingClinic() {
     email: clinic?.email ?? '',
     licence: clinic?.drugLicenceNo ?? '',
     gstin: clinic?.gstin ?? '',
+    upiVpa: clinic?.upiVpa ?? '',
   };
 }

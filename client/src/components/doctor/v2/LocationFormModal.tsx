@@ -31,7 +31,7 @@ function validate(v: LocationInput): Errors {
 
 const BLANK: LocationInput = {
   name: '', code: '', addressLine: '', city: '', state: '', pincode: '',
-  phone: '', email: '', services: [], openingHours: '', drugLicenceNo: '', gstin: '',
+  phone: '', email: '', services: [], openingHours: '', drugLicenceNo: '', gstin: '', upiVpa: '',
 };
 
 /** Add New Location, and the same form in edit mode from the row menu. */
@@ -59,6 +59,7 @@ function LocationForm({
           phone: editing.phone ?? '', email: editing.email ?? '',
           services: editing.services, openingHours: editing.openingHours ?? '',
           drugLicenceNo: editing.drugLicenceNo ?? '', gstin: editing.gstin ?? '',
+          upiVpa: editing.upiVpa ?? '',
         }
       : BLANK,
   );
@@ -221,6 +222,13 @@ function LocationForm({
               <input id="lf-gstin" value={form.gstin} onChange={(e) => set('gstin', e.target.value.toUpperCase())}
                 placeholder="15-character GSTIN" {...inputProps('gstin')} />
             </div>
+          </div>
+
+          <div className="mt-4">
+            <label htmlFor="lf-upi" className={LABEL}>UPI VPA (for QR on invoices)</label>
+            <input id="lf-upi" value={form.upiVpa} onChange={(e) => set('upiVpa', e.target.value)}
+              placeholder="clinic@upi or 9876543210@paytm" {...inputProps('upiVpa')} />
+            <p className="mt-1.5 text-[11.5px] text-[#94A3B8]">Printed as a scannable QR code on pharmacy invoices.</p>
           </div>
 
           <fieldset className="mt-4">

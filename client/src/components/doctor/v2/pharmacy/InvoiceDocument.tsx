@@ -205,6 +205,34 @@ export function InvoiceDocument({
         </section>
       </div>
 
+      {/* ── UPI Payment ── */}
+      {clinic.upiVpa && (
+        <div className="mt-4 flex items-center gap-4 rounded-[10px] border border-[#E6EAF2] px-4 py-3">
+          <div className="grid h-[56px] w-[56px] shrink-0 place-items-center rounded-[8px] border border-[#E2E6F0] bg-[#F7F9FD]">
+            <svg viewBox="0 0 24 24" className="h-7 w-7" fill="none" stroke={NAVY} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="3" width="7" height="7" rx="1" />
+              <rect x="14" y="3" width="7" height="7" rx="1" />
+              <rect x="3" y="14" width="7" height="7" rx="1" />
+              <rect x="14" y="14" width="3" height="3" />
+              <line x1="21" y1="14" x2="21" y2="14.01" />
+              <line x1="21" y1="21" x2="21" y2="21.01" />
+              <line x1="17" y1="18" x2="21" y2="18" />
+            </svg>
+          </div>
+          <div className="min-w-0">
+            <p className="text-[10.5px] font-extrabold uppercase tracking-[0.06em]" style={{ color: NAVY }}>Pay via UPI</p>
+            <p className="mt-1 text-[12px] font-bold text-[#0F172A]">{clinic.upiVpa}</p>
+            <p className="mt-0.5 text-[10px] text-[#64748B]">Scan or enter this UPI ID in any payment app</p>
+          </div>
+          {totals.payable > 0 && (
+            <div className="ml-auto shrink-0 text-right">
+              <p className="text-[10px] font-medium text-[#64748B]">Amount</p>
+              <p className="text-[14px] font-extrabold" style={{ color: NAVY }}>{money(totals.payable)}</p>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* ── Note ── */}
       <div className="mt-4 rounded-[8px] bg-[#F7F9FD] px-4 py-3">
         <p className="text-[10px] font-bold uppercase tracking-[0.05em] text-[#64748B]">Note:</p>

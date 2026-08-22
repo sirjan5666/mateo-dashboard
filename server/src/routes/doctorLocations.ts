@@ -50,6 +50,7 @@ function shape(loc: NonNullable<LocationDoc>, teamMembers = 0, stats: LocStats =
     openingHours: loc.openingHours ?? null,
     drugLicenceNo: loc.drugLicenceNo ?? null,
     gstin: loc.gstin ?? null,
+    upiVpa: loc.upiVpa ?? null,
     isPrimary: loc.isPrimary,
     active: loc.active,
     hue: loc.hue,
@@ -137,6 +138,7 @@ const upsertSchema = z.object({
   openingHours: z.string().trim().max(120).optional().or(z.literal('')),
   drugLicenceNo: z.string().trim().max(40).optional().or(z.literal('')),
   gstin: z.string().trim().max(20).optional().or(z.literal('')),
+  upiVpa: z.string().trim().max(80).optional().or(z.literal('')),
   isPrimary: z.boolean().optional(),
 });
 
@@ -242,6 +244,7 @@ router.post('/locations', auditAccess('location'), async (req, res) => {
     openingHours: body.openingHours || undefined,
     drugLicenceNo: body.drugLicenceNo || undefined,
     gstin: body.gstin ? body.gstin.toUpperCase() : undefined,
+    upiVpa: body.upiVpa || undefined,
     isPrimary: makePrimary,
     active: true,
     hue: HUES[existing % HUES.length],
@@ -276,6 +279,7 @@ router.patch('/locations/:id', auditAccess('location'), async (req, res) => {
   if (body.openingHours !== undefined) patch.openingHours = body.openingHours || undefined;
   if (body.drugLicenceNo !== undefined) patch.drugLicenceNo = body.drugLicenceNo || undefined;
   if (body.gstin !== undefined) patch.gstin = body.gstin ? body.gstin.toUpperCase() : undefined;
+  if (body.upiVpa !== undefined) patch.upiVpa = body.upiVpa || undefined;
 
   Object.assign(loc, patch);
   await loc.save();

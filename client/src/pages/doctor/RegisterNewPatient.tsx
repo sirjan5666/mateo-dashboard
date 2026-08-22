@@ -5,7 +5,7 @@ import { createAppointment } from '../../api/doctorAppointments';
 import { ApiError } from '../../api/client';
 import { useActiveLocation } from '../../lib/doctorLocation';
 import { ArrowLeft, Building2, CalendarClock, Calendar, ChevronDown, Info, Loader2, ShieldCheck, UploadCloud, X } from 'lucide-react';
-import { BLOOD_GROUPS, DELIVERY_TYPES, MARITAL_STATUSES, RELATIONSHIPS, STATES } from '../../data/geo';
+import { BLOOD_GROUPS, DELIVERY_TYPES, RELATIONSHIPS, STATES } from '../../data/geo';
 import { FieldError, INPUT, INPUT_ERR, Label, PhoneNumberInput } from '../../components/doctor/v2/subuser/fields';
 import { cn } from '../../lib/cn';
 
@@ -86,8 +86,8 @@ export default function RegisterNewPatient({ book = false }: { book?: boolean })
   const [bookedPatientId, setBookedPatientId] = useState<string | null>(null);
 
   const [f, setF] = useState({
-    fullName: '', dob: '', gender: 'Male', bloodGroup: '', maritalStatus: '',
-    birthWeight: '', birthHeight: '', deliveryType: '', gestationalAge: '',
+    fullName: '', dob: '', gender: 'Male', bloodGroup: '',
+    birthWeight: '', birthHeight: '', birthHeadCm: '', deliveryType: '', gestationalAge: '',
     guardianName: '', guardianRelationship: '', guardianPhone: '', guardianEmail: '', sameAsPermanent: false,
     phone: '', whatsapp: false, email: '', address1: '', address2: '', city: '', state: '', pincode: '',
     emergencyName: '', emergencyRelationship: '', emergencyPhone: '', sameAsGuardian: false,
@@ -202,6 +202,7 @@ export default function RegisterNewPatient({ book = false }: { book?: boolean })
           bloodGroup: f.bloodGroup || undefined,
           birthWeightKg: num(f.birthWeight),
           birthHeightCm: num(f.birthHeight),
+          birthHeadCircumferenceCm: num(f.birthHeadCm),
           deliveryType: f.deliveryType || undefined,
           gestationalAgeWeeks: num(f.gestationalAge),
           guardianName: f.guardianName.trim() || undefined,
@@ -458,10 +459,7 @@ export default function RegisterNewPatient({ book = false }: { book?: boolean })
                 <Label htmlFor="bloodGroup">Blood Group</Label>
                 <Select id="bloodGroup" value={f.bloodGroup} onChange={(v) => set('bloodGroup', v)} placeholder="Select blood group" options={BLOOD_GROUPS} />
               </div>
-              <div>
-                <Label htmlFor="maritalStatus">Marital Status</Label>
-                <Select id="maritalStatus" value={f.maritalStatus} onChange={(v) => set('maritalStatus', v)} placeholder="Select status" options={MARITAL_STATUSES} />
-              </div>
+              <div />
             </div>
           </section>
 
@@ -475,6 +473,10 @@ export default function RegisterNewPatient({ book = false }: { book?: boolean })
               <div>
                 <Label htmlFor="birthHeight">Birth Height</Label>
                 <input id="birthHeight" value={f.birthHeight} onChange={(e) => set('birthHeight', e.target.value)} placeholder="e.g. 50 cm" className={INPUT} />
+              </div>
+              <div>
+                <Label htmlFor="birthHeadCm">Head Circumference</Label>
+                <input id="birthHeadCm" value={f.birthHeadCm} onChange={(e) => set('birthHeadCm', e.target.value)} placeholder="e.g. 34 cm" className={INPUT} />
               </div>
               <div>
                 <Label htmlFor="deliveryType">Delivery Type</Label>
