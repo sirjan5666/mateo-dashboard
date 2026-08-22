@@ -26,7 +26,8 @@ import { uploadsDir } from '../middleware/upload.js';
 const MIN_DOB = new Date('2000-01-01T00:00:00.000Z');
 
 const createBabySchema = z.object({
-  name: z.string().trim().min(1, 'Please enter a name').max(100),
+  name: z.string().trim().min(1, 'Please enter a name').max(100)
+    .regex(/^[\p{L}\s'.,-]+$/u, 'Name should contain only letters, spaces and basic punctuation'),
   dob: z.coerce
     .date()
     .refine((d) => d.getTime() >= MIN_DOB.getTime(), 'Date of birth must be on or after 2000-01-01')

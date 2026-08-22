@@ -19,6 +19,8 @@ export interface User {
   subscriptionSource?: SubscriptionSource;
   subscriptionPlan?: 'monthly' | 'yearly';
   subscriptionExpiresAt?: string;
+  heightCm?: number;
+  weightKg?: number;
   createdAt?: string;
   specialization?: string;
   impersonating?: boolean;

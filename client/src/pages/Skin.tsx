@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link, useParams } from 'react-router';
-import { ArrowLeft, Droplets, ImagePlus, ShieldCheck, Trash2 } from 'lucide-react';
+import { ArrowLeft, Droplets, ImagePlus, Info, ShieldCheck, Trash2 } from 'lucide-react';
 import { addSkin, deleteSkin, listSkin } from '../api/skin';
 import type { SkinLog, SkinSeverity } from '../api/skin';
+import { getBaby } from '../api/babies';
+import type { Baby } from '../api/babies';
 import { ApiError } from '../api/client';
-import { formatDateIST, toDateInputValueIST, todayInputValueIST } from '../lib/age';
+import { ageInMonths, formatAge, formatDateIST, toDateInputValueIST, todayInputValueIST } from '../lib/age';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Pill } from '../components/ui/Pill';
@@ -24,7 +26,7 @@ const SEVERITY: Record<SkinSeverity, { tone: Tone; label: string; activeText: st
     label: 'Mild',
     activeText: 'text-emerald-700',
     guide:
-      'Gentle, fragrance-free moisturising usually settles mild dryness. Mateo’s baby skincare range is made for this, alongside the usual gentle care.',
+      'Gentle, fragrance-free moisturising usually settles mild dryness or irritation, alongside the usual gentle care.',
   },
   moderate: {
     tone: 'amber',
@@ -38,14 +40,108 @@ const SEVERITY: Record<SkinSeverity, { tone: Tone; label: string; activeText: st
     label: 'Concerning',
     activeText: 'text-rose-700',
     guide:
-      'We’d suggest showing this to your pediatrician soon — especially with any fever, spreading, or a rash that doesn’t fade when pressed.',
+      "We’d suggest showing this to your pediatrician soon — especially with any fever, spreading, or a rash that doesn’t fade when pressed.",
   },
 };
 
 const SEVERITIES: SkinSeverity[] = ['mild', 'moderate', 'concerning'];
 
+/* -- Age-based skin guidance -- */
+
+interface SkinGuidance {
+  range: string;
+  text: string;
+}
+
+const AGE_SKIN_GUIDANCE: { maxMonths: number; guidance: SkinGuidance }[] = [
+  {
+    maxMonths: 1,
+    guidance: {
+      range: 'Newborn (0–1 month)',
+      text: 'Newborn skin is delicate and may show milia (tiny white bumps), erythema toxicum (red blotches), or mild peeling — all normal. Mongolian spots (blue-grey patches) are common. Baby acne may appear.',
+    },
+  },
+  {
+    maxMonths: 3,
+    guidance: {
+      range: '1–3 months',
+      text: 'Baby acne (small red or white bumps on face) is common and usually clears on its own. Cradle cap (yellowish scales on scalp) may appear. Skin is still very sensitive to products and sun.',
+    },
+  },
+  {
+    maxMonths: 6,
+    guidance: {
+      range: '3–6 months',
+      text: 'Skin is becoming more resilient but still sensitive. Drool rash around the mouth is common as salivation increases. Eczema (dry, rough patches) may first appear, especially on cheeks and limbs.',
+    },
+  },
+  {
+    maxMonths: 12,
+    guidance: {
+      range: '6–12 months',
+      text: 'As babies start crawling, minor rashes from friction are normal. Eczema may persist — keeping skin moisturised helps. Diaper rash is common, especially with dietary changes.',
+    },
+  },
+  {
+    maxMonths: 24,
+    guidance: {
+      range: '12–24 months',
+      text: 'Toddler skin is more robust but still thinner than adult skin. Contact dermatitis from new foods or environments may occur. Keep sunscreen (SPF 30+) for outdoor play.',
+    },
+  },
+  {
+    maxMonths: Infinity,
+    guidance: {
+      range: '24+ months',
+      text: 'Skin is maturing. Common concerns include insect bite reactions, dry patches in winter, and minor fungal infections. Good hygiene and regular moisturising help.',
+    },
+  },
+];
+
+function skinGuidanceForAge(months: number): SkinGuidance {
+  for (const entry of AGE_SKIN_GUIDANCE) {
+    if (months < entry.maxMonths) return entry.guidance;
+  }
+  return AGE_SKIN_GUIDANCE[AGE_SKIN_GUIDANCE.length - 1].guidance;
+}
+
+/* -- Area-specific product suggestions (mild severity only) -- */
+
+interface ProductSuggestion {
+  product: string;
+  description: string;
+}
+
+function getProductSuggestion(area: string, desc: string): ProductSuggestion {
+  const combined = `${area} ${desc}`.toLowerCase();
+
+  if (/diaper|nappy|bottom|buttock|groin/.test(combined)) {
+    return {
+      product: 'Mateo Baby Diaper Cream',
+      description: 'zinc-based barrier protection',
+    };
+  }
+  if (/scalp|cradle\s*cap|head/.test(combined)) {
+    return {
+      product: 'Mateo Baby Oil',
+      description: 'gentle massage oil to soften scales',
+    };
+  }
+  if (/dry|flak|eczema|rough|patch|crack|peel/.test(combined)) {
+    return {
+      product: 'Mateo Baby Moisturising Lotion',
+      description: 'gentle, fragrance-free formula for everyday use',
+    };
+  }
+  return {
+    product: 'Mateo Baby Wash',
+    description: 'pH-balanced, tear-free daily cleanser',
+  };
+}
+
 export default function Skin() {
   const { id } = useParams();
+  const [baby, setBaby] = useState<Baby | null>(null);
   const [logs, setLogs] = useState<SkinLog[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -66,9 +162,11 @@ export default function Skin() {
   useEffect(() => {
     if (id === undefined) return;
     let cancelled = false;
-    listSkin(id)
-      .then((d) => {
-        if (!cancelled) setLogs(d.logs);
+    Promise.all([getBaby(id), listSkin(id)])
+      .then(([b, s]) => {
+        if (cancelled) return;
+        setBaby(b.baby);
+        setLogs(s.logs);
       })
       .catch((err: unknown) => {
         if (!cancelled) setError(err instanceof ApiError ? err.message : 'Something went wrong, please try again');
@@ -77,6 +175,9 @@ export default function Skin() {
       cancelled = true;
     };
   }, [id]);
+
+  const babyAgeMonths = baby ? ageInMonths(baby.dob) : null;
+  const guidance = babyAgeMonths !== null ? skinGuidanceForAge(babyAgeMonths) : null;
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -117,7 +218,7 @@ export default function Skin() {
     }
   }
 
-  // Days that already have a skin entry — shown as dots in the date picker.
+  // Days that already have a skin entry -- shown as dots in the date picker.
   const loggedDays = useMemo(() => {
     const map: Record<string, string> = {};
     for (const log of logs ?? []) map[toDateInputValueIST(log.loggedAt)] = 'var(--cat-skin)';
@@ -159,6 +260,33 @@ export default function Skin() {
 
       <div className="mt-5 grid grid-cols-1 gap-6 lg:grid-cols-5">
         <div className="lg:col-span-2">
+          {guidance && (
+            <Card
+              className="mb-4 border p-4"
+              style={{
+                backgroundColor: 'var(--status-info-bg)',
+                borderColor: 'color-mix(in srgb, var(--status-info-text) 20%, transparent)',
+              }}
+            >
+              <div className="flex items-start gap-3">
+                <span
+                  className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-xl"
+                  style={{ backgroundColor: 'color-mix(in srgb, var(--status-info-text) 12%, transparent)' }}
+                >
+                  <Info className="h-4 w-4" style={{ color: 'var(--status-info-text)' }} />
+                </span>
+                <div className="min-w-0">
+                  <h3 className="text-sm font-bold" style={{ color: 'var(--status-info-text)' }}>
+                    {"What’s normal at "}{baby ? formatAge(baby.dob) : guidance.range}
+                  </h3>
+                  <p className="mt-1 text-[13px] leading-relaxed text-stone-700">
+                    {guidance.text}
+                  </p>
+                </div>
+              </div>
+            </Card>
+          )}
+
           <Card className="p-5">
             <h2 className="font-bold text-stone-800">New observation</h2>
             <form onSubmit={handleSubmit} className="mt-3 space-y-3">
@@ -214,8 +342,7 @@ export default function Skin() {
 
           <p className="mt-3 flex items-start gap-2 text-xs text-stone-500">
             <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-            Tracking skin helps you and your doctor spot patterns. This isn’t a diagnosis — see a
-            pediatrician for anything that worries you, spreads, or comes with a fever.
+            {"Tracking skin helps you and your doctor spot patterns. This isn’t a diagnosis — see a pediatrician for anything that worries you, spreads, or comes with a fever."}
           </p>
         </div>
 
@@ -234,7 +361,7 @@ export default function Skin() {
                 <Droplets className="h-8 w-8" style={{ color: 'var(--cat-skin-text)' }} />
               </span>
               <h3 className="mt-4 font-bold text-stone-800">No observations yet</h3>
-              <p className="mt-1 max-w-xs text-sm text-stone-500">Add your first note (and a photo) to start your baby’s skin timeline.</p>
+              <p className="mt-1 max-w-xs text-sm text-stone-500">{"Add your first note (and a photo) to start your baby’s skin timeline."}</p>
             </Card>
           ) : (
             <ol className="space-y-3">
@@ -269,6 +396,19 @@ export default function Skin() {
                       <p className={cn('mt-2 rounded-lg px-3 py-2 text-xs', log.severity === 'concerning' ? 'bg-rose-50 text-rose-700' : log.severity === 'moderate' ? 'bg-amber-50 text-amber-800' : 'bg-emerald-50 text-emerald-800')}>
                         {cfg.guide}
                       </p>
+                      {log.severity === 'mild' && (() => {
+                        const suggestion = getProductSuggestion(log.area, log.description);
+                        return (
+                          <div className="mt-2 rounded-lg bg-stone-50 px-3 py-2">
+                            <p className="text-xs font-medium text-stone-700">
+                              {"You might try: "}<span className="font-semibold">{suggestion.product}</span>{" — "}{suggestion.description}
+                            </p>
+                            <p className="mt-1 text-[11px] text-stone-400">
+                              Not medical advice. Consult your pediatrician if the concern persists.
+                            </p>
+                          </div>
+                        );
+                      })()}
                     </Card>
                   </li>
                 );

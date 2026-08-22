@@ -132,17 +132,29 @@ router.post('/confirm-consent', async (req, res) => {
   res.json({ ok: true });
 });
 
-// PATCH /api/account/profile — update display name.
-const profileSchema = z.object({ name: z.string().trim().min(1).max(100) });
+// PATCH /api/account/profile — update display name + optional parent vitals.
+const profileSchema = z.object({
+  name: z.string().trim().min(1).max(100).optional(),
+  heightCm: z.number().min(100).max(250).optional(),
+  weightKg: z.number().min(25).max(250).optional(),
+});
 router.patch('/profile', async (req, res) => {
   const userId = req.userId!;
-  const { name } = profileSchema.parse(req.body);
-  const user = await User.findByIdAndUpdate(userId, { $set: { name } }, { new: true }).select('-passwordHash');
+  const body = profileSchema.parse(req.body);
+  const $set: Record<string, unknown> = {};
+  if (body.name) $set.name = body.name;
+  if (body.heightCm !== undefined) $set.heightCm = body.heightCm;
+  if (body.weightKg !== undefined) $set.weightKg = body.weightKg;
+  if (Object.keys($set).length === 0) {
+    res.status(400).json({ error: 'Nothing to update' });
+    return;
+  }
+  const user = await User.findByIdAndUpdate(userId, { $set }, { new: true }).select('-passwordHash');
   if (!user) {
     res.status(404).json({ error: 'Account not found' });
     return;
   }
-  res.json({ user: { id: user.id, name: user.name, email: user.email } });
+  res.json({ user: { id: user.id, name: user.name, email: user.email, heightCm: user.heightCm, weightKg: user.weightKg } });
 });
 
 // ── Emergency contacts ──

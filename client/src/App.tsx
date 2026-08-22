@@ -19,6 +19,7 @@ import Food from './pages/Food';
 import Sleep from './pages/Sleep';
 import Medicines from './pages/Medicines';
 import Milestones from './pages/Milestones';
+import Teeth from './pages/Teeth';
 import Health from './pages/Health';
 import Settings from './pages/Settings';
 import Chat from './pages/Chat';
@@ -210,6 +211,7 @@ function AppRoutes() {
           <Route path="/babies/:id/sleep" element={<Sleep />} />
           <Route path="/babies/:id/medicines" element={<Medicines />} />
           <Route path="/babies/:id/milestones" element={<Milestones />} />
+          <Route path="/babies/:id/teeth" element={<Teeth />} />
           <Route path="/babies/:id/records" element={<Health />} />
           <Route path="/babies/:id/chat" element={<Chat />} />
           <Route path="/report" element={<Report />} />

@@ -84,16 +84,9 @@ export default function Chat() {
           void send(q, { newThread: true });
           return;
         }
-        const first = list.sessions[0];
-        if (first) {
-          setActiveId(first.id);
-          const thread = await getSession(id, first.id);
-          if (cancelled) return;
-          setMessages(thread.messages);
-          setAssistantEnabled(thread.assistantEnabled);
-        } else {
-          setMessages([]);
-        }
+        // Default to a fresh conversation — previous chats are accessible from the side panel.
+        setActiveId(null);
+        setMessages([]);
       } catch (err: unknown) {
         if (!cancelled) setError(err instanceof ApiError ? err.message : 'Something went wrong, please try again');
       }
@@ -461,16 +454,34 @@ function Bubble({ message }: { message: ChatMessage }) {
             Please seek medical care
           </p>
           <p className="mt-1.5 whitespace-pre-wrap text-sm text-rose-900">{message.content}</p>
+          <Link
+            to="/find-doctor"
+            className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-rose-600 px-4 py-2 text-sm font-semibold text-white shadow-soft transition-colors hover:bg-rose-700"
+          >
+            <Stethoscope className="h-4 w-4" />
+            Book a doctor appointment
+          </Link>
         </div>
         <Disclaimer />
       </div>
     );
   }
 
+  const hasDoctorSuggestion = message.content.includes('doctor') || message.content.includes('pediatrician');
+
   return (
     <div ref={ref} className="max-w-[85%]">
       <div className="whitespace-pre-wrap rounded-2xl rounded-bl-sm border border-stone-200 bg-white px-4 py-2.5 text-stone-700">
         {message.content}
+        {hasDoctorSuggestion && (
+          <Link
+            to="/find-doctor"
+            className="mt-3 inline-flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-sm font-medium text-emerald-700 transition-colors hover:bg-emerald-100"
+          >
+            <Stethoscope className="h-3.5 w-3.5" />
+            Find a doctor
+          </Link>
+        )}
       </div>
       <Disclaimer />
     </div>

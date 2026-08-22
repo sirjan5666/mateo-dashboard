@@ -200,8 +200,8 @@ export default function Rewards() {
                         {e.bucket === 'expired' ? ' · expired' : ''}
                       </p>
                     </div>
-                    <span className={cn('shrink-0 text-sm font-extrabold tabular-nums', credit ? 'text-emerald-600' : 'text-stone-500')}>
-                      {credit ? '+' : ''}
+                    <span className={cn('shrink-0 text-sm font-extrabold tabular-nums', credit ? 'text-emerald-600' : 'text-red-500')}>
+                      {credit ? '+' : '−'}
                       {formatStars(Math.abs(e.amount))}
                     </span>
                   </li>
