@@ -20,7 +20,7 @@ export interface TrackerInsightResult {
 }
 
 // Ask mateo.ai for its read on one tracker's logged data.
-export function getTrackerInsight(babyId: string, tracker: InsightTracker, language: 'en' | 'hi') {
+export function getTrackerInsight(babyId: string, tracker: InsightTracker, language: string) {
   return api<TrackerInsightResult>(`/babies/${babyId}/insight`, {
     method: 'POST',
     body: JSON.stringify({ tracker, language }),

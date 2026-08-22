@@ -33,7 +33,7 @@ export interface Journey {
   today: JourneyToday | null;
 }
 
-export type JourneyLanguage = 'en' | 'hi' | 'hi-en';
+export type JourneyLanguage = 'en' | 'hi' | 'hi-en' | 'mr';
 
 export function getJourney(babyId: string, lang?: JourneyLanguage) {
   const q = lang ? `?lang=${encodeURIComponent(lang)}` : '';

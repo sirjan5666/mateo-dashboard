@@ -1,8 +1,9 @@
-export type Lang = 'en' | 'hi';
+export type Lang = 'en' | 'hi' | 'mr';
 
 export const LANGS: { code: Lang; native: string; english: string }[] = [
   { code: 'en', native: 'English', english: 'English' },
   { code: 'hi', native: 'हिन्दी', english: 'Hindi' },
+  { code: 'mr', native: 'मराठी', english: 'Marathi' },
 ];
 
 type Dict = Record<string, string>;
@@ -779,4 +780,92 @@ const hi: Dict = {
   'vax.printRecord': 'रिकॉर्ड प्रिंट करें',
 };
 
-export const translations: Record<Lang, Dict> = { en, hi };
+const mr: Dict = {
+  'section.management': 'व्यवस्थापन',
+  'section.workspace': 'मुख्य',
+  'section.trackers': 'ट्रॅकर',
+  // First-2000-days journey (parent dashboard)
+  'journey.eyebrow': 'पहिले 2,000 दिवस',
+  'journey.dayLine': '{name} · दिवस {day} / 2,000 · {stage}',
+  'journey.graduatedLine': '{name} ने पहिले 2,000 दिवस पूर्ण केले — काय प्रवास होता!',
+  'journey.graduatedChip': 'पूर्ण',
+  'journey.start': 'दिवस 0 · जन्म',
+  'journey.end': 'दिवस 2,000 · ~5.5 वर्षे',
+  'journey.stageNewborn': 'नवजात',
+  'journey.stageInfant': 'शिशु',
+  'journey.stageToddler': 'टॉडलर',
+  'journey.stagePreschool': 'प्री-स्कूल',
+  'journey.stageSchool': 'शाळा-तयार',
+  // Paid plan
+  'paid.badge': 'सशुल्क',
+  'nav.parents': 'पालक',
+  'nav.doctors': 'डॉक्टर',
+  'nav.aiChats': 'एआय चॅट',
+  'nav.dashboard': 'डॅशबोर्ड',
+  'nav.findDoctor': 'डॉक्टर शोधा',
+  'nav.consultations': 'सल्लामसलत',
+  'nav.community': 'समुदाय',
+  'nav.report': 'अहवाल',
+  'nav.refer': 'रेफर करा आणि कमवा',
+  'nav.rewards': 'रिवॉर्ड्स',
+  'nav.settings': 'सेटिंग्ज',
+  'nav.signOut': 'साइन आउट',
+  'tracker.vaccines': 'लसीकरण',
+  'tracker.growth': 'वाढ',
+  'tracker.food': 'आहार',
+  'tracker.sleep': 'झोप',
+  'tracker.medicines': 'औषधे',
+  'tracker.skin': 'त्वचा',
+  'tracker.milestones': 'माईलस्टोन',
+  'tracker.records': 'रेकॉर्ड',
+  'tracker.assistant': 'दाई माँ ला विचारा',
+  'sidebar.addBabyHint': 'ट्रॅकर उघडण्यासाठी बाळ जोडा.',
+  'topbar.addBaby': 'बाळ जोडा',
+  'lang.label': 'भाषा',
+  'lang.choose': 'तुमची भाषा निवडा',
+  'lang.help': 'ॲपची भाषा बदलते. दाई माँ सुद्धा तुम्ही निवडलेल्या भाषेत उत्तर देतील.',
+  'dash.emptyTitle': 'तुमच्या बाळाची प्रोफाइल तयार करूया',
+  'dash.emptyBody': 'तुमच्या लहानग्याची माहिती जोडा आणि Mateo लसीकरण, वाढ आणि बरेच काही ट्रॅक करण्यात मदत करेल — सर्व एकाच शांत ठिकाणी.',
+  'dash.addYourBaby': 'तुमचे बाळ जोडा',
+  'dash.askTitle': 'Mateo ला विचारा',
+  'dash.askBody': '{name} च्या आरोग्याबद्दल प्रश्न आहे? आमचा केअर असिस्टंट नेहमी तुमच्यासाठी उपलब्ध आहे — एक सहाय्यक मार्गदर्शक, तुमच्या बालरोगतज्ज्ञांचा पर्याय नाही.',
+  'dash.askCta': 'प्रश्न विचारा',
+  // Shop — nav
+  'nav.shop': 'शॉप',
+  'nav.myOrders': 'माझे ऑर्डर',
+  'nav.shopOrders': 'शॉप ऑर्डर',
+  // Shop — catalog
+  'shop.title': 'शॉप',
+  'shop.subtitle': 'Mateo स्किनकेअर आणि Neucomed पोषण, तुमच्या दारापर्यंत.',
+  'shop.tab.mateo': 'Mateo स्किनकेअर',
+  'shop.tab.neucomed': 'Neucomed पोषण',
+  'shop.noProducts': 'सध्या दाखवण्यासाठी कोणतेही उत्पादन नाही.',
+  'shop.addToCart': 'कार्टमध्ये जोडा',
+  'shop.added': 'जोडले',
+  'shop.viewCart': 'कार्ट पहा',
+  'shop.cart': 'कार्ट',
+  'shop.emptyCart': 'तुमची कार्ट रिकामी आहे',
+  'shop.startShopping': 'खरेदी सुरू करा',
+  'shop.summary': 'ऑर्डर सारांश',
+  'shop.subtotal': 'उप-एकूण',
+  'shop.shipping': 'शिपिंग',
+  'shop.total': 'एकूण',
+  'shop.free': 'मोफत',
+  'shop.checkout': 'चेकआउट',
+  // Vaccines
+  'vax.givenOn': 'दिलेले',
+  'vax.markGiven': 'दिलेले म्हणून नोंदवा',
+  'vax.undo': 'परत करा',
+  'vax.saving': 'सेव्ह होत आहे…',
+  'vax.brandPlaceholder': 'ब्रँड (ऐच्छिक)',
+  'vax.protects': 'संरक्षण करते',
+  'vax.given': 'दिलेले',
+  'vax.dueNow': 'आता द्यायचे',
+  'vax.overdue': 'उशीर झाला',
+  'vax.upcoming': 'आगामी',
+  'vax.custom': 'कस्टम',
+  'vax.addVaccine': 'लस जोडा',
+  'vax.printRecord': 'रेकॉर्ड प्रिंट करा',
+};
+
+export const translations: Record<Lang, Dict> = { en, hi, mr };

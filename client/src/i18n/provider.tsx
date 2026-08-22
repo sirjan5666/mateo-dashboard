@@ -8,7 +8,7 @@ const STORAGE_KEY = 'mateo:lang';
 function readLang(): Lang {
   try {
     const v = localStorage.getItem(STORAGE_KEY);
-    if (v === 'hi' || v === 'en') return v;
+    if (v === 'hi' || v === 'en' || v === 'mr') return v;
   } catch {
     /* ignore */
   }
