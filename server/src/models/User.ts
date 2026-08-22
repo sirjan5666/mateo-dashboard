@@ -62,6 +62,9 @@ export interface IUser {
   sitareBalance?: number; // spendable ★ now
   sitareReserved?: number; // ★ held by in-flight orders
   sitareLifetime?: number; // total ★ ever earned (for tiers/marketing)
+  // Parent vitals — used for mid-parental-height growth reference (#18).
+  heightCm?: number;
+  weightKg?: number;
   createdAt: Date;
 }
 
@@ -121,6 +124,9 @@ const userSchema = new Schema<IUser>(
     sitareBalance: { type: Number, default: 0, min: 0 },
     sitareReserved: { type: Number, default: 0, min: 0 },
     sitareLifetime: { type: Number, default: 0, min: 0 },
+    // Parent vitals — mid-parental-height growth reference.
+    heightCm: { type: Number, min: 100, max: 250 },
+    weightKg: { type: Number, min: 25, max: 250 },
   },
   { timestamps: { createdAt: true, updatedAt: false } },
 );

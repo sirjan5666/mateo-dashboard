@@ -14,7 +14,9 @@ export interface IVaccineDose {
   windowStart: Date;
   windowEnd: Date;
   administeredOn: Date | null; // null = pending
+  brand: string | null;
   reminderSentAt: Date | null; // set by the step-4 reminder job
+  isCustom?: boolean;
 }
 
 const vaccineDoseSchema = new Schema<IVaccineDose>({
@@ -26,7 +28,9 @@ const vaccineDoseSchema = new Schema<IVaccineDose>({
   windowStart: { type: Date, required: true },
   windowEnd: { type: Date, required: true },
   administeredOn: { type: Date, default: null },
+  brand: { type: String, default: null },
   reminderSentAt: { type: Date, default: null },
+  isCustom: { type: Boolean, default: false },
 });
 
 // One row per (baby, schedule entry); also lets sync upsert by this key.

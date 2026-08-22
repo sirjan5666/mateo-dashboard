@@ -6,7 +6,8 @@ export type InsightTracker =
   | 'sleep'
   | 'milestones'
   | 'skin'
-  | 'vaccines';
+  | 'vaccines'
+  | 'teeth';
 
 export type InsightStatus = 'ok' | 'watch' | 'doctor';
 

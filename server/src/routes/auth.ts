@@ -29,6 +29,8 @@ async function publicUser(user: IUser & { id: string }, impersonating = false) {
     subscriptionSource: user.subscription?.source ?? (user.role === 'parent' ? 'mateo' : undefined),
     subscriptionPlan: user.subscription?.plan,
     subscriptionExpiresAt: user.subscription?.expiresAt,
+    heightCm: user.heightCm,
+    weightKg: user.weightKg,
     createdAt: user.createdAt,
     specialization,
     impersonating,

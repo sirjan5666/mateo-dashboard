@@ -34,6 +34,8 @@ function publicDose(dose: HydratedDocument<IVaccineDose>, dob: Date, today: Date
     windowStart: dose.windowStart,
     windowEnd: dose.windowEnd,
     administeredOn: dose.administeredOn,
+    brand: dose.brand ?? null,
+    isCustom: dose.isCustom === true,
     status: doseStatus(dose, today),
     ageLabel: ageLabelForOffsetDays(daysBetween(dob, dose.dueDate)),
   };
@@ -43,6 +45,15 @@ function publicDose(dose: HydratedDocument<IVaccineDose>, dob: Date, today: Date
 // null body is not coerced to the epoch by z.coerce.date().
 const markDoseSchema = z.object({
   administeredOn: z.union([z.null(), z.coerce.date()]),
+  brand: z.string().trim().max(100).optional(),
+});
+
+const addCustomVaccineSchema = z.object({
+  vaccineName: z.string().trim().min(1).max(100),
+  doseLabel: z.string().trim().max(50).default('Single dose'),
+  administeredOn: z.coerce.date(),
+  brand: z.string().trim().max(100).optional(),
+  notes: z.string().trim().max(500).optional(),
 });
 
 const router = Router();
@@ -66,7 +77,7 @@ router.get('/babies/:id/vaccines', requireAuth, requireSubscription, loadOwnedBa
 });
 
 router.patch('/vaccines/:doseId', requireAuth, requireSubscription, loadOwnedDose, async (req, res) => {
-  const { administeredOn } = markDoseSchema.parse(req.body);
+  const { administeredOn, brand } = markDoseSchema.parse(req.body);
   const dose = req.dose!;
   const baby = req.baby!;
   const today = istToday();
@@ -80,9 +91,21 @@ router.patch('/vaccines/:doseId', requireAuth, requireSubscription, loadOwnedDos
       res.status(400).json({ error: 'Administration date cannot be before the baby was born' });
       return;
     }
+    // Age-based validation: baby must be at least old enough for this dose's window.
+    const entry = scheduleById.get(dose.vaccineId);
+    if (entry) {
+      const ageAtAdminDays = daysBetween(baby.dob, administeredOn);
+      const minAgeDays = Math.max(0, entry.windowStartDay - 7);
+      if (ageAtAdminDays < minAgeDays) {
+        const label = ageLabelForOffsetDays(entry.windowStartDay);
+        res.status(400).json({ error: `This vaccine is scheduled for ${label}. The baby was too young on the selected date.` });
+        return;
+      }
+    }
   }
 
   dose.administeredOn = administeredOn;
+  if (brand !== undefined) dose.brand = brand || null;
   await dose.save();
   // Marking a dose given earns ★ (idempotent per dose); clearing it claws back.
   if (administeredOn !== null) {
@@ -95,6 +118,38 @@ router.patch('/vaccines/:doseId', requireAuth, requireSubscription, loadOwnedDos
     );
   }
   res.json({ dose: publicDose(dose, baby.dob, today) });
+});
+
+// ── Add custom vaccine (not in IAP schedule) ────────────────────────────────
+router.post('/babies/:id/vaccines/custom', requireAuth, requireSubscription, loadOwnedBaby, async (req, res) => {
+  const baby = req.baby!;
+  const body = addCustomVaccineSchema.parse(req.body);
+  const today = istToday();
+
+  if (body.administeredOn.getTime() > today.getTime()) {
+    res.status(400).json({ error: 'Administration date cannot be in the future' });
+    return;
+  }
+  if (body.administeredOn.getTime() < baby.dob.getTime()) {
+    res.status(400).json({ error: 'Administration date cannot be before the baby was born' });
+    return;
+  }
+
+  const customId = `custom_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+  const dose = await VaccineDose.create({
+    babyId: baby._id,
+    vaccineId: customId,
+    vaccineName: body.vaccineName,
+    doseLabel: body.doseLabel,
+    dueDate: body.administeredOn,
+    windowStart: body.administeredOn,
+    windowEnd: body.administeredOn,
+    administeredOn: body.administeredOn,
+    brand: body.brand ?? null,
+    isCustom: true,
+  });
+
+  res.status(201).json({ dose: publicDose(dose, baby.dob, today) });
 });
 
 // ── Onboarding baseline seeding — NOT subscription-gated ──────────────────────

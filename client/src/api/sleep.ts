@@ -3,11 +3,18 @@ import { api } from './client';
 export type SleepKind = 'nap' | 'night';
 export type SleepQuality = 'settled' | 'restless' | 'unsettled';
 
+export interface SleepInterval {
+  startTime?: string;
+  endTime?: string;
+  durationMinutes: number;
+}
+
 export interface SleepLog {
   id: string;
   loggedAt: string;
   kind: SleepKind;
   durationMin: number;
+  intervals: SleepInterval[] | null;
   quality: SleepQuality | null;
   notes: string | null;
   createdAt: string;
@@ -32,6 +39,7 @@ export interface SleepInput {
   loggedAt: string;
   kind: SleepKind;
   durationMin: number;
+  intervals?: SleepInterval[];
   quality?: SleepQuality;
   notes?: string;
 }

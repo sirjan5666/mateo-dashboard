@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import {
+  AlertTriangle,
   ArrowLeft,
+  ArrowRight,
   CalendarClock,
   Check,
+  ChevronDown,
   ChevronRight,
+  ChevronUp,
   Flag,
   Footprints,
   Lock,
@@ -15,8 +19,8 @@ import {
   Trophy,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { listMilestones, markMilestone, unmarkMilestone } from '../api/milestones';
-import type { MilestoneDomain, MilestoneItem, MilestoneStatus, MilestonesResponse } from '../api/milestones';
+import { listMilestones, listDevMilestones, markMilestone, unmarkMilestone } from '../api/milestones';
+import type { MilestoneDomain, MilestoneItem, MilestoneStatus, MilestonesResponse, DevDomain, DevMilestoneItem, DevelopmentalConcern, DevMilestonesResponse } from '../api/milestones';
 import { getBaby } from '../api/babies';
 import type { Baby } from '../api/babies';
 import { getJourney, type Journey } from '../api/journey';
@@ -73,24 +77,33 @@ export default function Milestones() {
   const { lang } = useLang();
   const [baby, setBaby] = useState<Baby | null>(null);
   const [data, setData] = useState<MilestonesResponse | null>(null);
+  const [devData, setDevData] = useState<DevMilestonesResponse | null>(null);
   const [journey, setJourney] = useState<Journey | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [filter, setFilter] = useState<DomainFilter>('all');
+  const [devDomainFilter, setDevDomainFilter] = useState<DevDomain | 'all'>('all');
+  const [showAllDev, setShowAllDev] = useState(false);
 
   const load = useCallback(async () => {
     if (id === undefined) return;
     setData(await listMilestones(id));
   }, [id]);
 
+  const loadDev = useCallback(async () => {
+    if (id === undefined) return;
+    setDevData(await listDevMilestones(id, showAllDev));
+  }, [id, showAllDev]);
+
   useEffect(() => {
     if (id === undefined) return;
     let cancelled = false;
-    Promise.all([getBaby(id), listMilestones(id)])
-      .then(([b, d]) => {
+    Promise.all([getBaby(id), listMilestones(id), listDevMilestones(id)])
+      .then(([b, d, dd]) => {
         if (cancelled) return;
         setBaby(b.baby);
         setData(d);
+        setDevData(dd);
       })
       .catch((err: unknown) => {
         if (!cancelled) setError(err instanceof ApiError ? err.message : 'Something went wrong, please try again');
@@ -116,6 +129,14 @@ export default function Milestones() {
     };
   }, [id, lang]);
 
+  // Reload dev milestones when showAllDev changes.
+  useEffect(() => {
+    if (id === undefined) return;
+    let cancelled = false;
+    listDevMilestones(id, showAllDev).then((dd) => { if (!cancelled) setDevData(dd); }).catch(() => {/* non-fatal */});
+    return () => { cancelled = true; };
+  }, [id, showAllDev]);
+
   async function toggle(m: MilestoneItem, el?: HTMLElement) {
     if (id === undefined) return;
     setPendingId(m.id);
@@ -125,6 +146,22 @@ export default function Milestones() {
       if (m.achieved) await unmarkMilestone(id, m.id);
       else await markMilestone(id, m.id, todayInputValueIST());
       await load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Something went wrong, please try again');
+    } finally {
+      setPendingId(null);
+    }
+  }
+
+  async function devToggle(m: DevMilestoneItem, el?: HTMLElement) {
+    if (id === undefined) return;
+    setPendingId(m.id);
+    setError(null);
+    if (!m.achieved) celebrate(el ?? null);
+    try {
+      if (m.achieved) await unmarkMilestone(id, m.id);
+      else await markMilestone(id, m.id, todayInputValueIST());
+      await loadDev();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Something went wrong, please try again');
     } finally {
@@ -293,6 +330,18 @@ export default function Milestones() {
           </aside>
         </div>
       )}
+
+      {/* ── Developmental Milestones (10 domains) ───────────────────────── */}
+      <DevMilestonesSection
+        devData={devData}
+        devDomainFilter={devDomainFilter}
+        setDevDomainFilter={setDevDomainFilter}
+        showAllDev={showAllDev}
+        setShowAllDev={setShowAllDev}
+        pendingId={pendingId}
+        onToggle={devToggle}
+        babyId={id}
+      />
 
       <p className="mt-6 flex items-start gap-2 text-xs text-stone-500">
         <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />
@@ -554,6 +603,346 @@ function TipsCard() {
       <p className="mt-3 flex items-center gap-1.5 text-[11px] text-stone-400">
         <ChevronRight className="h-3 w-3" /> General guidance — never a substitute for your pediatrician.
       </p>
+    </Card>
+  );
+}
+
+/* ── Developmental Milestones Section (10 domains) ───────────────────── */
+
+const DEV_DOMAIN_META: Record<DevDomain, { label: string; emoji: string; dot: string; bar: string; pill: string }> = {
+  gross_motor: { label: 'Gross Motor', emoji: '🏃', dot: '#16a34a', bar: 'linear-gradient(90deg,#86efac,#16a34a)', pill: 'bg-green-50 text-green-700' },
+  fine_motor: { label: 'Fine Motor', emoji: '✋', dot: '#ea580c', bar: 'linear-gradient(90deg,#fdba74,#ea580c)', pill: 'bg-orange-50 text-orange-700' },
+  cognitive: { label: 'Cognitive', emoji: '🧠', dot: '#7c3aed', bar: 'linear-gradient(90deg,#c4b5fd,#7c3aed)', pill: 'bg-violet-50 text-violet-700' },
+  language: { label: 'Language', emoji: '💬', dot: '#2563eb', bar: 'linear-gradient(90deg,#93c5fd,#2563eb)', pill: 'bg-blue-50 text-blue-700' },
+  social_emotional: { label: 'Social & Emotional', emoji: '🤝', dot: '#db2777', bar: 'linear-gradient(90deg,#f9a8d4,#db2777)', pill: 'bg-pink-50 text-pink-700' },
+  vision: { label: 'Vision', emoji: '👁️', dot: '#0891b2', bar: 'linear-gradient(90deg,#67e8f9,#0891b2)', pill: 'bg-cyan-50 text-cyan-700' },
+  hearing: { label: 'Hearing', emoji: '👂', dot: '#4f46e5', bar: 'linear-gradient(90deg,#a5b4fc,#4f46e5)', pill: 'bg-indigo-50 text-indigo-700' },
+  physical_growth: { label: 'Physical Growth', emoji: '📏', dot: '#059669', bar: 'linear-gradient(90deg,#6ee7b7,#059669)', pill: 'bg-emerald-50 text-emerald-700' },
+  sensory_processing: { label: 'Sensory', emoji: '🖐️', dot: '#d97706', bar: 'linear-gradient(90deg,#fcd34d,#d97706)', pill: 'bg-amber-50 text-amber-700' },
+  adaptive: { label: 'Self-Help', emoji: '🥄', dot: '#be185d', bar: 'linear-gradient(90deg,#fda4af,#be185d)', pill: 'bg-rose-50 text-rose-700' },
+};
+
+const CONCERN_CATEGORY_META: Record<DevelopmentalConcern['category'], { label: string; emoji: string; color: string }> = {
+  speech: { label: 'Speech & Language', emoji: '💬', color: '#2563eb' },
+  motor: { label: 'Motor Skills', emoji: '🏃', color: '#16a34a' },
+  social: { label: 'Social Interaction', emoji: '🤝', color: '#db2777' },
+  general: { label: 'General', emoji: '⚕️', color: '#7c3aed' },
+};
+
+function DevMilestonesSection({
+  devData,
+  devDomainFilter,
+  setDevDomainFilter,
+  showAllDev,
+  setShowAllDev,
+  pendingId,
+  onToggle,
+  babyId,
+}: {
+  devData: DevMilestonesResponse | null;
+  devDomainFilter: DevDomain | 'all';
+  setDevDomainFilter: (d: DevDomain | 'all') => void;
+  showAllDev: boolean;
+  setShowAllDev: (v: boolean) => void;
+  pendingId: string | null;
+  onToggle: (m: DevMilestoneItem, el?: HTMLElement) => void;
+  babyId: string | undefined;
+}) {
+  const [expandedConcern, setExpandedConcern] = useState<string | null>(null);
+
+  if (!devData) {
+    return (
+      <div className="mt-10">
+        <Card className="p-5"><Skeleton className="h-40 w-full" /></Card>
+      </div>
+    );
+  }
+
+  const { milestones: devItems, domains, concerns, summary } = devData;
+  const pct = summary.total > 0 ? Math.round((summary.achieved / summary.total) * 100) : 0;
+
+  // Filter by domain
+  const filtered = devDomainFilter === 'all' ? devItems : devItems.filter((m) => m.domain === devDomainFilter);
+  const sorted = [...filtered].sort((a, b) => a.ageRangeMonths.min - b.ageRangeMonths.min);
+
+  // Active domains (domains that have milestones in the current filtered set)
+  const activeDomains = domains.filter((d) => d.total > 0);
+
+  return (
+    <section className="mt-10" data-reveal="">
+      <div className="mb-5 flex items-center gap-3">
+        <span aria-hidden="true" className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-violet-100">
+          <span className="text-xl">🧒</span>
+        </span>
+        <div>
+          <h2 className="text-xl font-extrabold text-stone-900">Developmental Domains</h2>
+          <p className="text-sm text-stone-500">10 areas of growth, from birth to 5 years</p>
+        </div>
+      </div>
+
+      {/* Overall progress */}
+      <Card className="mb-5 p-5" data-reveal="">
+        <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
+          <ProgressRing value={pct} size={100} stroke={10} trackClass="text-violet-100" barClass="text-violet-500">
+            <span className="display-num text-2xl font-bold text-stone-900">{pct}%</span>
+          </ProgressRing>
+          <div className="flex-1 text-center sm:text-left">
+            <p className="text-sm font-semibold text-stone-700">
+              {summary.achieved} of {summary.total} milestones reached
+            </p>
+            {summary.watch > 0 && (
+              <p className="mt-1 text-sm text-amber-700">
+                <Flag className="mr-1 inline h-3.5 w-3.5" />
+                {summary.watch} milestone{summary.watch !== 1 ? 's' : ''} worth mentioning to your pediatrician
+              </p>
+            )}
+            <button
+              onClick={() => setShowAllDev(!showAllDev)}
+              className="mt-2 inline-flex items-center gap-1 text-xs font-bold text-violet-600 hover:text-violet-800"
+            >
+              {showAllDev ? 'Show age-relevant only' : 'Show all milestones (0–5 years)'}
+              <ArrowRight className="h-3 w-3" />
+            </button>
+          </div>
+        </div>
+      </Card>
+
+      {/* Per-domain progress bars */}
+      <Card className="mb-5 p-5" data-reveal="">
+        <h3 className="mb-4 font-bold text-stone-800">Progress by domain</h3>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {activeDomains.map((d) => {
+            const meta = DEV_DOMAIN_META[d.domain];
+            const w = d.total > 0 ? Math.round((d.achieved / d.total) * 100) : 0;
+            return (
+              <div key={d.domain}>
+                <div className="mb-1 flex items-center justify-between text-[13px]">
+                  <span className="flex items-center gap-1.5 font-semibold text-stone-700">
+                    <span className="h-2 w-2 rounded-full" style={{ background: meta.dot }} />
+                    <span>{meta.emoji}</span> {meta.label}
+                  </span>
+                  <span className="text-xs font-bold text-stone-500">{d.achieved}/{d.total}</span>
+                </div>
+                <div className="h-2 overflow-hidden rounded-full bg-stone-100">
+                  <div className="h-full rounded-full transition-[width] duration-700" style={{ width: `${w}%`, background: meta.bar }} />
+                </div>
+                {d.watch > 0 && (
+                  <p className="mt-0.5 text-[11px] text-amber-600">{d.watch} worth a mention</p>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </Card>
+
+      {/* Domain filter tabs */}
+      <div className="mb-4 flex flex-wrap items-center gap-2" data-reveal="">
+        <button
+          onClick={() => setDevDomainFilter('all')}
+          className={cn(
+            'inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors',
+            devDomainFilter === 'all' ? 'bg-violet-600 text-white shadow-sm' : 'bg-white text-stone-600 ring-1 ring-stone-200 hover:bg-stone-100',
+          )}
+        >
+          All <span className={cn('text-xs font-bold', devDomainFilter === 'all' ? 'text-white/80' : 'text-stone-400')}>{devItems.length}</span>
+        </button>
+        {activeDomains.map((d) => {
+          const meta = DEV_DOMAIN_META[d.domain];
+          const active = devDomainFilter === d.domain;
+          // Physical growth links to growth tracker, no filter
+          if (d.domain === 'physical_growth') return null;
+          return (
+            <button
+              key={d.domain}
+              onClick={() => setDevDomainFilter(d.domain)}
+              className={cn(
+                'inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors',
+                active ? 'text-white shadow-sm' : 'bg-white text-stone-600 ring-1 ring-stone-200 hover:bg-stone-100',
+              )}
+              style={active ? { backgroundColor: meta.dot } : undefined}
+            >
+              <span aria-hidden>{meta.emoji}</span>
+              {meta.label}
+              <span className={cn('text-xs font-bold', active ? 'text-white/80' : 'text-stone-400')}>{d.total}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Physical Growth cross-reference card */}
+      {(devDomainFilter === 'all' || devDomainFilter === 'physical_growth') && babyId && (
+        <Card className="mb-5 flex items-center gap-4 border-emerald-200 bg-emerald-50/50 p-4" data-reveal="">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-emerald-100 text-xl">📏</span>
+          <div className="flex-1">
+            <h4 className="text-sm font-bold text-stone-800">Physical Growth</h4>
+            <p className="text-xs text-stone-600">Weight, length, and head circumference are tracked on the Growth page with WHO percentile charts.</p>
+          </div>
+          <Link
+            to={`/babies/${babyId}/growth`}
+            className="inline-flex items-center gap-1 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-700"
+          >
+            Growth Tracker <ArrowRight className="h-3 w-3" />
+          </Link>
+        </Card>
+      )}
+
+      {/* Dev milestone cards */}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" data-reveal="">
+        {sorted.map((m) => (
+          <DevMilestoneCard
+            key={m.id}
+            m={m}
+            pending={pendingId === m.id}
+            onToggle={onToggle}
+            babyId={babyId}
+          />
+        ))}
+      </div>
+
+      {sorted.length === 0 && (
+        <Card className="p-6 text-center text-sm text-stone-500">
+          No milestones in this domain yet for the current age range.
+        </Card>
+      )}
+
+      {/* ── Developmental Concerns (#31) ─────────────────────────────────── */}
+      <div className="mt-8" data-reveal="">
+        <div className="mb-4 flex items-center gap-2">
+          <AlertTriangle className="h-5 w-5 text-amber-500" />
+          <h3 className="text-lg font-bold text-stone-800">When to talk to your pediatrician</h3>
+        </div>
+        <Card className="border-amber-100 bg-amber-50/30 p-4">
+          <p className="mb-4 text-sm text-stone-600">
+            These are general awareness items — they are NOT a diagnosis. Many children show one or two of these signs and develop
+            typically. If you notice a pattern of concerns, your pediatrician can guide you. Early support makes a meaningful difference.
+          </p>
+
+          <div className="space-y-3">
+            {concerns.map((c) => {
+              const meta = CONCERN_CATEGORY_META[c.category];
+              const isExpanded = expandedConcern === c.id;
+              return (
+                <div key={c.id} className="rounded-xl bg-white ring-1 ring-stone-200">
+                  <button
+                    onClick={() => setExpandedConcern(isExpanded ? null : c.id)}
+                    className="flex w-full items-center gap-3 p-3 text-left"
+                  >
+                    <span className="text-lg">{meta.emoji}</span>
+                    <span className="flex-1 text-sm font-bold text-stone-800">{c.title}</span>
+                    {isExpanded ? <ChevronUp className="h-4 w-4 text-stone-400" /> : <ChevronDown className="h-4 w-4 text-stone-400" />}
+                  </button>
+                  {isExpanded && (
+                    <div className="border-t border-stone-100 px-3 pb-3 pt-2">
+                      <ul className="space-y-1.5">
+                        {c.signs.map((sign) => (
+                          <li key={sign} className="flex items-start gap-2 text-[13px] text-stone-700">
+                            <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: meta.color }} />
+                            {sign}
+                          </li>
+                        ))}
+                      </ul>
+                      <p className="mt-3 text-[12px] italic text-stone-500">{c.ageNote}</p>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {babyId && (
+            <Link
+              to={askAssistantLink(babyId, `I have some developmental concerns about my baby. Can you help me understand when to see a pediatrician?`)}
+              className="mt-4 inline-flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-bold text-white"
+              style={{ background: 'var(--cat-assistant)' }}
+            >
+              <MessageCircleHeart className="h-4 w-4" /> Talk to Dai Maa about concerns
+            </Link>
+          )}
+        </Card>
+
+        <p className="mt-3 flex items-start gap-2 rounded-lg bg-stone-50 p-3 text-[12px] text-stone-500 ring-1 ring-stone-200">
+          <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-stone-400" />
+          This is awareness, not a diagnosis. Every child develops at their own pace. These milestones are general guidelines based on
+          pediatric developmental references. Only a qualified healthcare professional can evaluate your child.
+        </p>
+      </div>
+    </section>
+  );
+}
+
+/* ── Dev milestone card ───────────────────────────────��──────────────── */
+
+function DevMilestoneCard({
+  m,
+  pending,
+  onToggle,
+  babyId,
+}: {
+  m: DevMilestoneItem;
+  pending: boolean;
+  onToggle: (m: DevMilestoneItem, el?: HTMLElement) => void;
+  babyId: string | undefined;
+}) {
+  const meta = DEV_DOMAIN_META[m.domain];
+  const cfg = STATUS[m.status];
+  const askHref = babyId
+    ? askAssistantLink(babyId, `My baby hasn't reached "${m.name}" yet. Is that okay at their age, and what can I do to gently help?`)
+    : '#';
+  return (
+    <Card className={cn('flex flex-col p-4 transition-shadow hover:shadow-md', m.achieved && 'ring-1 ring-emerald-200')}>
+      <div className="mb-2 flex items-center justify-between">
+        <span
+          className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold', meta.pill)}
+        >
+          {meta.emoji} {meta.label}
+        </span>
+        <Pill tone={cfg.tone} className="shadow-sm">{cfg.label}</Pill>
+      </div>
+
+      <h4 className="text-[15px] font-bold text-stone-800">{m.name}</h4>
+      <p className="mt-0.5 text-[11.5px] font-bold" style={{ color: meta.dot }}>
+        typically {Math.round(m.ageRangeMonths.min)}–{Math.round(m.ageRangeMonths.max)} months
+      </p>
+      <p className="mt-1 flex-1 text-[13px] leading-snug text-stone-600">{m.description}</p>
+
+      {m.redFlags.length > 0 && m.status === 'watch' && (
+        <div className="mt-2 rounded-lg bg-amber-50 p-2 text-[11px] text-amber-700">
+          <span className="font-bold">Watch for:</span> {m.redFlags[0]}
+        </div>
+      )}
+
+      <div className="mt-auto flex items-center gap-2 pt-3">
+        <button
+          type="button"
+          onClick={(e) => onToggle(m, e.currentTarget)}
+          disabled={pending}
+          aria-pressed={m.achieved}
+          aria-label={m.achieved ? `Mark ${m.name} as not yet reached` : `Mark ${m.name} as reached`}
+          className={cn(
+            'inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-sm font-bold transition-colors disabled:opacity-50',
+            m.achieved ? 'text-white' : 'text-stone-600 ring-1 ring-stone-200 hover:bg-stone-50',
+          )}
+          style={m.achieved ? { backgroundColor: meta.dot } : undefined}
+        >
+          {m.achieved ? (
+            <>
+              <Check className="h-4 w-4" strokeWidth={3} /> Reached{m.achievedOn ? ` · ${formatDateIST(m.achievedOn)}` : ''}
+            </>
+          ) : (
+            'Mark as reached'
+          )}
+        </button>
+        {babyId && !m.achieved && (m.status === 'inwindow' || m.status === 'watch') && (
+          <Link
+            to={askHref}
+            aria-label={`Ask Dai Maa about ${m.name}`}
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-xl ring-1 ring-stone-200 hover:bg-stone-50"
+            style={{ color: 'var(--cat-assistant)' }}
+          >
+            <MessageCircleHeart className="h-4 w-4" />
+          </Link>
+        )}
+      </div>
     </Card>
   );
 }

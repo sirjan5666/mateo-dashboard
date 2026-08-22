@@ -620,6 +620,20 @@ const en: Dict = {
   'shop.gateBody': 'Mother’s milk is best for your baby. Infant milk substitutes are not necessary for most babies and should be used only on the advice of a doctor or healthcare professional. This section is shown for information only — there are no offers, discounts or promotions.',
   'shop.gateBack': 'Go back',
   'shop.gateContinue': 'I understand, continue',
+  // Vaccines
+  'vax.givenOn': 'Given on',
+  'vax.markGiven': 'Mark as given',
+  'vax.undo': 'Undo',
+  'vax.saving': 'Saving…',
+  'vax.brandPlaceholder': 'Brand (optional)',
+  'vax.protects': 'Protects against',
+  'vax.given': 'Given',
+  'vax.dueNow': 'Due now',
+  'vax.overdue': 'Overdue',
+  'vax.upcoming': 'Upcoming',
+  'vax.custom': 'Custom',
+  'vax.addVaccine': 'Add vaccine',
+  'vax.printRecord': 'Print record',
 };
 
 const hi: Dict = {
@@ -749,6 +763,20 @@ const hi: Dict = {
   'shop.gateBody': 'माँ का दूध आपके शिशु के लिए सर्वोत्तम है। अधिकांश शिशुओं के लिए शिशु दूध विकल्प आवश्यक नहीं हैं और इन्हें केवल डॉक्टर या स्वास्थ्य विशेषज्ञ की सलाह पर ही उपयोग करना चाहिए। यह सेक्शन केवल जानकारी के लिए है — यहाँ कोई ऑफ़र, छूट या प्रचार नहीं है।',
   'shop.gateBack': 'वापस जाएँ',
   'shop.gateContinue': 'मैं समझ गया, जारी रखें',
+  // Vaccines
+  'vax.givenOn': 'दिया गया',
+  'vax.markGiven': 'दिया गया लगाएँ',
+  'vax.undo': 'वापस करें',
+  'vax.saving': 'सेव हो रहा…',
+  'vax.brandPlaceholder': 'ब्रांड (वैकल्पिक)',
+  'vax.protects': 'सुरक्षा करता है',
+  'vax.given': 'दिया गया',
+  'vax.dueNow': 'अभी देना है',
+  'vax.overdue': 'समय बीत गया',
+  'vax.upcoming': 'आगामी',
+  'vax.custom': 'कस्टम',
+  'vax.addVaccine': 'टीका जोड़ें',
+  'vax.printRecord': 'रिकॉर्ड प्रिंट करें',
 };
 
 export const translations: Record<Lang, Dict> = { en, hi };

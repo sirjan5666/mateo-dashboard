@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link, useParams } from 'react-router';
-import { ArrowLeft, MessageCircleHeart, Moon, ShieldCheck, Sun, Trash2 } from 'lucide-react';
+import { ArrowLeft, Clock, MessageCircleHeart, Moon, Plus, ShieldCheck, Sun, Trash2, X } from 'lucide-react';
 import { askAssistantLink } from '../lib/assistant';
 import { addSleep, deleteSleep, formatDuration, listSleep } from '../api/sleep';
-import type { SleepKind, SleepQuality, SleepResponse } from '../api/sleep';
+import type { SleepInterval, SleepKind, SleepQuality, SleepResponse } from '../api/sleep';
 import { ApiError } from '../api/client';
 import { formatDateIST, toDateInputValueIST, todayInputValueIST } from '../lib/age';
 import { Card } from '../components/ui/Card';
@@ -30,6 +30,38 @@ const QUALITIES: { value: SleepQuality; label: string }[] = [
 ];
 const QUALITY_TONE: Record<SleepQuality, Tone> = { settled: 'emerald', restless: 'amber', unsettled: 'rose' };
 const QUALITY_LABEL: Record<SleepQuality, string> = { settled: 'Settled', restless: 'Restless', unsettled: 'Woke often' };
+
+/* ── Interval row state ─────────────────────────────────────────────── */
+
+interface IntervalRow {
+  /** Stable React key — increment a counter, never reuse. */
+  key: number;
+  startTime: string;
+  endTime: string;
+  hours: string;
+  minutes: string;
+}
+
+function emptyInterval(key: number): IntervalRow {
+  return { key, startTime: '', endTime: '', hours: '', minutes: '' };
+}
+
+/** Compute duration in minutes for one interval row. Time pair wins when
+ *  both are filled; otherwise fall back to manual hours+minutes.         */
+function intervalMinutes(iv: IntervalRow): number {
+  if (iv.startTime && iv.endTime) {
+    const [sh, sm] = iv.startTime.split(':').map(Number);
+    const [eh, em] = iv.endTime.split(':').map(Number);
+    const startMin = sh * 60 + sm;
+    let endMin = eh * 60 + em;
+    // Handle crossing midnight (e.g. 22:00 -> 06:00)
+    if (endMin <= startMin) endMin += 24 * 60;
+    return endMin - startMin;
+  }
+  return (parseInt(iv.hours || '0', 10) || 0) * 60 + (parseInt(iv.minutes || '0', 10) || 0);
+}
+
+/* ── Segmented control (reused from before) ─────────────────────────── */
 
 function Segmented<T extends string>({
   options,
@@ -62,9 +94,8 @@ function Segmented<T extends string>({
   );
 }
 
-// The typical-sleep-for-age band + a gentle read on how logging compares. Never a
-// target: outside the range is framed calmly, with a nudge to a pediatrician only
-// if it feels off (CLAUDE.md — patterns, not pressure).
+/* ── Expected sleep card ────────────────────────────────────────────── */
+
 function ExpectedSleepCard({ reference, avgMinutes }: { reference: NonNullable<SleepResponse['reference']>; avgMinutes: number }) {
   const minMin = reference.minHours * 60;
   const maxMin = reference.maxHours * 60;
@@ -73,7 +104,7 @@ function ExpectedSleepCard({ reference, avgMinutes }: { reference: NonNullable<S
 
   const line: Record<typeof status, string> = {
     none: 'Log a nap or a night to see how your baby compares to what’s typical.',
-    in: `Based on what you’ve logged (${formatDuration(avgMinutes)}/day), ${reference.label.toLowerCase()} sleep is right in the typical range. 🌙`,
+    in: `Based on what you’ve logged (${formatDuration(avgMinutes)}/day), ${reference.label.toLowerCase()} sleep is right in the typical range. \u{1F319}`,
     under: `You’ve logged about ${formatDuration(avgMinutes)}/day, a little under the typical range. Every baby is different — if it feels off, mention it to your pediatrician.`,
     over: `You’ve logged about ${formatDuration(avgMinutes)}/day, a touch over the typical range — often just a growth spurt or busy days.`,
   };
@@ -83,15 +114,17 @@ function ExpectedSleepCard({ reference, avgMinutes }: { reference: NonNullable<S
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Moon className="h-5 w-5" style={{ color: 'var(--cat-sleep-text)' }} />
-          <h2 className="font-bold text-stone-900">Typical sleep now · {reference.label}</h2>
+          <h2 className="font-bold text-stone-900">Typical sleep now &middot; {reference.label}</h2>
         </div>
-        <Pill tone="violet">{reference.minHours}–{reference.maxHours} h a day</Pill>
+        <Pill tone="violet">{reference.minHours}&ndash;{reference.maxHours} h a day</Pill>
       </div>
       <p className="mt-2 text-sm text-stone-700">{reference.note}</p>
       <p className="mt-2 rounded-lg bg-white/70 px-3 py-2 text-sm text-stone-700">{line[status]}</p>
     </Card>
   );
 }
+
+/* ── Stat tile ──────────────────────────────────────────────────────── */
 
 function StatTile({ label, value }: { label: string; value: string }) {
   return (
@@ -102,6 +135,127 @@ function StatTile({ label, value }: { label: string; value: string }) {
   );
 }
 
+/* ── Single interval row inside the form ────────────────────────────── */
+
+function IntervalInput({
+  row,
+  index,
+  canRemove,
+  onChange,
+  onRemove,
+}: {
+  row: IntervalRow;
+  index: number;
+  canRemove: boolean;
+  onChange: (updated: IntervalRow) => void;
+  onRemove: () => void;
+}) {
+  const mins = intervalMinutes(row);
+  const hasTimeRange = Boolean(row.startTime && row.endTime);
+
+  return (
+    <div className="relative rounded-xl border border-stone-200 bg-stone-50/50 p-3">
+      {canRemove && (
+        <button
+          type="button"
+          onClick={onRemove}
+          aria-label={`Remove interval ${index + 1}`}
+          className="absolute right-2 top-2 grid h-6 w-6 place-items-center rounded-lg text-stone-400 transition-colors hover:bg-rose-50 hover:text-rose-500"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      )}
+
+      <p className="mb-2 text-xs font-semibold text-stone-500">
+        {index === 0 ? 'Sleep interval' : `Interval ${index + 1}`}
+      </p>
+
+      {/* Time range (optional) */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-1.5">
+          <label htmlFor={`start-${row.key}`} className="text-xs text-stone-500">From</label>
+          <input
+            id={`start-${row.key}`}
+            type="time"
+            value={row.startTime}
+            onChange={(e) => onChange({ ...row, startTime: e.target.value })}
+            className={cn(inputCls, 'w-[7.5rem] text-sm')}
+          />
+        </div>
+        <div className="flex items-center gap-1.5">
+          <label htmlFor={`end-${row.key}`} className="text-xs text-stone-500">To</label>
+          <input
+            id={`end-${row.key}`}
+            type="time"
+            value={row.endTime}
+            onChange={(e) => onChange({ ...row, endTime: e.target.value })}
+            className={cn(inputCls, 'w-[7.5rem] text-sm')}
+          />
+        </div>
+      </div>
+
+      {/* Manual duration (shown when time range is NOT both filled) */}
+      {!hasTimeRange && (
+        <div className="mt-2">
+          <span className="text-xs text-stone-500">Or enter duration</span>
+          <div className="mt-1 flex items-center gap-2">
+            <input
+              aria-label={`Interval ${index + 1} hours`}
+              type="number"
+              min={0}
+              max={23}
+              placeholder="0"
+              value={row.hours}
+              onChange={(e) => onChange({ ...row, hours: e.target.value })}
+              className={cn(inputCls, 'w-16 text-sm')}
+            />
+            <span className="text-xs text-stone-500">h</span>
+            <input
+              aria-label={`Interval ${index + 1} minutes`}
+              type="number"
+              min={0}
+              max={59}
+              placeholder="0"
+              value={row.minutes}
+              onChange={(e) => onChange({ ...row, minutes: e.target.value })}
+              className={cn(inputCls, 'w-16 text-sm')}
+            />
+            <span className="text-xs text-stone-500">m</span>
+          </div>
+        </div>
+      )}
+
+      {/* Computed duration for this interval */}
+      {mins > 0 && (
+        <p className="mt-2 flex items-center gap-1 text-xs font-medium" style={{ color: 'var(--cat-sleep-text)' }}>
+          <Clock className="h-3 w-3" />
+          {formatDuration(mins)}
+          {hasTimeRange && <span className="text-stone-400">(from times)</span>}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/* ── Interval breakdown shown under a timeline log entry ────────────── */
+
+function IntervalBreakdown({ intervals }: { intervals: SleepInterval[] }) {
+  return (
+    <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5">
+      {intervals.map((iv, i) => (
+        <span key={i} className="inline-flex items-center gap-1 text-xs text-stone-500">
+          <Clock className="h-3 w-3 text-stone-400" />
+          {iv.startTime && iv.endTime ? `${iv.startTime}–${iv.endTime}` : null}
+          {iv.startTime && iv.endTime ? ' ' : null}
+          ({formatDuration(iv.durationMinutes)})
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════════════ */
+
 export default function Sleep() {
   const { id } = useParams();
   const [data, setData] = useState<SleepResponse | null>(null);
@@ -109,12 +263,36 @@ export default function Sleep() {
 
   const [loggedAt, setLoggedAt] = useState(todayInputValueIST());
   const [kind, setKind] = useState<SleepKind>('night');
-  const [hours, setHours] = useState('');
-  const [minutes, setMinutes] = useState('');
   const [quality, setQuality] = useState<SleepQuality>('settled');
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  // Interval rows — always at least one.
+  const [nextKey, setNextKey] = useState(1);
+  const [intervals, setIntervals] = useState<IntervalRow[]>([emptyInterval(0)]);
+
+  const totalMin = useMemo(() => intervals.reduce((s, iv) => s + intervalMinutes(iv), 0), [intervals]);
+
+  function updateInterval(key: number, updated: IntervalRow) {
+    setIntervals((prev) => prev.map((iv) => (iv.key === key ? updated : iv)));
+  }
+
+  function removeInterval(key: number) {
+    setIntervals((prev) => prev.filter((iv) => iv.key !== key));
+  }
+
+  function addInterval() {
+    setIntervals((prev) => [...prev, emptyInterval(nextKey)]);
+    setNextKey((k) => k + 1);
+  }
+
+  function resetForm() {
+    setIntervals([emptyInterval(nextKey)]);
+    setNextKey((k) => k + 1);
+    setQuality('settled');
+    setNotes('');
+  }
 
   const load = useCallback(async () => {
     if (id === undefined) return;
@@ -139,19 +317,36 @@ export default function Sleep() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (id === undefined) return;
-    const durationMin = (parseInt(hours || '0', 10) || 0) * 60 + (parseInt(minutes || '0', 10) || 0);
-    if (durationMin < 1) {
+    if (totalMin < 1) {
       setError('Please enter how long the sleep lasted.');
       return;
     }
     setError(null);
     setSaving(true);
     try {
-      await addSleep(id, { loggedAt, kind, durationMin, quality, notes: notes.trim() || undefined });
-      setHours('');
-      setMinutes('');
-      setQuality('settled');
-      setNotes('');
+      // Build the intervals payload for the API.
+      const apiIntervals = intervals.map((iv) => {
+        const dur = intervalMinutes(iv);
+        const out: { startTime?: string; endTime?: string; durationMinutes: number } = { durationMinutes: dur };
+        if (iv.startTime) out.startTime = iv.startTime;
+        if (iv.endTime) out.endTime = iv.endTime;
+        return out;
+      }).filter((iv) => iv.durationMinutes > 0);
+
+      // Only send intervals when there are multiple, or when any has times.
+      const hasMultiple = apiIntervals.length > 1;
+      const hasTimes = apiIntervals.some((iv) => iv.startTime || iv.endTime);
+      const sendIntervals = hasMultiple || hasTimes;
+
+      await addSleep(id, {
+        loggedAt,
+        kind,
+        durationMin: totalMin,
+        intervals: sendIntervals ? apiIntervals : undefined,
+        quality,
+        notes: notes.trim() || undefined,
+      });
+      resetForm();
       await load();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Something went wrong, please try again');
@@ -209,7 +404,7 @@ export default function Sleep() {
         eyebrow="Sweet dreams"
         eyebrowColor="var(--cat-sleep-text)"
         title="Rest easy, little one"
-        description="Log naps and night sleep to spot your baby’s rhythm. Every baby sleeps differently — this is for patterns, never pressure."
+        description="Log naps and night sleep to spot your baby's rhythm. Every baby sleeps differently — this is for patterns, never pressure."
       />
 
       {error && <Card className="mt-5 border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{error}</Card>}
@@ -257,22 +452,52 @@ export default function Sleep() {
                 <span id="seg-kind" className="block text-sm font-medium text-stone-700">Type</span>
                 <Segmented options={KINDS} value={kind} onChange={setKind} labelId="seg-kind" />
               </div>
+
+              {/* ── Interval rows ────────────────────────────────── */}
               <div>
-                <span className="block text-sm font-medium text-stone-700">How long?</span>
-                <div className="mt-1 flex items-center gap-2">
-                  <input aria-label="Hours" type="number" min={0} max={23} placeholder="0" value={hours} onChange={(e) => setHours(e.target.value)} className={cn(inputCls, 'w-20')} />
-                  <span className="text-sm text-stone-500">h</span>
-                  <input aria-label="Minutes" type="number" min={0} max={59} placeholder="0" value={minutes} onChange={(e) => setMinutes(e.target.value)} className={cn(inputCls, 'w-20')} />
-                  <span className="text-sm text-stone-500">m</span>
+                <span className="block text-sm font-medium text-stone-700">Sleep intervals</span>
+                <p className="mb-2 text-xs text-stone-400">Add start/end times, or enter the duration directly.</p>
+                <div className="space-y-2">
+                  {intervals.map((iv, i) => (
+                    <IntervalInput
+                      key={iv.key}
+                      row={iv}
+                      index={i}
+                      canRemove={intervals.length > 1}
+                      onChange={(updated) => updateInterval(iv.key, updated)}
+                      onRemove={() => removeInterval(iv.key)}
+                    />
+                  ))}
                 </div>
+
+                {/* Add interval button */}
+                <button
+                  type="button"
+                  onClick={addInterval}
+                  className="mt-2 inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors hover:bg-stone-100"
+                  style={{ color: 'var(--cat-sleep-text)' }}
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Add interval
+                </button>
+
+                {/* Computed total */}
+                {intervals.length > 1 && totalMin > 0 && (
+                  <div className="mt-2 flex items-center gap-2 rounded-lg px-3 py-2" style={{ backgroundColor: 'var(--cat-sleep-bg)' }}>
+                    <Moon className="h-4 w-4" style={{ color: 'var(--cat-sleep-text)' }} />
+                    <span className="text-sm font-bold text-stone-800">Total: {formatDuration(totalMin)}</span>
+                    <span className="text-xs text-stone-500">across {intervals.length} intervals</span>
+                  </div>
+                )}
               </div>
+
               <div>
                 <span id="seg-quality" className="block text-sm font-medium text-stone-700">How was it?</span>
                 <Segmented options={QUALITIES} value={quality} onChange={setQuality} labelId="seg-quality" />
               </div>
               <div>
                 <label htmlFor="notes" className="block text-sm font-medium text-stone-700">Notes (optional)</label>
-                <textarea id="notes" maxLength={1000} rows={2} placeholder="Woke twice for a feed / slept through…" value={notes} onChange={(e) => setNotes(e.target.value)} className={cn(inputCls, 'resize-none')} />
+                <textarea id="notes" maxLength={1000} rows={2} placeholder="Woke twice for a feed / slept through..." value={notes} onChange={(e) => setNotes(e.target.value)} className={cn(inputCls, 'resize-none')} />
               </div>
               <Button type="submit" disabled={saving} className="w-full">
                 {saving ? 'Saving…' : 'Add sleep'}
@@ -306,8 +531,8 @@ export default function Sleep() {
             <ol className="space-y-3">
               {logs.map((log) => (
                 <li key={log.id} data-reveal="">
-                  <Card className="flex items-center gap-3 p-4">
-                    <span aria-hidden="true" className="grid h-10 w-10 shrink-0 place-items-center rounded-xl" style={{ backgroundColor: 'var(--cat-sleep-bg)' }}>
+                  <Card className="flex items-start gap-3 p-4">
+                    <span aria-hidden="true" className="mt-0.5 grid h-10 w-10 shrink-0 place-items-center rounded-xl" style={{ backgroundColor: 'var(--cat-sleep-bg)' }}>
                       {log.kind === 'night' ? <Moon className="h-4 w-4" style={{ color: 'var(--cat-sleep)' }} /> : <Sun className="h-4 w-4" style={{ color: 'var(--cat-sleep)' }} />}
                     </span>
                     <div className="min-w-0 flex-1">
@@ -317,13 +542,17 @@ export default function Sleep() {
                         {log.quality && <Pill tone={QUALITY_TONE[log.quality]}>{QUALITY_LABEL[log.quality]}</Pill>}
                       </div>
                       <p className="mt-0.5 text-xs text-stone-500">{formatDateIST(log.loggedAt)}</p>
+                      {/* Interval breakdown — only when intervals were logged */}
+                      {log.intervals && log.intervals.length > 1 && (
+                        <IntervalBreakdown intervals={log.intervals} />
+                      )}
                       {log.notes && <p className="mt-1 text-sm text-stone-700">{log.notes}</p>}
                     </div>
                     <button
                       onClick={() => void handleDelete(log.id)}
                       disabled={deletingId === log.id}
                       aria-label="Delete sleep log"
-                      className="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-stone-400 transition-colors hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50"
+                      className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg text-stone-400 transition-colors hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>

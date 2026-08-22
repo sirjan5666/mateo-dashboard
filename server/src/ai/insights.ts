@@ -18,6 +18,7 @@ export const INSIGHT_TRACKERS = [
   'milestones',
   'skin',
   'vaccines',
+  'teeth',
 ] as const;
 export type InsightTracker = (typeof INSIGHT_TRACKERS)[number];
 
@@ -29,6 +30,7 @@ const TRACKER_LABEL: Record<InsightTracker, string> = {
   milestones: 'developmental milestones',
   skin: 'skin',
   vaccines: 'vaccinations',
+  teeth: 'teething / dental (tooth eruption timeline)',
 };
 
 export type InsightStatus = 'ok' | 'watch' | 'doctor';

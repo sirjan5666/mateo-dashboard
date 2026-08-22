@@ -14,6 +14,8 @@ export interface VaccineDose {
   windowStart: string;
   windowEnd: string;
   administeredOn: string | null;
+  brand: string | null;
+  isCustom: boolean;
   status: DoseStatus;
   ageLabel: string;
 }
@@ -31,10 +33,24 @@ export function listVaccines(babyId: string) {
 }
 
 // administeredOn: 'YYYY-MM-DD' records an administration; null clears it.
-export function setVaccineAdministered(doseId: string, administeredOn: string | null) {
+export function setVaccineAdministered(doseId: string, administeredOn: string | null, brand?: string) {
   return api<{ dose: VaccineDose }>(`/vaccines/${doseId}`, {
     method: 'PATCH',
-    body: JSON.stringify({ administeredOn }),
+    body: JSON.stringify({ administeredOn, brand }),
+  });
+}
+
+export interface CustomVaccineInput {
+  vaccineName: string;
+  doseLabel?: string;
+  administeredOn: string;
+  brand?: string;
+}
+
+export function addCustomVaccine(babyId: string, input: CustomVaccineInput) {
+  return api<{ dose: VaccineDose }>(`/babies/${babyId}/vaccines/custom`, {
+    method: 'POST',
+    body: JSON.stringify(input),
   });
 }
 

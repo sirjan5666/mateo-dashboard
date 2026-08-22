@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link, useParams } from 'react-router';
-import { Apple, ArrowLeft, Baby, CheckCircle2, Leaf, MessageCircleHeart, ShieldAlert, ShieldCheck, Sparkles, Trash2 } from 'lucide-react';
+import { AlertTriangle, Apple, ArrowLeft, Baby, CheckCircle2, ChevronDown, Clock, Leaf, MessageCircleHeart, ShieldAlert, ShieldCheck, Sparkles, Trash2, UtensilsCrossed } from 'lucide-react';
 import { askAssistantLink } from '../lib/assistant';
 import { addFood, deleteFood, listFood } from '../api/food';
 import type { FoodAmount, FoodReaction, FoodResponse, FoodTexture, MealType } from '../api/food';
@@ -49,6 +49,276 @@ const TEXTURE_LABEL: Record<FoodTexture, string> = { puree: 'Purée', mashed: 'M
 const AMOUNT_LABEL: Record<FoodAmount, string> = { tasted: 'Just tasted', some: 'Ate some', full: 'Full meal' };
 const REACTION_TONE: Record<FoodReaction, Tone> = { none: 'emerald', mild: 'amber', concerning: 'rose' };
 const REACTION_LABEL: Record<FoodReaction, string> = { none: 'No reaction', mild: 'Mild reaction', concerning: 'Concerning' };
+
+// ---------------------------------------------------------------------------
+// #25 — Dietary preference
+// ---------------------------------------------------------------------------
+type DietaryPref = 'all' | 'vegetarian' | 'jain';
+
+// ---------------------------------------------------------------------------
+// #23 — Age-specific safe feeding guidance (ranges are [min, max) in months)
+// ---------------------------------------------------------------------------
+const AGE_SAFE_FEEDING: { range: string; minMonth: number; maxMonth: number; points: string[] }[] = [
+  {
+    range: '6–7 months',
+    minMonth: 6,
+    maxMonth: 8,
+    points: [
+      'Single-ingredient purées only — one new food at a time, wait 3 days before introducing another',
+      'No added salt, sugar, or honey (botulism risk before 12 months)',
+      'Start with iron-rich foods: ragi porridge, moong dal, mashed rice with dal',
+      'Breast milk remains the primary nutrition — solids are a gentle addition',
+      'Texture should be smooth and thin enough to drip off a spoon',
+    ],
+  },
+  {
+    range: '8–9 months',
+    minMonth: 8,
+    maxMonth: 10,
+    points: [
+      'Move to mashed and lumpy textures — no need to purée everything smooth now',
+      'Introduce soft finger foods: banana pieces, steamed carrot sticks, soft idli pieces',
+      'Begin introducing protein: well-cooked egg yolk, mashed dal, soft paneer',
+      'Still no salt, sugar, or honey',
+      'Offer water in a sippy cup with meals',
+    ],
+  },
+  {
+    range: '10–12 months',
+    minMonth: 10,
+    maxMonth: 12,
+    points: [
+      'Family foods (soft-cooked, mild spices) are fine — chop small, avoid hard pieces',
+      'Encourage self-feeding with soft finger foods — expect mess, it builds motor skills',
+      'Honey is STILL unsafe until 12 months (botulism risk)',
+      'Three meals + 1–2 snacks daily, alongside breastfeeding',
+      'Avoid whole nuts, whole grapes, popcorn, hard raw vegetables (choking hazards)',
+    ],
+  },
+  {
+    range: '12–18 months',
+    minMonth: 12,
+    maxMonth: 18,
+    points: [
+      'Most family foods are now safe — keep mildly spiced and cut small',
+      'Boiled or pasteurised cow’s milk can be a drink now (not before 12 months)',
+      'Honey is safe after 12 months in small amounts',
+      'Continue avoiding choking hazards: whole nuts, whole grapes, popcorn, hard candy',
+      'Encourage eating with the family — toddlers learn by watching',
+    ],
+  },
+  {
+    range: '18–24 months',
+    minMonth: 18,
+    maxMonth: 25,
+    points: [
+      'Regular family meals with minor modifications (less salt/spice, smaller pieces)',
+      'Self-feeding with a spoon and cup — messy but important for development',
+      'Offer a wide variety: grains, dal, vegetables, fruits, dairy, eggs/meat',
+      'Limit sugary snacks and packaged food — fresh and homemade is best',
+      'If a picky eater, keep offering rejected foods without pressure — it takes 10–15 exposures',
+    ],
+  },
+];
+
+function safeFeedingForAge(ageMonths: number) {
+  return AGE_SAFE_FEEDING.find((s) => ageMonths >= s.minMonth && ageMonths < s.maxMonth) ?? null;
+}
+
+// ---------------------------------------------------------------------------
+// #24 — Age-appropriate recipe suggestions
+// ---------------------------------------------------------------------------
+interface Recipe {
+  name: string;
+  ingredients: string;
+  steps: string;
+  dietaryNote?: 'non-veg' | 'egg';
+}
+
+const STAGE_RECIPES: { stageRange: string; minMonth: number; maxMonth: number; recipes: Recipe[] }[] = [
+  {
+    stageRange: '6–8 months',
+    minMonth: 6,
+    maxMonth: 9,
+    recipes: [
+      {
+        name: 'Ragi (Finger Millet) Porridge',
+        ingredients: '2 tbsp ragi flour, 1 cup water, a pinch of jaggery (optional, after 8 months)',
+        steps: 'Mix ragi flour with a little cold water to make a smooth paste. Boil the remaining water, add the paste while stirring constantly, and cook on low heat for 5–7 minutes until thick and smooth. Cool before serving.',
+      },
+      {
+        name: 'Moong Dal Purée',
+        ingredients: '2 tbsp yellow moong dal, 1 cup water, a pinch of turmeric',
+        steps: 'Wash and pressure-cook moong dal with water and turmeric for 3–4 whistles. Mash until completely smooth, adding breastmilk or water to thin if needed.',
+      },
+      {
+        name: 'Carrot & Sweet Potato Mash',
+        ingredients: '1 small carrot, 1 small sweet potato, water',
+        steps: 'Peel and chop carrot and sweet potato. Steam or boil until very soft (about 15 minutes). Mash together with a fork until smooth, adding cooking water to reach a thin consistency.',
+      },
+      {
+        name: 'Apple & Pear Stew',
+        ingredients: '1 small apple, 1 small pear, 2 tbsp water',
+        steps: 'Peel, core, and chop the fruits. Simmer in water on low heat for 8–10 minutes until very soft. Mash with a fork to a smooth consistency. Serve at room temperature.',
+      },
+      {
+        name: 'Soft Khichdi',
+        ingredients: '1 tbsp rice, 1 tbsp moong dal, 1 cup water, pinch of turmeric',
+        steps: 'Wash rice and dal. Pressure-cook with water and turmeric for 4 whistles until very soft. Mash well with a spoon and thin with water if needed.',
+      },
+    ],
+  },
+  {
+    stageRange: '9–11 months',
+    minMonth: 9,
+    maxMonth: 12,
+    recipes: [
+      {
+        name: 'Vegetable Khichdi',
+        ingredients: '1 tbsp rice, 1 tbsp moong dal, finely chopped carrot, potato, and spinach, pinch of turmeric and cumin',
+        steps: 'Wash rice and dal. Add chopped vegetables, turmeric, and cumin. Pressure-cook with water for 3–4 whistles. Mash lightly — leave some texture for the lumpy stage.',
+      },
+      {
+        name: 'Egg Bhurji (Scrambled Egg)',
+        ingredients: '1 egg, pinch of turmeric, tiny bit of ghee',
+        steps: 'Beat the egg with turmeric. Heat ghee in a pan, pour in the egg, and scramble on low heat until fully cooked through. Mash into small, soft pieces for baby.',
+        dietaryNote: 'egg',
+      },
+      {
+        name: 'Banana Oat Pancakes',
+        ingredients: '1 ripe banana, 2 tbsp oats (powdered), 1 tbsp curd',
+        steps: 'Mash the banana, mix with powdered oats and curd to form a thick batter. Cook small pancakes on a lightly greased tawa on low heat until golden on both sides. Cut into small finger-food strips.',
+      },
+      {
+        name: 'Soft Idli with Dal',
+        ingredients: 'Idli batter (homemade or fresh), thin moong dal',
+        steps: 'Steam small idlis until soft. Break into small pieces. Serve with thin, warm moong dal for dipping or mixing.',
+      },
+      {
+        name: 'Paneer & Peas Mash',
+        ingredients: '2 tbsp crumbled paneer, 2 tbsp boiled peas, pinch of cumin',
+        steps: 'Boil peas until very soft. Lightly mash peas (leave some texture). Mix with crumbled paneer and a pinch of roasted cumin powder. Serve warm.',
+      },
+    ],
+  },
+  {
+    stageRange: '12–24 months',
+    minMonth: 12,
+    maxMonth: 25,
+    recipes: [
+      {
+        name: 'Mini Paratha Rolls',
+        ingredients: 'Whole-wheat dough, grated paneer or mashed potato, mild spices, ghee',
+        steps: 'Mix grated paneer (or mashed potato) with a pinch of cumin and turmeric. Stuff into small parathas. Cook on a tawa with a little ghee until golden. Cut into small triangles or rolls.',
+      },
+      {
+        name: 'Chicken & Vegetable Soft Stew',
+        ingredients: '2 tbsp minced chicken, chopped carrot, potato, peas, pinch of turmeric and cumin',
+        steps: 'Cook minced chicken with turmeric in a little water until fully done. Add chopped vegetables and simmer until everything is very soft. Mash lightly and serve with soft rice.',
+        dietaryNote: 'non-veg',
+      },
+      {
+        name: 'Roti Pizza Bites',
+        ingredients: '1 soft roti, 1 tbsp tomato purée (no salt), grated paneer, finely chopped veggies',
+        steps: 'Spread tomato purée on roti. Top with finely chopped veggies and grated paneer. Warm on a tawa with a lid until paneer softens. Cut into small, easy-to-hold pieces.',
+      },
+      {
+        name: 'Dal-Rice Bowl with Ghee',
+        ingredients: 'Soft-cooked rice, any dal (masoor/moong/toor), a drop of ghee, mashed veggies',
+        steps: 'Mix soft rice with well-cooked dal. Add a drop of ghee and mashed seasonal vegetables. Mash to the texture your toddler prefers — some lumps are fine.',
+      },
+      {
+        name: 'Banana & Ragi Halwa',
+        ingredients: '1 ripe banana, 1 tbsp ragi flour, 1 tsp ghee, a pinch of cardamom',
+        steps: 'Roast ragi flour in ghee on low heat for 2 minutes. Add mashed banana and a little water. Cook while stirring for 3–4 minutes until thick. Add cardamom powder and serve warm.',
+      },
+    ],
+  },
+];
+
+function recipesForAge(ageMonths: number) {
+  return STAGE_RECIPES.find((s) => ageMonths >= s.minMonth && ageMonths < s.maxMonth) ?? null;
+}
+
+// ---------------------------------------------------------------------------
+// #25 — Food introduction timeline
+// ---------------------------------------------------------------------------
+interface IntroductionItem {
+  food: string;
+  when: string;
+  detail: string;
+  icon: string;
+  isVeg: boolean;
+  isJainSafe: boolean;
+}
+
+const INTRODUCTION_GUIDE: IntroductionItem[] = [
+  {
+    food: 'Eggs',
+    when: 'After 6 months',
+    detail: 'Start with well-cooked yolk mixed into purée. Introduce white gradually. Egg is an excellent source of iron and protein for babies.',
+    icon: '🥚',
+    isVeg: false,
+    isJainSafe: false,
+  },
+  {
+    food: 'Chicken & fish',
+    when: 'After 7–8 months',
+    detail: 'Well-cooked, deboned, and finely mashed or minced. Start with mild white fish or soft-cooked chicken. Always ensure it is thoroughly cooked.',
+    icon: '🍗',
+    isVeg: false,
+    isJainSafe: false,
+  },
+  {
+    food: 'Common allergens (peanut, dairy, wheat)',
+    when: 'After 6 months, one at a time',
+    detail: 'Introduce one new potential allergen at a time and wait 3 days before the next, watching for rash, swelling, vomiting, or breathing changes. Early introduction (not avoidance) may reduce allergy risk.',
+    icon: '⚠️',
+    isVeg: true,
+    isJainSafe: true,
+  },
+  {
+    food: 'Honey',
+    when: 'NEVER before 12 months',
+    detail: 'Honey can contain Clostridium botulinum spores that cause infant botulism — a serious, potentially life-threatening illness. Safe only after the first birthday.',
+    icon: '🍯',
+    isVeg: true,
+    isJainSafe: true,
+  },
+  {
+    food: 'Cow’s milk (as main drink)',
+    when: 'After 12 months',
+    detail: 'Before 12 months, breast milk is the main drink. After 12 months, boiled or pasteurised cow’s milk can be offered as a drink. Use in cooking (curd, paneer) is fine earlier.',
+    icon: '🥛',
+    isVeg: true,
+    isJainSafe: true,
+  },
+  {
+    food: 'Nuts & seeds',
+    when: 'After 6 months (ground/paste only)',
+    detail: 'Ground nut powder or smooth nut paste (peanut, almond) can be mixed into porridge from 6 months. Whole nuts are a choking hazard until 5 years — never give whole.',
+    icon: '🥜',
+    isVeg: true,
+    isJainSafe: true,
+  },
+  {
+    food: 'Root vegetables',
+    when: 'After 6 months',
+    detail: 'Potato, carrot, beetroot, sweet potato, onion, garlic, and ginger are nutritious first foods. Steam or boil until very soft.',
+    icon: '🥕',
+    isVeg: true,
+    isJainSafe: false,
+  },
+];
+
+const JAIN_ALTERNATIVES: Record<string, string> = {
+  'Onion': 'Use asafoetida (hing) for flavour',
+  'Garlic': 'Use cumin and coriander seeds',
+  'Potato': 'Use sweet potato, yam, or raw banana',
+  'Ginger': 'Use dry ginger powder (saunth) in very small amounts',
+  'Beetroot': 'Use pumpkin or red bell pepper for colour',
+  'Carrot': 'Use bottle gourd (lauki) or ridge gourd (turai)',
+};
 
 function Segmented<T extends string>({
   options,
@@ -101,6 +371,8 @@ export default function Food() {
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [dietaryPref, setDietaryPref] = useState<DietaryPref>('all');
+  const [expandedRecipe, setExpandedRecipe] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (id === undefined) return;
@@ -308,79 +580,98 @@ export default function Food() {
         <div className="lg:col-span-2">
           <Card className="p-5">
             <h2 className="font-bold text-stone-800">Log a meal</h2>
-            <form onSubmit={handleSubmit} className="mt-3 space-y-3">
-              <div>
-                <label htmlFor="loggedAt" className="block text-sm font-medium text-stone-700">
-                  Date
-                </label>
-                <DatePicker id="loggedAt" required value={loggedAt} max={todayInputValueIST()} onChange={setLoggedAt} markers={loggedDays} className={inputCls} />
-              </div>
-              <div>
-                <span id="seg-meal" className="block text-sm font-medium text-stone-700">Meal</span>
-                <Segmented options={MEAL_TYPES} value={mealType} onChange={setMealType} labelId="seg-meal" />
-              </div>
-              <div>
-                <label htmlFor="foodName" className="block text-sm font-medium text-stone-700">
-                  What did baby eat?
-                </label>
-                <input id="foodName" type="text" required maxLength={120} placeholder="e.g. mashed banana, soft khichdi" value={foodName} onChange={(e) => setFoodName(e.target.value)} className={inputCls} />
-                {mentionsFormula && (
-                  <p className="mt-1.5 flex items-start gap-1.5 rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
-                    <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                    <span>Mother&apos;s milk is best for your baby. Breastfeeding (or expressed breastmilk) is recommended through the first year — from 6 months alongside freshly prepared homemade foods. Mateo&apos;s feeding guidance stays brand-neutral and never recommends infant formula or milk substitutes. You can still log this entry.</span>
-                  </p>
-                )}
-              </div>
-              <div>
-                <span className="block text-sm font-medium text-stone-700">Food groups</span>
-                <div className="mt-1.5 flex flex-wrap gap-1.5">
-                  {FOOD_GROUPS.map((g) => {
-                    const on = groups.includes(g);
-                    return (
-                      <button
-                        key={g}
-                        type="button"
-                        onClick={() => toggleGroup(g)}
-                        aria-pressed={on}
-                        className={cn('rounded-full border px-3 py-1 text-xs font-semibold transition-colors', on ? 'text-white' : 'border-stone-200 bg-white text-stone-600 hover:bg-stone-50')}
-                        style={on ? { backgroundColor: 'var(--cat-food)', borderColor: 'var(--cat-food)' } : undefined}
-                      >
-                        {g}
-                      </button>
-                    );
-                  })}
+            <form onSubmit={handleSubmit} className="mt-4 space-y-4">
+              {/* Section: When */}
+              <div className="space-y-3">
+                <p className="text-[11px] font-bold uppercase tracking-widest text-stone-400">When</p>
+                <div>
+                  <label htmlFor="loggedAt" className="block text-sm font-medium text-stone-700">
+                    Date
+                  </label>
+                  <DatePicker id="loggedAt" required value={loggedAt} max={todayInputValueIST()} onChange={setLoggedAt} markers={loggedDays} className={inputCls} />
+                </div>
+                <div>
+                  <span id="seg-meal" className="block text-sm font-medium text-stone-700">Meal</span>
+                  <Segmented options={MEAL_TYPES} value={mealType} onChange={setMealType} labelId="seg-meal" />
                 </div>
               </div>
-              <div>
-                <span id="seg-texture" className="block text-sm font-medium text-stone-700">Texture</span>
-                <Segmented options={TEXTURES} value={texture} onChange={setTexture} labelId="seg-texture" />
+
+              <div className="border-t border-stone-100" />
+
+              {/* Section: What */}
+              <div className="space-y-3">
+                <p className="text-[11px] font-bold uppercase tracking-widest text-stone-400">What</p>
+                <div>
+                  <label htmlFor="foodName" className="block text-sm font-medium text-stone-700">
+                    What did baby eat?
+                  </label>
+                  <input id="foodName" type="text" required maxLength={120} placeholder="e.g. mashed banana, soft khichdi" value={foodName} onChange={(e) => setFoodName(e.target.value)} className={inputCls} />
+                  {mentionsFormula && (
+                    <p className="mt-1.5 flex items-start gap-1.5 rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
+                      <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                      <span>Mother&apos;s milk is best for your baby. Breastfeeding (or expressed breastmilk) is recommended through the first year — from 6 months alongside freshly prepared homemade foods. Mateo&apos;s feeding guidance stays brand-neutral and never recommends infant formula or milk substitutes. You can still log this entry.</span>
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <span className="block text-sm font-medium text-stone-700">Food groups</span>
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    {FOOD_GROUPS.map((g) => {
+                      const on = groups.includes(g);
+                      return (
+                        <button
+                          key={g}
+                          type="button"
+                          onClick={() => toggleGroup(g)}
+                          aria-pressed={on}
+                          className={cn('rounded-full border px-3 py-1 text-xs font-semibold transition-colors', on ? 'text-white' : 'border-stone-200 bg-white text-stone-600 hover:bg-stone-50')}
+                          style={on ? { backgroundColor: 'var(--cat-food)', borderColor: 'var(--cat-food)' } : undefined}
+                        >
+                          {g}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div>
+                  <span id="seg-texture" className="block text-sm font-medium text-stone-700">Texture</span>
+                  <Segmented options={TEXTURES} value={texture} onChange={setTexture} labelId="seg-texture" />
+                </div>
               </div>
-              <div>
-                <span id="seg-amount" className="block text-sm font-medium text-stone-700">How much?</span>
-                <Segmented options={AMOUNTS} value={amount} onChange={setAmount} labelId="seg-amount" />
+
+              <div className="border-t border-stone-100" />
+
+              {/* Section: How it went */}
+              <div className="space-y-3">
+                <p className="text-[11px] font-bold uppercase tracking-widest text-stone-400">How it went</p>
+                <div>
+                  <span id="seg-amount" className="block text-sm font-medium text-stone-700">How much?</span>
+                  <Segmented options={AMOUNTS} value={amount} onChange={setAmount} labelId="seg-amount" />
+                </div>
+                <div>
+                  <span id="seg-reaction" className="block text-sm font-medium text-stone-700">Any reaction?</span>
+                  <Segmented options={REACTIONS} value={reaction} onChange={setReaction} labelId="seg-reaction" />
+                  {reaction === 'concerning' && (
+                    <p className="mt-2 rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-700">
+                      If your baby has a rash, swelling around the lips or face, vomiting, or any trouble breathing after a food, treat it as
+                      urgent and see a doctor right away.
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <label className="flex items-center gap-2 text-sm text-stone-700">
+                    <input type="checkbox" checked={isNewFood} onChange={(e) => setIsNewFood(e.target.checked)} className="h-4 w-4 rounded border-stone-300" style={{ accentColor: 'var(--cat-food)' }} />
+                    First time trying this food (watch for reactions over the next few days)
+                  </label>
+                </div>
+                <div>
+                  <label htmlFor="notes" className="block text-sm font-medium text-stone-700">
+                    Notes (optional)
+                  </label>
+                  <textarea id="notes" maxLength={1000} rows={2} placeholder="Loved it / refused / a little rash after…" value={notes} onChange={(e) => setNotes(e.target.value)} className={cn(inputCls, 'resize-none')} />
+                </div>
               </div>
-              <div>
-                <span id="seg-reaction" className="block text-sm font-medium text-stone-700">Any reaction?</span>
-                <Segmented options={REACTIONS} value={reaction} onChange={setReaction} labelId="seg-reaction" />
-                {reaction === 'concerning' && (
-                  <p className="mt-2 rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-700">
-                    If your baby has a rash, swelling around the lips or face, vomiting, or any trouble breathing after a food, treat it as
-                    urgent and see a doctor right away.
-                  </p>
-                )}
-              </div>
-              <div>
-                <label className="flex items-center gap-2 text-sm text-stone-700">
-                  <input type="checkbox" checked={isNewFood} onChange={(e) => setIsNewFood(e.target.checked)} className="h-4 w-4 rounded border-stone-300" style={{ accentColor: 'var(--cat-food)' }} />
-                  First time trying this food (watch for reactions over the next few days)
-                </label>
-              </div>
-              <div>
-                <label htmlFor="notes" className="block text-sm font-medium text-stone-700">
-                  Notes (optional)
-                </label>
-                <textarea id="notes" maxLength={1000} rows={2} placeholder="Loved it / refused / a little rash after…" value={notes} onChange={(e) => setNotes(e.target.value)} className={cn(inputCls, 'resize-none')} />
-              </div>
+
               <Button type="submit" disabled={saving} className="w-full">
                 {saving ? 'Saving…' : 'Add meal'}
               </Button>
@@ -460,6 +751,28 @@ export default function Food() {
           )}
         </div>
       </div>
+
+      {/* #24 — Recipe suggestions (age-appropriate) */}
+      {guidance && !guidance.underSix && (
+        <div className="mt-6">
+          <RecipeSuggestionsCard
+            ageMonths={guidance.ageMonths}
+            dietaryPref={dietaryPref}
+            expandedRecipe={expandedRecipe}
+            onToggle={(name) => setExpandedRecipe((prev) => (prev === name ? null : name))}
+          />
+        </div>
+      )}
+
+      {/* #25 — Food introduction guidance */}
+      {guidance && !guidance.underSix && (
+        <div className="mt-6">
+          <FoodIntroductionCard
+            dietaryPref={dietaryPref}
+            onChangePref={setDietaryPref}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -608,13 +921,33 @@ function StageBanner({
 
 function SafeFeedingCard({ guidance }: { guidance: FoodResponse['guidance'] | null }) {
   if (!guidance) return null;
+  const ageSpecific = guidance.underSix ? null : safeFeedingForAge(guidance.ageMonths);
   return (
     <Card className="mt-3 p-5">
       <div className="flex items-center gap-2">
         <ShieldAlert className="h-4 w-4 text-rose-500" />
         <h2 className="font-bold text-stone-800">Safe feeding</h2>
+        {ageSpecific && <Pill tone="stone">{ageSpecific.range}</Pill>}
       </div>
-      <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-stone-500">Never feed</p>
+      {/* #23 — Age-specific safe feeding guidance */}
+      {ageSpecific && (
+        <div className="mt-3">
+          <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--cat-food-text)' }}>
+            What&apos;s right at {ageSpecific.range}
+          </p>
+          <ul className="mt-1.5 space-y-1.5">
+            {ageSpecific.points.map((p) => (
+              <li key={p} className="flex items-start gap-2 text-xs text-stone-700">
+                <CheckCircle2 className="mt-0.5 h-3 w-3 shrink-0" style={{ color: 'var(--cat-food)' }} />
+                {p}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      <p className={cn('text-xs font-semibold uppercase tracking-wide text-stone-500', ageSpecific ? 'mt-4 border-t border-stone-100 pt-3' : 'mt-2')}>
+        Never feed
+      </p>
       <ul className="mt-1 space-y-1.5">
         {guidance.neverFeed.map((n) => (
           <li key={n.item} className="text-xs text-stone-600">
@@ -632,6 +965,189 @@ function SafeFeedingCard({ guidance }: { guidance: FoodResponse['guidance'] | nu
         ))}
       </ul>
       <p className="mt-3 border-t border-stone-100 pt-3 text-xs text-stone-500">{guidance.feedingNote}</p>
+    </Card>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// #24 — Recipe suggestions (expandable cards, age-appropriate)
+// ---------------------------------------------------------------------------
+function RecipeSuggestionsCard({
+  ageMonths,
+  dietaryPref,
+  expandedRecipe,
+  onToggle,
+}: {
+  ageMonths: number;
+  dietaryPref: DietaryPref;
+  expandedRecipe: string | null;
+  onToggle: (name: string) => void;
+}) {
+  const stageRecipes = recipesForAge(ageMonths);
+  if (!stageRecipes) return null;
+
+  const filtered = stageRecipes.recipes.filter((r) => {
+    if (dietaryPref === 'all') return true;
+    // Vegetarian and Jain exclude non-veg and egg
+    return !r.dietaryNote;
+  });
+
+  if (filtered.length === 0) return null;
+
+  return (
+    <Card className="p-5" data-reveal="">
+      <div className="flex items-center gap-2">
+        <UtensilsCrossed className="h-5 w-5" style={{ color: 'var(--cat-food)' }} />
+        <h2 className="font-bold text-stone-900">Meal ideas for {stageRecipes.stageRange}</h2>
+      </div>
+      <p className="mt-1 text-sm text-stone-500">Age-appropriate, homemade recipe suggestions — tap to expand</p>
+      <div className="mt-3 space-y-2">
+        {filtered.map((recipe) => {
+          const isOpen = expandedRecipe === recipe.name;
+          return (
+            <div key={recipe.name} className="rounded-xl border border-stone-100 bg-stone-50/50">
+              <button
+                type="button"
+                onClick={() => onToggle(recipe.name)}
+                className="flex w-full items-center justify-between gap-3 p-3 text-left"
+              >
+                <div className="min-w-0">
+                  <span className="text-sm font-semibold text-stone-800">{recipe.name}</span>
+                  {recipe.dietaryNote === 'egg' && (
+                    <span className="ml-2 rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">Egg</span>
+                  )}
+                  {recipe.dietaryNote === 'non-veg' && (
+                    <span className="ml-2 rounded bg-rose-50 px-1.5 py-0.5 text-[10px] font-semibold text-rose-700">Non-veg</span>
+                  )}
+                </div>
+                <ChevronDown className={cn('h-4 w-4 shrink-0 text-stone-400 transition-transform', isOpen && 'rotate-180')} />
+              </button>
+              {isOpen && (
+                <div className="border-t border-stone-100 px-3 pb-3 pt-2">
+                  <p className="text-xs text-stone-600">
+                    <span className="font-semibold text-stone-700">Ingredients:</span> {recipe.ingredients}
+                  </p>
+                  <p className="mt-1.5 text-xs text-stone-600">{recipe.steps}</p>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      <p className="mt-3 text-xs text-stone-500">
+        All recipes are homemade and brand-neutral. Adjust textures and quantities to your baby&apos;s readiness.
+      </p>
+    </Card>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// #25 — Food introduction guidance with dietary preference toggle
+// ---------------------------------------------------------------------------
+function FoodIntroductionCard({
+  dietaryPref,
+  onChangePref,
+}: {
+  dietaryPref: DietaryPref;
+  onChangePref: (p: DietaryPref) => void;
+}) {
+  const items = INTRODUCTION_GUIDE.filter((item) => {
+    if (dietaryPref === 'all') return true;
+    if (dietaryPref === 'vegetarian') return item.isVeg;
+    if (dietaryPref === 'jain') return item.isJainSafe;
+    return true;
+  });
+
+  return (
+    <Card className="p-5" data-reveal="">
+      <div className="flex items-center gap-2">
+        <Clock className="h-5 w-5" style={{ color: 'var(--cat-food)' }} />
+        <h2 className="font-bold text-stone-900">When to introduce foods</h2>
+      </div>
+      <p className="mt-1 text-sm text-stone-500">A guide to safely introducing key food groups as your baby grows</p>
+
+      {/* Dietary preference toggle */}
+      <div className="mt-3">
+        <span className="block text-[11px] font-bold uppercase tracking-widest text-stone-400">Dietary preference</span>
+        <div className="mt-1.5 inline-flex flex-wrap gap-0.5 rounded-xl bg-stone-100 p-0.5">
+          {([
+            { value: 'all' as const, label: 'Non-vegetarian' },
+            { value: 'vegetarian' as const, label: 'Vegetarian' },
+            { value: 'jain' as const, label: 'Jain' },
+          ]).map((o) => (
+            <button
+              key={o.value}
+              type="button"
+              aria-pressed={dietaryPref === o.value}
+              onClick={() => onChangePref(o.value)}
+              className={cn(
+                'rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
+                dietaryPref === o.value ? 'bg-white text-stone-900 shadow-soft' : 'text-stone-500 hover:text-stone-700',
+              )}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Introduction timeline */}
+      <div className="mt-4 space-y-2.5">
+        {items.map((item) => {
+          const isWarning = item.food === 'Honey';
+          return (
+            <div
+              key={item.food}
+              className={cn('rounded-xl border p-3', isWarning ? 'border-rose-200 bg-rose-50/50' : 'border-stone-100')}
+            >
+              <div className="flex items-start gap-2.5">
+                <span className="mt-0.5 text-base" aria-hidden="true">
+                  {item.icon}
+                </span>
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm font-semibold text-stone-800">{item.food}</span>
+                    <span
+                      className={cn('rounded-full px-2 py-0.5 text-[11px] font-semibold', isWarning ? 'bg-rose-100 text-rose-700' : '')}
+                      style={isWarning ? undefined : { backgroundColor: 'var(--cat-food-bg)', color: 'var(--cat-food-text)' }}
+                    >
+                      {item.when}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs text-stone-600">{item.detail}</p>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Jain alternatives */}
+      {dietaryPref === 'jain' && (
+        <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50/50 p-4">
+          <div className="flex items-center gap-2">
+            <Leaf className="h-4 w-4 text-amber-600" />
+            <h3 className="text-sm font-bold text-stone-800">Jain-friendly alternatives</h3>
+          </div>
+          <p className="mt-1 text-xs text-stone-600">
+            Root vegetables (onion, garlic, potato, ginger) are excluded in Jain dietary practice. Here are nutritious swaps:
+          </p>
+          <ul className="mt-2 space-y-1.5">
+            {Object.entries(JAIN_ALTERNATIVES).map(([item, alt]) => (
+              <li key={item} className="flex items-start gap-2 text-xs text-stone-700">
+                <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0 text-amber-500" />
+                <span>
+                  <span className="font-semibold">{item}:</span> {alt}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <p className="mt-3 border-t border-stone-100 pt-3 text-xs text-stone-500">
+        Every baby is different. This is general guidance, not a medical prescription. Consult your pediatrician before introducing allergens, especially if there is a family history of allergies.
+      </p>
     </Card>
   );
 }

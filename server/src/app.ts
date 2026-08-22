@@ -30,6 +30,7 @@ import reviewsRouter from './routes/reviews.js';
 import walletRouter from './routes/wallet.js';
 import subscriptionRouter from './routes/subscription.js';
 import dosingRouter from './routes/dosing.js';
+import teethRouter from './routes/teeth.js';
 import doctorPatientsRouter from './routes/doctorPatients.js';
 import doctorEncountersRouter from './routes/doctorEncounters.js';
 import doctorAppointmentsRouter from './routes/doctorAppointments.js';
@@ -87,6 +88,8 @@ export function createApp() {
   app.use('/api', foodRouter);
   // GET/POST /api/babies/:id/sleep and DELETE /api/babies/:id/sleep/:logId
   app.use('/api', sleepRouter);
+  // GET/POST /api/babies/:id/teeth and DELETE /api/babies/:id/teeth/:logId
+  app.use('/api', teethRouter);
   // GET /api/babies/:id/milestones and POST/DELETE .../milestones/:milestoneId
   app.use('/api', milestonesRouter);
   // Health records + appointments under /api/babies/:id/{records,appointments}

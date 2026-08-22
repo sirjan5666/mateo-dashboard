@@ -13,6 +13,12 @@ import { sleepReferenceForAge } from '../sleep/reference.js';
 const MIN_DATE = new Date('2000-01-01T00:00:00.000Z');
 const MS_PER_MONTH = 86_400_000 * 30.4375;
 
+const intervalSchema = z.object({
+  startTime: z.string().max(10).optional(),
+  endTime: z.string().max(10).optional(),
+  durationMinutes: z.number().int().min(1).max(1440),
+});
+
 const createSleepSchema = z.object({
   loggedAt: z.coerce
     .date()
@@ -21,6 +27,7 @@ const createSleepSchema = z.object({
     .refine((d) => !isFutureISTDate(d), 'Date cannot be in the future'),
   kind: z.enum(['nap', 'night']),
   durationMin: z.number().int().min(1).max(1440),
+  intervals: z.array(intervalSchema).min(1).max(20).optional(),
   quality: z.enum(['settled', 'restless', 'unsettled']).optional(),
   notes: z.string().trim().max(1000).optional(),
 });
@@ -31,6 +38,7 @@ function publicLog(log: ISleepLog & { id: string }) {
     loggedAt: log.loggedAt,
     kind: log.kind,
     durationMin: log.durationMin,
+    intervals: log.intervals ?? null,
     quality: log.quality ?? null,
     notes: log.notes ?? null,
     createdAt: log.createdAt,
@@ -84,7 +92,15 @@ router.post('/babies/:id/sleep', requireAuth, requireSubscription, loadOwnedBaby
     res.status(400).json({ error: 'Date cannot be before the baby was born' });
     return;
   }
-  const log = await SleepLog.create({ babyId: baby._id, ...body });
+  // When intervals are provided, compute total durationMin from their sum.
+  const durationMin = body.intervals
+    ? body.intervals.reduce((sum, iv) => sum + iv.durationMinutes, 0)
+    : body.durationMin;
+  if (durationMin < 1) {
+    res.status(400).json({ error: 'Total sleep duration must be at least 1 minute' });
+    return;
+  }
+  const log = await SleepLog.create({ babyId: baby._id, ...body, durationMin });
   void awardTrackerEntry(req.userId!, 'sleep_log', log.id, `earn:sleep:${log.id}`).catch((e) => console.error('sitare award failed:', e));
   res.status(201).json({ log: publicLog(log) });
 });

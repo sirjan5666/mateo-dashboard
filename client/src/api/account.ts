@@ -23,10 +23,16 @@ export function deleteContact(contactId: string) {
   return api<{ ok: true }>(`/account/contacts/${contactId}`, { method: 'DELETE' });
 }
 
-export function updateProfile(name: string) {
-  return api<{ user: { id: string; name: string; email: string } }>(`/account/profile`, {
+export interface ProfileUpdate {
+  name?: string;
+  heightCm?: number;
+  weightKg?: number;
+}
+
+export function updateProfile(update: ProfileUpdate) {
+  return api<{ user: { id: string; name: string; email: string; heightCm?: number; weightKg?: number } }>(`/account/profile`, {
     method: 'PATCH',
-    body: JSON.stringify({ name }),
+    body: JSON.stringify(update),
   });
 }
 

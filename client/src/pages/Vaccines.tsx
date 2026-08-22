@@ -7,12 +7,14 @@ import {
   CalendarDays,
   Check,
   CheckCircle2,
+  ChevronDown,
   Clock,
   Droplets,
   HeartPulse,
   Info,
   MessageCircleHeart,
   PartyPopper,
+  Plus,
   Printer,
   ShieldCheck,
   Stethoscope,
@@ -26,11 +28,12 @@ import { askAssistantLink } from '../lib/assistant';
 import { gsap, useScrollReveal, celebrate, prefersReducedMotion } from '../lib/gsap';
 import { getBaby } from '../api/babies';
 import type { Baby } from '../api/babies';
-import { listVaccines, setVaccineAdministered } from '../api/vaccines';
+import { listVaccines, setVaccineAdministered, addCustomVaccine } from '../api/vaccines';
 import type { DoseStatus, VaccineDose, VaccineSummary } from '../api/vaccines';
 import { getNotificationPreferences } from '../api/notificationPrefs';
 import type { NotificationPreferences } from '../api/notificationPrefs';
 import { ApiError } from '../api/client';
+import { useT } from '../i18n/context';
 import { dayDiffIST, formatAge, formatDateIST, toDateInputValueIST, todayInputValueIST } from '../lib/age';
 import { Card } from '../components/ui/Card';
 import { DatePicker } from '../components/ui/DatePicker';
@@ -80,7 +83,9 @@ export default function Vaccines() {
   const [error, setError] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [dateDraft, setDateDraft] = useState<Record<string, string>>({});
+  const [brandDraft, setBrandDraft] = useState<Record<string, string>>({});
   const [filter, setFilter] = useState<FilterKey>('all');
+  const [showAddCustom, setShowAddCustom] = useState(false);
 
   useEffect(() => {
     if (id === undefined) return;
@@ -117,11 +122,11 @@ export default function Vaccines() {
     };
   }, []);
 
-  async function update(doseId: string, administeredOn: string | null) {
+  async function update(doseId: string, administeredOn: string | null, brand?: string) {
     setSavingId(doseId);
     setError(null);
     try {
-      await setVaccineAdministered(doseId, administeredOn);
+      await setVaccineAdministered(doseId, administeredOn, brand);
       // Refetch the whole list so EVERY dose's status AND the summary are recomputed
       // by the server against one "today" — a single-dose optimistic patch would
       // leave siblings stale and let the client-side tally disagree with the server.
@@ -242,9 +247,12 @@ export default function Vaccines() {
                     </button>
                   );
                 })}
+                <button onClick={() => setShowAddCustom(true)} className={buttonClass('secondary', 'sm', 'ml-auto')}>
+                  <Plus className="h-4 w-4" /> Add vaccine
+                </button>
                 <button
                   onClick={() => window.print()}
-                  className={buttonClass('secondary', 'sm', 'ml-auto')}
+                  className={buttonClass('secondary', 'sm')}
                 >
                   <Printer className="h-4 w-4" /> Print
                 </button>
@@ -278,8 +286,10 @@ export default function Vaccines() {
                               saving={savingId === dose.id}
                               minDate={baby ? toDateInputValueIST(baby.dob) : undefined}
                               draft={dateDraft[dose.id] ?? todayInputValueIST()}
+                              brandDraft={brandDraft[dose.id] ?? ''}
                               onDraftChange={(v) => setDateDraft((prev) => ({ ...prev, [dose.id]: v }))}
-                              onMark={(d) => void update(dose.id, d)}
+                              onBrandChange={(v) => setBrandDraft((prev) => ({ ...prev, [dose.id]: v }))}
+                              onMark={(d, b) => void update(dose.id, d, b)}
                               onUndo={() => void update(dose.id, null)}
                             />
                           ))}
@@ -302,6 +312,23 @@ export default function Vaccines() {
 
           {/* Honest reminder band */}
           <ReminderBand prefs={prefs} />
+
+          {/* Vaccine info section (#14) */}
+          <VaccineInfoSection />
+
+          {showAddCustom && id && (
+            <AddCustomVaccineModal
+              babyId={id}
+              minDate={baby ? toDateInputValueIST(baby.dob) : undefined}
+              onClose={() => setShowAddCustom(false)}
+              onAdded={async () => {
+                setShowAddCustom(false);
+                const v = await listVaccines(id);
+                setDoses(v.doses);
+                setSummary(v.summary);
+              }}
+            />
+          )}
         </>
       )}
     </div>
@@ -405,7 +432,9 @@ function DoseRow({
   saving,
   minDate,
   draft,
+  brandDraft,
   onDraftChange,
+  onBrandChange,
   onMark,
   onUndo,
 }: {
@@ -413,10 +442,13 @@ function DoseRow({
   saving: boolean;
   minDate?: string;
   draft: string;
+  brandDraft: string;
   onDraftChange: (value: string) => void;
-  onMark: (date: string) => void;
+  onBrandChange: (value: string) => void;
+  onMark: (date: string, brand?: string) => void;
   onUndo: () => void;
 }) {
+  const t = useT();
   const isDone = dose.status === 'done';
   const rowRef = useRef<HTMLDivElement>(null);
   const prevStatus = useRef(dose.status);
@@ -461,7 +493,7 @@ function DoseRow({
                   {dose.vaccineName} <span className="font-normal text-stone-500">· {dose.doseLabel}</span>
                 </h3>
                 {dose.protectsAgainst && (
-                  <p className="mt-0.5 text-sm text-stone-500">Protects against {dose.protectsAgainst}</p>
+                  <p className="mt-0.5 text-sm text-stone-500">{t('vax.protects')} {dose.protectsAgainst}</p>
                 )}
               </div>
               <DoseStatusPill status={dose.status} />
@@ -469,8 +501,9 @@ function DoseRow({
 
             <p className="mt-2 text-sm text-stone-500">
               {isDone && dose.administeredOn
-                ? `Given ${formatDateIST(dose.administeredOn)}`
+                ? `Given ${formatDateIST(dose.administeredOn)}${dose.brand ? ` · ${dose.brand}` : ''}`
                 : `Due ${formatDateIST(dose.dueDate)}`}
+              {dose.isCustom && <span className="ml-1.5 rounded bg-violet-100 px-1.5 py-0.5 text-xs font-semibold text-violet-700">Custom</span>}
             </p>
 
             {dose.notes && <p className="mt-1 text-sm text-stone-500">{dose.notes}</p>}
@@ -483,12 +516,12 @@ function DoseRow({
                   className="inline-flex items-center gap-1.5 text-sm font-medium text-stone-500 hover:text-stone-700 disabled:opacity-60"
                 >
                   <Undo2 className="h-4 w-4" />
-                  {saving ? 'Saving…' : 'Undo'}
+                  {saving ? t('vax.saving') : t('vax.undo')}
                 </button>
               ) : (
                 <div className="flex flex-wrap items-center gap-2">
                   <label className="text-sm text-stone-500" htmlFor={`date-${dose.id}`}>
-                    Given on
+                    {t('vax.givenOn')}
                   </label>
                   <DatePicker
                     id={`date-${dose.id}`}
@@ -498,9 +531,16 @@ function DoseRow({
                     onChange={onDraftChange}
                     className="w-44 rounded-lg border border-stone-300 px-2.5 py-1.5 text-sm text-stone-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                   />
-                  <button onClick={() => onMark(draft)} disabled={saving} className={buttonClass('primary', 'sm')}>
+                  <input
+                    type="text"
+                    placeholder={t('vax.brandPlaceholder')}
+                    value={brandDraft}
+                    onChange={(e) => onBrandChange(e.target.value)}
+                    className="w-36 rounded-lg border border-stone-300 px-2.5 py-1.5 text-sm text-stone-900 placeholder:text-stone-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                  />
+                  <button onClick={() => onMark(draft, brandDraft || undefined)} disabled={saving} className={buttonClass('primary', 'sm')}>
                     <Check className="h-4 w-4" />
-                    {saving ? 'Saving…' : 'Mark as given'}
+                    {saving ? t('vax.saving') : t('vax.markGiven')}
                   </button>
                 </div>
               )}
@@ -512,14 +552,15 @@ function DoseRow({
   );
 }
 
-const LEGEND: { key: DoseStatus; label: string; dot: string }[] = [
-  { key: 'done', label: 'Given', dot: 'bg-green-500' },
-  { key: 'due', label: 'Due now', dot: 'bg-amber-500' },
-  { key: 'overdue', label: 'Overdue', dot: 'bg-rose-500' },
-  { key: 'upcoming', label: 'Upcoming', dot: 'bg-stone-300' },
+const LEGEND_KEYS: { key: DoseStatus; tKey: string; dot: string }[] = [
+  { key: 'done', tKey: 'vax.given', dot: 'bg-green-500' },
+  { key: 'due', tKey: 'vax.dueNow', dot: 'bg-amber-500' },
+  { key: 'overdue', tKey: 'vax.overdue', dot: 'bg-rose-500' },
+  { key: 'upcoming', tKey: 'vax.upcoming', dot: 'bg-stone-300' },
 ];
 
 function ProgressCard({ pct, summary }: { pct: number; summary: VaccineSummary }) {
+  const t = useT();
   const counts: Record<DoseStatus, number> = {
     done: summary.done,
     due: summary.due,
@@ -535,10 +576,10 @@ function ProgressCard({ pct, summary }: { pct: number; summary: VaccineSummary }
           <span className="text-[11px] font-semibold text-stone-500">complete</span>
         </ProgressRing>
         <ul className="flex-1 space-y-1.5">
-          {LEGEND.map((l) => (
+          {LEGEND_KEYS.map((l) => (
             <li key={l.key} className="flex items-center gap-2 text-sm">
               <span className={cn('h-2.5 w-2.5 rounded-full', l.dot)} />
-              <span className="text-stone-600">{l.label}</span>
+              <span className="text-stone-600">{t(l.tKey)}</span>
               <span className="ml-auto font-bold text-stone-800">{counts[l.key]}</span>
             </li>
           ))}
@@ -671,6 +712,124 @@ function ReminderBand({ prefs }: { prefs: NotificationPreferences | null }) {
             {c.label}
             <span className="text-xs font-medium opacity-70">{c.note}</span>
           </span>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+// ── #12: Add Custom Vaccine modal ───────────────────────────────────────────
+function AddCustomVaccineModal({
+  babyId,
+  minDate,
+  onClose,
+  onAdded,
+}: {
+  babyId: string;
+  minDate?: string;
+  onClose: () => void;
+  onAdded: () => void;
+}) {
+  const [name, setName] = useState('');
+  const [date, setDate] = useState(todayInputValueIST());
+  const [brand, setBrand] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function handleSubmit() {
+    if (!name.trim()) return;
+    setSaving(true);
+    setErr(null);
+    try {
+      await addCustomVaccine(babyId, { vaccineName: name.trim(), administeredOn: date, brand: brand.trim() || undefined });
+      onAdded();
+    } catch (e) {
+      setErr(e instanceof ApiError ? e.message : 'Could not add vaccine');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <Card className="w-full max-w-md space-y-4 p-6" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+        <h2 className="text-lg font-bold text-stone-900">Add a vaccine</h2>
+        <p className="text-sm text-stone-500">Record a vaccine that is not part of the standard IAP schedule.</p>
+        {err && <p className="text-sm text-rose-600">{err}</p>}
+        <div>
+          <label className="mb-1 block text-sm font-medium text-stone-700">Vaccine name *</label>
+          <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Chickenpox / Varicella"
+            className="h-11 w-full rounded-xl border border-stone-300 px-3 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20" />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="mb-1 block text-sm font-medium text-stone-700">Date given *</label>
+            <DatePicker value={date} min={minDate} max={todayInputValueIST()} onChange={setDate}
+              className="h-11 w-full rounded-xl border border-stone-300 px-3 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20" />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-stone-700">Brand</label>
+            <input type="text" value={brand} onChange={(e) => setBrand(e.target.value)} placeholder="Optional"
+              className="h-11 w-full rounded-xl border border-stone-300 px-3 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20" />
+          </div>
+        </div>
+        <div className="flex justify-end gap-2 pt-2">
+          <button type="button" onClick={onClose} className={buttonClass('secondary', 'md')}>Cancel</button>
+          <button type="button" onClick={handleSubmit} disabled={saving || !name.trim()} className={buttonClass('primary', 'md')}>
+            {saving ? 'Adding…' : 'Add vaccine'}
+          </button>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+// ── #14: Vaccine educational info ───────────────────────────────────────────
+const VACCINE_INFO: { name: string; protects: string; about: string; painless?: boolean; postCare: string }[] = [
+  { name: 'BCG', protects: 'Tuberculosis (TB)', about: 'Given at birth — a small injection in the upper arm that leaves a tiny scar. Protects against severe forms of childhood TB.', postCare: 'A small bump may form at the injection site. This is normal and can take weeks to heal. Do not apply any ointment.' },
+  { name: 'Hepatitis B', protects: 'Hepatitis B virus infection', about: 'A series of 3-4 doses starting at birth. Prevents liver infection that can become chronic.', postCare: 'Mild soreness at the site is common. Fever is rare.' },
+  { name: 'OPV', protects: 'Polio (oral drops)', about: 'Oral drops — painless! Given alongside injectable polio vaccine (IPV) for full protection.', postCare: 'No side effects expected from oral drops. Avoid feeding for 30 minutes after the drops.' },
+  { name: 'DTwP/DTaP', protects: 'Diphtheria, Tetanus, Pertussis (whooping cough)', about: 'A combination vaccine given in 3 primary doses plus boosters. DTaP (acellular/painless) causes fewer side effects than DTwP (whole-cell).', painless: true, postCare: 'Mild fever and fussiness are common for 1-2 days. A warm compress can ease soreness at the site.' },
+  { name: 'IPV', protects: 'Polio (injectable)', about: 'An injection that works together with OPV drops to provide complete polio protection.', postCare: 'Mild redness at the injection site. No significant side effects.' },
+  { name: 'PCV', protects: 'Pneumococcal disease (pneumonia, meningitis)', about: 'Protects against bacterial infections that can cause pneumonia, ear infections and meningitis in young children.', postCare: 'Mild fever and irritability may occur. Give paracetamol only if recommended by your doctor.' },
+  { name: 'Rotavirus', protects: 'Severe diarrhoea caused by Rotavirus', about: 'Oral drops — painless! Prevents the most common cause of severe diarrhoea in babies under 5.', postCare: 'Mild loose stools may occur. Contact your doctor if you notice severe vomiting or bloody stools.' },
+  { name: 'Influenza', protects: 'Seasonal influenza (flu)', about: 'Recommended from 6 months. Two doses in the first year, then one dose annually.', postCare: 'Mild soreness, low-grade fever for a day. The vaccine does NOT cause flu.' },
+  { name: 'MMR', protects: 'Measles, Mumps, Rubella', about: 'Two doses — first around 9 months, booster at 15-18 months. Highly effective at preventing all three diseases.', postCare: 'Mild fever or rash may appear 7-12 days after the shot. This is the immune system responding — not an infection.' },
+  { name: 'Typhoid Conjugate Vaccine', protects: 'Typhoid fever', about: 'A single dose given between 6-9 months of age with a booster later.', postCare: 'Mild fever and site pain may occur for a day.' },
+  { name: 'Varicella', protects: 'Chickenpox', about: 'Two doses recommended. Prevents chickenpox and its complications including skin infections and pneumonia.', postCare: 'A mild rash with a few spots may appear 1-3 weeks later. Keep the area clean.' },
+  { name: 'Hepatitis A', protects: 'Hepatitis A virus infection', about: 'Two doses starting at 12 months, 6 months apart. Prevents liver infection spread through contaminated food/water.', postCare: 'Mild soreness at the site. Serious reactions are very rare.' },
+];
+
+function VaccineInfoSection() {
+  const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
+  return (
+    <Card className="mt-6 p-5" data-reveal="">
+      <h3 className="font-display text-lg font-semibold text-stone-900">Know your vaccines</h3>
+      <p className="mt-1 text-sm text-stone-500">Tap any vaccine to learn more about what it protects against, what to expect, and post-vaccination care.</p>
+      <div className="mt-4 space-y-2">
+        {VACCINE_INFO.map((v, i) => (
+          <div key={v.name} className="overflow-hidden rounded-xl border border-stone-200">
+            <button type="button" onClick={() => setExpandedIdx(expandedIdx === i ? null : i)}
+              className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-stone-50">
+              <div className="flex items-center gap-2.5">
+                <Syringe className="h-4 w-4" style={{ color: 'var(--cat-vaccine-text)' }} />
+                <span className="text-sm font-semibold text-stone-800">{v.name}</span>
+              </div>
+              <ChevronDown className={cn('h-4 w-4 text-stone-400 transition-transform', expandedIdx === i && 'rotate-180')} />
+            </button>
+            {expandedIdx === i && (
+              <div className="space-y-2 border-t border-stone-100 bg-stone-50/50 px-4 py-3 text-sm text-stone-700">
+                <p><strong>Protects against:</strong> {v.protects}</p>
+                <p>{v.about}</p>
+                {v.painless && (
+                  <p className="flex items-center gap-1.5 text-emerald-700">
+                    <CheckCircle2 className="h-4 w-4" /> Painless option available — ask your pediatrician about DTaP.
+                  </p>
+                )}
+                <p><strong>After the vaccine:</strong> {v.postCare}</p>
+              </div>
+            )}
+          </div>
         ))}
       </div>
     </Card>

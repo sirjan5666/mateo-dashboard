@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link } from 'react-router';
-import { ArrowLeft, Download, KeyRound, Languages, Phone, Plus, ShieldCheck, Trash2, TriangleAlert } from 'lucide-react';
+import { ArrowLeft, Download, KeyRound, Languages, Phone, Plus, Ruler, ShieldCheck, Trash2, TriangleAlert } from 'lucide-react';
 import { useAuth } from '../auth/context';
 import { useLang, useT } from '../i18n/context';
 import { LANGS } from '../i18n/translations';
@@ -22,7 +22,10 @@ export default function Settings() {
   const [notice, setNotice] = useState<string | null>(null);
 
   const [name, setName] = useState(user?.name ?? '');
+  const [heightCm, setHeightCm] = useState(user?.heightCm?.toString() ?? '');
+  const [weightKg, setWeightKg] = useState(user?.weightKg?.toString() ?? '');
   const [savingName, setSavingName] = useState(false);
+  const [savingVitals, setSavingVitals] = useState(false);
 
   const [contacts, setContacts] = useState<EmergencyContact[] | null>(null);
   const [cName, setCName] = useState('');
@@ -62,13 +65,32 @@ export default function Settings() {
     setNotice(null);
     setSavingName(true);
     try {
-      await updateProfile(name.trim());
+      await updateProfile({ name: name.trim() });
       await refresh();
       setNotice('Your name has been updated.');
     } catch (err) {
       fail(err);
     } finally {
       setSavingName(false);
+    }
+  }
+
+  async function saveVitals(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setNotice(null);
+    setSavingVitals(true);
+    try {
+      const update: Record<string, number> = {};
+      if (heightCm) update.heightCm = parseFloat(heightCm);
+      if (weightKg) update.weightKg = parseFloat(weightKg);
+      await updateProfile(update);
+      await refresh();
+      setNotice('Your measurements have been saved.');
+    } catch (err) {
+      fail(err);
+    } finally {
+      setSavingVitals(false);
     }
   }
 
@@ -191,6 +213,54 @@ export default function Settings() {
           </Button>
         </form>
       </Card>
+
+      {/* Parent measurements — feeds growth reference line */}
+      {user?.role === 'parent' && (
+        <Card className="mt-4 p-5">
+          <div className="flex items-center gap-2">
+            <Ruler className="h-4 w-4 text-stone-500" />
+            <h2 className="font-bold text-stone-800">Your measurements</h2>
+          </div>
+          <p className="mt-1 text-sm text-stone-500">
+            Your height and weight help us show a personalised growth reference for your baby.
+          </p>
+          <form onSubmit={saveVitals} className="mt-3 space-y-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <label htmlFor="heightCm" className="block text-sm font-medium text-stone-700">Height (cm)</label>
+                <input
+                  id="heightCm"
+                  type="number"
+                  min={100}
+                  max={250}
+                  step="0.1"
+                  placeholder="e.g. 165"
+                  value={heightCm}
+                  onChange={(e) => setHeightCm(e.target.value)}
+                  className={inputCls}
+                />
+              </div>
+              <div>
+                <label htmlFor="weightKg" className="block text-sm font-medium text-stone-700">Weight (kg)</label>
+                <input
+                  id="weightKg"
+                  type="number"
+                  min={25}
+                  max={250}
+                  step="0.1"
+                  placeholder="e.g. 60"
+                  value={weightKg}
+                  onChange={(e) => setWeightKg(e.target.value)}
+                  className={inputCls}
+                />
+              </div>
+            </div>
+            <Button type="submit" size="sm" disabled={savingVitals || (!heightCm && !weightKg)}>
+              {savingVitals ? 'Saving…' : 'Save measurements'}
+            </Button>
+          </form>
+        </Card>
+      )}
 
       {/* Security */}
       <Card className="mt-4 p-5">
