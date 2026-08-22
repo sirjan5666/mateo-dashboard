@@ -79,10 +79,26 @@ router.get('/babies/:id/growth', requireAuth, requireSubscription, loadOwnedBaby
     head: bandCurves('head', sex),
   };
 
+  // Mid-parental height (MPH) — a standard pediatric estimate of expected adult
+  // height based on both parents' heights. Only meaningful for the length indicator.
+  // Formula: Boys = (mother + father + 13) / 2; Girls = (mother + father - 13) / 2.
+  // Target range: MPH +/- 8.5 cm.
+  let midParentalHeight: { target: number; low: number; high: number } | null = null;
+  if (baby.motherHeightCm != null && baby.fatherHeightCm != null) {
+    const correction = sex === 'male' ? 13 : -13;
+    const target = Math.round(((baby.motherHeightCm + baby.fatherHeightCm + correction) / 2) * 10) / 10;
+    midParentalHeight = {
+      target,
+      low: Math.round((target - 8.5) * 10) / 10,
+      high: Math.round((target + 8.5) * 10) / 10,
+    };
+  }
+
   res.json({
     baby: { id: baby.id, name: baby.name, dob: baby.dob, sex: baby.sex, gestationalAgeWeeks: baby.gestationalAgeWeeks },
     logs: points,
     bands,
+    midParentalHeight,
     insights: buildInsights(points),
   });
 });

@@ -34,10 +34,17 @@ export interface GrowthInsight {
   message: string;
 }
 
+export interface MidParentalHeight {
+  target: number;
+  low: number;
+  high: number;
+}
+
 export interface Growth {
   baby: { id: string; name: string; dob: string; sex: 'male' | 'female'; gestationalAgeWeeks?: number };
   logs: GrowthLogPoint[];
   bands: Record<Indicator, BandPoint[]>;
+  midParentalHeight?: MidParentalHeight | null;
   insights: GrowthInsight[];
 }
 

@@ -1,5 +1,5 @@
-import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import type { BandPoint, GrowthLogPoint, Indicator } from '../../api/growth';
+import { CartesianGrid, Line, LineChart, ReferenceArea, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import type { BandPoint, GrowthLogPoint, Indicator, MidParentalHeight } from '../../api/growth';
 
 const UNIT: Record<Indicator, string> = { weight: 'kg', length: 'cm', head: 'cm' };
 
@@ -65,10 +65,12 @@ export function GrowthChart({
   bands,
   logs,
   indicator,
+  midParentalHeight,
 }: {
   bands: BandPoint[];
   logs: GrowthLogPoint[];
   indicator: Indicator;
+  midParentalHeight?: MidParentalHeight | null;
 }) {
   const rows = buildRows(bands, logs, indicator);
   const band = (key: keyof Row, width: number, color: string) => (
@@ -102,6 +104,26 @@ export function GrowthChart({
         {band('p50', 1.5, '#a9c1b6')}
         {band('p15', 1, '#d6e6df')}
         {band('p3', 1, '#d6e6df')}
+        {/* Mid-parental height target band — only shown for the length indicator */}
+        {indicator === 'length' && midParentalHeight && (
+          <>
+            <ReferenceArea
+              y1={midParentalHeight.low}
+              y2={midParentalHeight.high}
+              fill="#8b5cf6"
+              fillOpacity={0.08}
+              ifOverflow="extendDomain"
+            />
+            <ReferenceLine
+              y={midParentalHeight.target}
+              stroke="#8b5cf6"
+              strokeDasharray="6 4"
+              strokeWidth={1.5}
+              ifOverflow="extendDomain"
+              label={{ value: `MPH ${midParentalHeight.target} cm`, position: 'right', fill: '#7c3aed', fontSize: 11, fontWeight: 600 }}
+            />
+          </>
+        )}
         <Line
           type="monotone"
           dataKey="baby"

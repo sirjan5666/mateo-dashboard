@@ -89,10 +89,13 @@ export default function BabyForm() {
   const [allergiesText, setAllergiesText] = useState('');
   const [pedName, setPedName] = useState('');
   const [pedPhone, setPedPhone] = useState('');
+  const [motherHeightCm, setMotherHeightCm] = useState('');
+  const [fatherHeightCm, setFatherHeightCm] = useState('');
   const [showBaseline, setShowBaseline] = useState(false);
 
   const [loading, setLoading] = useState(isEdit);
   const [error, setError] = useState<string | null>(null);
+  const [errorCode, setErrorCode] = useState<string | undefined>();
   const [saving, setSaving] = useState(false);
 
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -124,7 +127,9 @@ export default function BabyForm() {
         setAllergiesText(baby.knownAllergies?.join(', ') ?? '');
         setPedName(baby.pediatricianName ?? '');
         setPedPhone(baby.pediatricianPhone ?? '');
-        if (baby.gestationalAgeWeeks || baby.bloodGroup || baby.feedingType || baby.knownAllergies?.length || baby.pediatricianName || baby.pediatricianPhone) {
+        setMotherHeightCm(baby.motherHeightCm !== undefined ? String(baby.motherHeightCm) : '');
+        setFatherHeightCm(baby.fatherHeightCm !== undefined ? String(baby.fatherHeightCm) : '');
+        if (baby.gestationalAgeWeeks || baby.bloodGroup || baby.feedingType || baby.knownAllergies?.length || baby.pediatricianName || baby.pediatricianPhone || baby.motherHeightCm || baby.fatherHeightCm) {
           setShowBaseline(true); // reveal existing baseline details
         }
         setLoading(false);
@@ -157,6 +162,7 @@ export default function BabyForm() {
       return;
     }
     setError(null);
+    setErrorCode(undefined);
     setSaving(true);
     const input: BabyInput = {
       name: name.trim(),
@@ -172,13 +178,20 @@ export default function BabyForm() {
       knownAllergies: allergiesText.trim() ? allergiesText.split(',').map((s) => s.trim()).filter(Boolean) : undefined,
       pediatricianName: pedName.trim() || undefined,
       pediatricianPhone: pedPhone.trim() || undefined,
+      motherHeightCm: parseOptionalNumber(motherHeightCm),
+      fatherHeightCm: parseOptionalNumber(fatherHeightCm),
     };
     try {
       if (isEdit) await updateBaby(id, input);
       else await createBaby(input);
       navigate('/');
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Something went wrong, please try again');
+      if (err instanceof ApiError) {
+        setError(err.message);
+        setErrorCode(err.code);
+      } else {
+        setError('Something went wrong, please try again');
+      }
       setSaving(false);
     }
   }
@@ -354,11 +367,29 @@ export default function BabyForm() {
                         <input id="pedPhone" type="tel" inputMode="tel" value={pedPhone} onChange={(e) => setPedPhone(e.target.value)} placeholder="For a quick call" className={fieldCls} />
                       </div>
                     </div>
+                    {/* Parent heights — used for mid-parental height growth reference */}
+                    <div>
+                      <p className="mb-1 text-[0.72rem] font-semibold text-stone-600">Parent heights · for growth estimate</p>
+                      <p className="mb-2 text-[0.68rem] text-stone-500">Enter both parents’ heights to see an expected adult height range on the growth chart.</p>
+                      <div className="grid grid-cols-2 gap-3">
+                        <MeasureInput id="motherHeightCm" label="Mother’s height" unit="cm" step="0.1" placeholder="160" value={motherHeightCm} onChange={setMotherHeightCm} />
+                        <MeasureInput id="fatherHeightCm" label="Father’s height" unit="cm" step="0.1" placeholder="175" value={fatherHeightCm} onChange={setFatherHeightCm} />
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
 
-              {error && <p className="text-sm text-rose-600">{error}</p>}
+              {error && (
+                <div className="rounded-xl border border-rose-200 bg-rose-50/60 px-4 py-3">
+                  <p className="text-sm font-medium text-rose-700">{error}</p>
+                  {errorCode === 'baby_limit_reached' && (
+                    <Link to="/subscribe" className="mt-1.5 inline-flex items-center gap-1 text-sm font-bold hover:underline" style={{ color: 'var(--primary)' }}>
+                      View plans &rarr;
+                    </Link>
+                  )}
+                </div>
+              )}
 
               <button
                 type="submit"

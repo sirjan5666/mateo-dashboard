@@ -18,6 +18,8 @@ export interface Baby {
   knownAllergies?: string[];
   pediatricianName?: string;
   pediatricianPhone?: string;
+  motherHeightCm?: number;
+  fatherHeightCm?: number;
   solidsStartedOn?: string;
   createdAt: string;
 }
@@ -36,6 +38,8 @@ export interface BabyInput {
   knownAllergies?: string[];
   pediatricianName?: string;
   pediatricianPhone?: string;
+  motherHeightCm?: number;
+  fatherHeightCm?: number;
   solidsStartedOn?: string;
 }
 

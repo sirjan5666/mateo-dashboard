@@ -22,6 +22,8 @@ import { requireAuth } from '../middleware/auth.js';
 import { loadOwnedBaby } from '../middleware/ownership.js';
 import { syncDosesForBaby } from '../vaccines/sync.js';
 import { uploadsDir } from '../middleware/upload.js';
+import { User } from '../models/User.js';
+import { getMaxBabies } from './subscription.js';
 
 const MIN_DOB = new Date('2000-01-01T00:00:00.000Z');
 
@@ -56,6 +58,8 @@ const createBabySchema = z.object({
   knownAllergies: z.array(z.string().trim().min(1).max(80)).max(20).optional(),
   pediatricianName: z.string().trim().max(120).optional(),
   pediatricianPhone: z.string().trim().max(20).optional(),
+  motherHeightCm: z.number().min(100, 'Height should be between 100 cm and 250 cm').max(250, 'Height should be between 100 cm and 250 cm').optional(),
+  fatherHeightCm: z.number().min(100, 'Height should be between 100 cm and 250 cm').max(250, 'Height should be between 100 cm and 250 cm').optional(),
 });
 
 // userId is deliberately not part of the schema, so a baby can never be reassigned to another user
@@ -77,6 +81,8 @@ function publicBaby(baby: IBaby & { id: string }) {
     knownAllergies: baby.knownAllergies,
     pediatricianName: baby.pediatricianName,
     pediatricianPhone: baby.pediatricianPhone,
+    motherHeightCm: baby.motherHeightCm,
+    fatherHeightCm: baby.fatherHeightCm,
     solidsStartedOn: baby.solidsStartedOn,
     createdAt: baby.createdAt,
   };
@@ -93,6 +99,21 @@ router.get('/', async (req, res) => {
 
 router.post('/', async (req, res) => {
   const body = createBabySchema.parse(req.body);
+
+  // --- Baby plan cap: enforce per-plan baby limit (parents only) ---
+  const user = await User.findById(req.userId);
+  if (user && user.role === 'parent') {
+    const maxBabies = getMaxBabies(user);
+    const currentCount = await Baby.countDocuments({ userId: req.userId });
+    if (currentCount >= maxBabies) {
+      res.status(403).json({
+        error: 'You have reached the maximum number of babies for your plan. Upgrade to add more.',
+        code: 'baby_limit_reached',
+      });
+      return;
+    }
+  }
+
   const baby = await Baby.create({ ...body, userId: req.userId });
   // Expand the IAP schedule into this baby's vaccine doses, dated from its DOB.
   await syncDosesForBaby({ id: baby.id, dob: baby.dob, sex: baby.sex });

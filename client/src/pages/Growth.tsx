@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link, useParams } from 'react-router';
-import { Activity, ArrowLeft, Info, MessageCircleHeart, Trash2, TrendingUp } from 'lucide-react';
+import { Activity, ArrowLeft, Info, MessageCircleHeart, Ruler, Trash2, TrendingUp } from 'lucide-react';
 import { gsap, prefersReducedMotion } from '../lib/gsap';
 import { addGrowthLog, deleteGrowthLog, getGrowth } from '../api/growth';
 import type { Growth, Indicator } from '../api/growth';
@@ -261,7 +261,7 @@ export default function Growth() {
             </div>
 
             <div ref={chartRef}>
-              <GrowthChart bands={data.bands[indicator]} logs={data.logs} indicator={indicator} />
+              <GrowthChart bands={data.bands[indicator]} logs={data.logs} indicator={indicator} midParentalHeight={data.midParentalHeight} />
             </div>
 
             <p className="mt-3 flex items-start gap-2 text-xs text-stone-500">
@@ -270,6 +270,52 @@ export default function Growth() {
               A steady curve matters more than any single number. Share any concerns with your pediatrician.
             </p>
           </Card>
+
+          {/* Mid-parental height info card */}
+          {data.midParentalHeight && (
+            <Card className="mt-4 border-violet-100 bg-violet-50/50 p-4">
+              <div className="flex items-start gap-3">
+                <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-violet-100">
+                  <Ruler className="h-4 w-4 text-violet-600" />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-violet-900">Mid-parental height estimate</p>
+                  <p className="mt-1 text-sm text-stone-700">
+                    Based on your family's heights, {baby?.name ?? 'your baby'}'s expected adult height is around{' '}
+                    <strong className="text-violet-800">{data.midParentalHeight.target} cm</strong>{' '}
+                    <span className="text-stone-500">
+                      (range {data.midParentalHeight.low}–{data.midParentalHeight.high} cm)
+                    </span>
+                    . This is a rough estimate — many factors influence final height.
+                  </p>
+                  <p className="mt-1.5 text-xs text-stone-500">
+                    The purple band on the length chart shows this target range.
+                  </p>
+                </div>
+              </div>
+            </Card>
+          )}
+
+          {/* Prompt to enter parent heights if not yet provided */}
+          {!data.midParentalHeight && (
+            <Card className="mt-4 border-stone-100 p-4">
+              <div className="flex items-start gap-3">
+                <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-stone-100">
+                  <Ruler className="h-4 w-4 text-stone-400" />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-stone-700">Want a height estimate?</p>
+                  <p className="mt-1 text-sm text-stone-500">
+                    Enter both parents' heights on your{' '}
+                    <Link to={`/babies/${id}/edit`} className="font-medium text-violet-600 underline underline-offset-2 hover:text-violet-800">
+                      baby's profile
+                    </Link>{' '}
+                    to see a mid-parental height reference on the length chart.
+                  </p>
+                </div>
+              </div>
+            </Card>
+          )}
 
           <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
             <Card className="p-5">

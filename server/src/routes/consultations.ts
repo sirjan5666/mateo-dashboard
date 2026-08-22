@@ -20,7 +20,7 @@ import { VaccineDose } from '../models/VaccineDose.js';
 import { GrowthLog } from '../models/GrowthLog.js';
 import { MilestoneAchievement } from '../models/MilestoneAchievement.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
-import { uploadImage, uploadsDir } from '../middleware/upload.js';
+import { uploadImage, uploadPhoto, uploadsDir } from '../middleware/upload.js';
 import { slotIsValid, slotEndFor } from '../doctors/slots.js';
 import { doseStatus, istToday } from '../vaccines/schedule.js';
 import { computePercentile } from '../growth/percentile.js';
@@ -96,6 +96,7 @@ async function enrich(consults: HydratedDocument<IConsultation>[]) {
     status: c.status,
     payment: c.payment,
     meetLink: c.meetLink ?? null,
+    photoUrl: c.photoFile ? `/api/consultations/${c.id}/photo` : null,
     doctor: { profileId: c.doctorProfileId.toString(), name: userName.get(c.doctorUserId.toString()) ?? 'Doctor' },
     parent: { name: userName.get(c.parentUserId.toString()) ?? 'Parent' },
     baby: c.babyId ? { id: c.babyId.toString(), name: babyName.get(c.babyId.toString()) ?? null } : null,
@@ -103,12 +104,36 @@ async function enrich(consults: HydratedDocument<IConsultation>[]) {
   }));
 }
 
+// Multer wrapper: only process multipart when the content-type indicates it.
+// Plain JSON bodies pass through untouched → backward-compatible.
+function handlePhotoUpload(req: Request, res: Response, next: NextFunction): void {
+  const ct = req.headers['content-type'] ?? '';
+  if (!ct.startsWith('multipart/')) return next();
+  uploadPhoto(req, res, (err: unknown) => {
+    if (err) {
+      res.status(400).json({ error: err instanceof Error ? err.message : 'Upload failed' });
+      return;
+    }
+    next();
+  });
+}
+
 // ── Parent books a consultation (mock payment) ─────────────────────────
-router.post('/consultations', requireAuth, requireRole('parent'), async (req, res) => {
+router.post('/consultations', requireAuth, requireRole('parent'), handlePhotoUpload, async (req, res) => {
+  // Multipart form data sends everything as strings — coerce redeemPoints.
+  if (typeof req.body.redeemPoints === 'string') {
+    const n = Number(req.body.redeemPoints);
+    req.body.redeemPoints = Number.isNaN(n) ? undefined : n;
+  }
   const { doctorId, babyId, slotStart, reason, redeemPoints } = bookSchema.parse(req.body);
+  // Clean up the uploaded photo if booking fails for any reason.
+  const cleanupPhoto = async () => {
+    if (req.file) await unlink(path.join(uploadsDir, req.file.filename)).catch(() => {});
+  };
 
   const profile = isValidObjectId(doctorId) ? await DoctorProfile.findById(doctorId) : null;
   if (!profile || profile.status !== 'approved') {
+    await cleanupPhoto();
     res.status(404).json({ error: 'Doctor not found' });
     return;
   }
@@ -117,6 +142,7 @@ router.post('/consultations', requireAuth, requireRole('parent'), async (req, re
   if (babyId) {
     babyDoc = isValidObjectId(babyId) ? await Baby.findById(babyId) : null;
     if (!babyDoc || babyDoc.userId.toString() !== req.userId) {
+      await cleanupPhoto();
       res.status(403).json({ error: 'You do not have access to this baby' });
       return;
     }
@@ -134,6 +160,7 @@ router.post('/consultations', requireAuth, requireRole('parent'), async (req, re
     }
     const rf = checkRedFlags(reason, ctx);
     if (rf.triggered && rf.severity === 'emergency') {
+      await cleanupPhoto();
       // 422 (not 409) so the client distinguishes this from a slot conflict.
       res.status(422).json({ error: rf.response, code: 'urgent_care' });
       return;
@@ -141,6 +168,7 @@ router.post('/consultations', requireAuth, requireRole('parent'), async (req, re
   }
 
   if (!slotIsValid(profile.availability, slotStart)) {
+    await cleanupPhoto();
     res.status(400).json({ error: 'That time slot is not available. Please pick another.' });
     return;
   }
@@ -154,6 +182,7 @@ router.post('/consultations', requireAuth, requireRole('parent'), async (req, re
       slotStart: new Date(slotStart),
       slotEnd: new Date(slotEndFor(profile.availability, slotStart)),
       reason,
+      photoFile: req.file?.filename,
       status: 'booked',
       // Payment is mocked for now — booking marks it paid.
       payment: { amount: profile.consultationFee, status: 'paid', method: 'mock', paidAt: new Date() },
@@ -180,6 +209,7 @@ router.post('/consultations', requireAuth, requireRole('parent'), async (req, re
     res.status(201).json({ consultation: pub });
   } catch (err) {
     if (err && typeof err === 'object' && (err as { code?: number }).code === 11000) {
+      await cleanupPhoto();
       res.status(409).json({ error: 'That slot was just booked. Please pick another.' });
       return;
     }
@@ -238,6 +268,16 @@ router.get('/consultations/:id', requireAuth, async (req, res) => {
   res.json({ consultation: pub });
 });
 
+// ── Serve the parent-attached photo (participant only) ───────────────
+router.get('/consultations/:id/photo', requireAuth, async (req, res) => {
+  const ctx = await loadParticipant(req.userId, String(req.params.id));
+  if (!ctx || !ctx.consult.photoFile) {
+    res.status(404).json({ error: 'Photo not found' });
+    return;
+  }
+  res.sendFile(path.join(uploadsDir, ctx.consult.photoFile));
+});
+
 // ── Update status: doctor completes/cancels, parent cancels ────────────
 router.patch('/consultations/:id', requireAuth, async (req, res) => {
   const id = String(req.params.id);
@@ -264,6 +304,10 @@ router.patch('/consultations/:id', requireAuth, async (req, res) => {
   }
   consult.status = status;
   await consult.save();
+  // Clean up the attached photo when cancelled — no longer needed.
+  if (status === 'cancelled' && consult.photoFile) {
+    await unlink(path.join(uploadsDir, consult.photoFile)).catch(() => {});
+  }
   // Mateo Sitare: a COMPLETED consultation earns the PARENT ★ (this handler runs
   // as the doctor, so credit consult.parentUserId — never req.userId). Idempotent.
   if (status === 'completed') {
