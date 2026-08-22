@@ -242,7 +242,7 @@ export default function Chat() {
         </div>
       </header>
 
-      <div className="mt-5 grid gap-5 lg:grid-cols-[260px_minmax(0,1fr)]">
+      <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-[260px_minmax(0,1fr)]">
         {/* Side panel — chat sessions */}
         <aside className={cn('lg:block', panelOpen ? 'block' : 'hidden')}>
           <div className="space-y-3 lg:sticky lg:top-6">

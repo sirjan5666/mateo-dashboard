@@ -874,7 +874,7 @@ function StageBanner({
         </div>
         <Pill tone="stone">{guidance.ageMonths} months old</Pill>
       </div>
-      <div className="mt-3 grid gap-2 text-sm text-stone-700 sm:grid-cols-3">
+      <div className="mt-3 grid grid-cols-1 gap-2 text-sm text-stone-700 sm:grid-cols-3">
         <p>
           <span className="font-semibold text-stone-800">Texture:</span> {stage.texture}
         </p>

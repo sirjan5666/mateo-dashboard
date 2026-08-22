@@ -89,7 +89,7 @@ export function DoseCheck({ consultationId }: { consultationId: string }) {
       </div>
       <p className="mt-1 text-xs text-stone-500">Checks the dose against this baby&apos;s weight &amp; age. Decision-support only — verify against current references; you remain responsible.</p>
 
-      <div className="mt-3 grid gap-2.5 sm:grid-cols-2">
+      <div className="mt-3 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
         <label className="block sm:col-span-2">
           <span className="block text-xs font-medium text-stone-600">Medicine</span>
           <select

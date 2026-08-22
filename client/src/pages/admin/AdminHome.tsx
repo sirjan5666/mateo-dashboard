@@ -282,7 +282,7 @@ export default function AdminHome() {
       </div>
 
       {/* Main grid */}
-      <div className="grid gap-5 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
         <div className="min-w-0 space-y-5 lg:col-span-2">
           <SectionCard
             title="Revenue"
@@ -436,7 +436,7 @@ function AdminSkeleton() {
           <SkeletonKpi key={i} />
         ))}
       </div>
-      <div className="grid gap-5 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
         <div className="min-w-0 space-y-5 lg:col-span-2">
           <SkeletonChart height={240} />
           <Card className="p-5 sm:p-6">

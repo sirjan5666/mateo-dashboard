@@ -192,7 +192,7 @@ export function ProductReviews({ productId }: { productId: string }) {
     <section className="mt-14 border-t border-stone-200/70 pt-10">
       <h2 className="font-display text-[22px] font-bold text-stone-900">Ratings &amp; reviews</h2>
 
-      <div className="mt-5 grid gap-8 lg:grid-cols-[260px_1fr]">
+      <div className="mt-5 grid grid-cols-1 gap-8 lg:grid-cols-[260px_1fr]">
         {/* Summary */}
         <div>
           {rating.count > 0 ? (

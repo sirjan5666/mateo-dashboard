@@ -87,8 +87,8 @@ export function RangeSelector({
   const customLabel = preset === 'custom' && range ? `${short(range.from)} – ${short(range.to)}` : 'Custom';
 
   return (
-    <div className="relative flex items-center">
-      <div role="group" aria-label="Date range" className="flex items-center gap-1 rounded-[11px] border border-[#E2E6F0] bg-white p-1">
+    <div className="relative flex max-w-full items-center">
+      <div role="group" aria-label="Date range" className="flex flex-wrap items-center gap-1 rounded-[11px] border border-[#E2E6F0] bg-white p-1">
         {PRESETS.map((p) => {
           const active = preset === p.id;
           return (

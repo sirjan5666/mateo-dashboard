@@ -189,7 +189,7 @@ export default function Vaccines() {
         <VaccinesSkeleton />
       ) : (
         <>
-          <div className="mt-6 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
+          <div className="mt-6 grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
             {/* ── Main column ── */}
             <div className="min-w-0 space-y-6">
               {/* Summary KPIs */}
@@ -838,7 +838,7 @@ function VaccineInfoSection() {
 
 function VaccinesSkeleton() {
   return (
-    <div className="mt-6 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
+    <div className="mt-6 grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
       <div className="space-y-6">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {Array.from({ length: 4 }).map((_, i) => (

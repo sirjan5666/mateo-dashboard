@@ -164,7 +164,7 @@ export default function DoctorProfileForm() {
       ) : (
         <Card className="mt-6 p-6">
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label htmlFor="spec" className="block text-sm font-medium text-stone-700">{t('doctor.profile.specialization')}</label>
                 <input id="spec" value={specialization} onChange={(e) => setSpecialization(e.target.value)} placeholder={t('doctor.profile.specPlaceholder')} className={inputCls} />
@@ -282,7 +282,7 @@ export default function DoctorProfileForm() {
             <div className="rounded-xl border border-stone-200 p-4">
               <h2 className="text-sm font-semibold text-stone-800">Bank details</h2>
               <p className="mt-0.5 text-xs text-stone-500">For payouts from collections. Stored encrypted — only you can see it.</p>
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
                   <label className="block text-xs text-stone-500">Account holder</label>
                   <input value={bank.accountHolder} onChange={(e) => setBank((b) => ({ ...b, accountHolder: e.target.value }))} className={inputCls} autoComplete="off" />

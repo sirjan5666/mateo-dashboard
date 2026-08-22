@@ -197,9 +197,9 @@ export default function Dashboard() {
           <p className="mt-1.5 text-sm text-[#64748B]">{subtitleFor(activeId, active.name, clinics.length)}</p>
         </div>
 
-        <div className="flex shrink-0 flex-wrap items-start justify-end gap-3">
+        <div className="flex w-full flex-wrap items-start justify-end gap-3 sm:w-auto sm:shrink-0">
           <InOutToggle presence={presence} busy={presenceBusy} onToggle={togglePresence} />
-          <div className="flex flex-col items-end gap-1.5">
+          <div className="flex min-w-0 flex-col items-end gap-1.5">
             <div className="flex items-center gap-2">
               {reportLoading && <Loader2 aria-label="Updating" className="h-4 w-4 animate-spin text-[#94A3B8]" />}
               <RangeSelector preset={preset} range={range} onChange={(p, r) => { setReportLoading(true); setPreset(p); setRange(r); }} />

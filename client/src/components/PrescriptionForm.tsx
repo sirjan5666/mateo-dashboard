@@ -69,7 +69,7 @@ export function PrescriptionForm({
           {items.map((it, i) => (
             <div key={i} className="rounded-xl border border-stone-200 p-3">
               <div className="flex items-start gap-2">
-                <div className="grid flex-1 gap-2 sm:grid-cols-2">
+                <div className="grid flex-1 grid-cols-1 gap-2 sm:grid-cols-2">
                   <input placeholder="Medicine *" value={it.medicine} onChange={(e) => updateItem(i, 'medicine', e.target.value)} className={inputCls} />
                   <input placeholder="Dosage (e.g. 2.5 ml)" value={it.dosage} onChange={(e) => updateItem(i, 'dosage', e.target.value)} className={inputCls} />
                   <input placeholder="Frequency (e.g. twice a day)" value={it.frequency} onChange={(e) => updateItem(i, 'frequency', e.target.value)} className={inputCls} />
@@ -92,7 +92,7 @@ export function PrescriptionForm({
 
       <DoseCheck consultationId={consultationId} />
 
-      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
           <label htmlFor="followup" className="block text-sm font-medium text-stone-700">Follow-up date (optional)</label>
           <input id="followup" type="date" value={followUpDate} onChange={(e) => setFollowUpDate(e.target.value)} className={inputCls} />

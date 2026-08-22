@@ -914,7 +914,7 @@ export default function FindDoctor() {
             </div>
 
             {doctors === null ? (
-              <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-1 min-[1800px]:grid-cols-2">
+              <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-1 min-[1800px]:grid-cols-2">
                 <Skeleton className="h-40 w-full" />
                 <Skeleton className="h-40 w-full" />
                 <Skeleton className="h-40 w-full" />
@@ -925,7 +925,7 @@ export default function FindDoctor() {
                 {doctors.length === 0 ? 'No doctors are available yet. Please check back soon.' : 'No doctors match your search.'}
               </p>
             ) : (
-              <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-1 min-[1800px]:grid-cols-2">
+              <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-1 min-[1800px]:grid-cols-2">
                 {shown.map((d) => (
                   <DoctorCard
                     key={d.id}
