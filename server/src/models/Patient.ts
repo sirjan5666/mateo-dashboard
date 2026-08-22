@@ -60,6 +60,7 @@ export interface IPatient {
   /** Birth record — plain numbers so growth work can use them without decrypting. */
   birthWeightKg?: number;
   birthHeightCm?: number;
+  birthHeadCircumferenceCm?: number;
   deliveryType?: string;
   gestationalAgeWeeks?: number;
   status: string; // a status key defined by the template
@@ -98,6 +99,7 @@ const patientSchema = new Schema<IPatient>(
     emergencyPhone: { type: String },
     birthWeightKg: { type: Number, min: 0, max: 12 },
     birthHeightCm: { type: Number, min: 0, max: 80 },
+    birthHeadCircumferenceCm: { type: Number, min: 0, max: 60 },
     deliveryType: { type: String, trim: true, maxlength: 40 },
     gestationalAgeWeeks: { type: Number, min: 20, max: 45 },
     status: { type: String, required: true },

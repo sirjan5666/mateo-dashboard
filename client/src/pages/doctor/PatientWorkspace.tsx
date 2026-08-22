@@ -40,10 +40,10 @@ const PANELS: Record<string, React.ComponentType<WorkspacePanelProps>> = {
 };
 
 
-type OverviewMetric = 'Weight' | 'Height' | 'BMI';
-const OVERVIEW_UNIT: Record<OverviewMetric, string> = { Weight: 'kg', Height: 'cm', BMI: '' };
+type OverviewMetric = 'Weight' | 'Height' | 'Head' | 'BMI';
+const OVERVIEW_UNIT: Record<OverviewMetric, string> = { Weight: 'kg', Height: 'cm', Head: 'cm', BMI: '' };
 const overviewValue = (r: GrowthRecord, m: OverviewMetric) =>
-  (m === 'Weight' ? r.weightKg : m === 'Height' ? r.heightCm : r.bmi);
+  (m === 'Weight' ? r.weightKg : m === 'Height' ? r.heightCm : m === 'Head' ? r.headCircumferenceCm : r.bmi);
 
 function OverviewTab({
   patientId, patientName, dob, sex, templateFields, fields, phone, patientCode, portal, parentAccess,
@@ -240,7 +240,7 @@ function OverviewTab({
               </button>
             </div>
             <div role="radiogroup" aria-label="Growth metric" className="mt-3.5 flex gap-1.5">
-              {(['Weight', 'Height', 'BMI'] as OverviewMetric[]).map((k) => (
+              {(['Weight', 'Height', 'Head', 'BMI'] as OverviewMetric[]).map((k) => (
                 <button key={k} role="radio" type="button" aria-checked={metric === k} onClick={() => setMetric(k)}
                   className={cn('h-[38px] rounded-[10px] px-5 text-[13.5px] transition-colors',
                     metric === k ? 'border-[1.5px] border-[#6366F1] bg-[#F0EFFE] font-bold text-[#3B4FE0]' : 'border border-[#E2E6F0] bg-white font-semibold text-[#334155] hover:bg-[#F7F8FC]')}>
@@ -358,7 +358,7 @@ function OverviewTab({
             {([
               [CalendarPlus, 'Book Appointment', () => navigate(`/doctor/appointments/new?patient=${patientId}`)],
               [Pill, 'Create Prescription', () => setRxModal(true)],
-              [FileText, 'Create Invoice', () => navigate(`/doctor/revenue?patient=${patientId}`)],
+              [FileText, 'Create Invoice', () => navigate(`/doctor/pharmacy/billing?patient=${patientId}`)],
             ] as const).map(([Icon, label, onSelect]) => (
               <li key={label}>
                 <button type="button" aria-label={label} onClick={onSelect}

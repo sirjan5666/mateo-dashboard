@@ -110,8 +110,8 @@ export default function NewPurchaseEntry() {
 
   /** Money is previewed here and recomputed authoritatively by the server. */
   const totals = useMemo(() => {
-    const subtotal = round2(lines.reduce((t, l) => t + l.qty * l.rate, 0));
-    const gst = round2(lines.reduce((t, l) => t + (l.qty * l.rate * l.gstPct) / 100, 0));
+    const subtotal = round2(lines.reduce((t, l) => t + l.qty * l.rate * (1 - (l.discPct ?? 0) / 100), 0));
+    const gst = round2(lines.reduce((t, l) => t + (l.qty * l.rate * (1 - (l.discPct ?? 0) / 100) * l.gstPct) / 100, 0));
     const disc = round2(Math.min(Number(discount) || 0, subtotal + gst));
     const grand = round2(subtotal + gst - disc);
     const paid = round2(Math.min(Number(paidNow) || 0, grand));
@@ -121,13 +121,13 @@ export default function NewPurchaseEntry() {
   const addFromStock = (m: MedicineDto) => {
     setLines((ls) => [...ls, {
       key: `${m.sku}-${Date.now()}`, sku: m.sku, name: m.name, batch: m.batch,
-      expiry: m.expiry ?? '', qty: 1, rate: m.purchaseRate, mrp: m.mrp, gstPct: m.gstPct,
+      expiry: m.expiry ?? '', qty: 1, freeQty: 0, rate: m.purchaseRate, mrp: m.mrp, gstPct: m.gstPct, discPct: 0,
     }]);
     setQuery('');
   };
   const addBlank = () =>
     setLines((ls) => [...ls, {
-      key: `new-${Date.now()}`, sku: '', name: '', batch: '', expiry: '', qty: 1, rate: 0, mrp: 0, gstPct: 12,
+      key: `new-${Date.now()}`, sku: '', name: '', batch: '', expiry: '', qty: 1, freeQty: 0, rate: 0, mrp: 0, gstPct: 12, discPct: 0,
     }]);
   const patch = (key: string, p: Partial<Line>) =>
     setLines((ls) => ls.map((l) => (l.key === key ? { ...l, ...p } : l)));
@@ -400,14 +400,14 @@ export default function NewPurchaseEntry() {
             </p>
           ) : (
             <div className="mt-3.5 overflow-x-auto">
-              <table className="w-full min-w-[1040px] border-separate border-spacing-0">
+              <table className="w-full min-w-[1200px] border-separate border-spacing-0">
                 <caption className="sr-only">Purchase line items</caption>
                 <thead>
                   <tr>
-                    {['#', 'Medicine', 'SKU', 'Batch', 'Expiry', 'Qty', 'Rate (₹)', 'MRP (₹)', 'GST %', 'Total (₹)', ''].map((h, i) => (
+                    {['#', 'Medicine', 'SKU', 'Batch', 'Expiry', 'Qty', 'Free', 'Rate (₹)', 'MRP (₹)', 'GST %', 'Disc %', 'Total (₹)', ''].map((h, i) => (
                       <th key={h + i} scope="col"
                         className={cn('h-12 border-y border-[#ECEEF4] bg-[#FAFBFD] text-left text-[10px] font-bold uppercase tracking-[0.05em] text-[#64748B]',
-                          i === 0 && 'pl-5', i >= 6 && i <= 9 && 'text-right', i === 10 && 'pr-5')}>
+                          i === 0 && 'pl-5', i >= 7 && i <= 11 && 'text-right', i === 12 && 'pr-5')}>
                         {h}
                       </th>
                     ))}
@@ -415,7 +415,7 @@ export default function NewPurchaseEntry() {
                 </thead>
                 <tbody>
                   {lines.map((l, i) => {
-                    const lineTotal = round2(l.qty * l.rate * (1 + l.gstPct / 100));
+                    const lineTotal = round2(l.qty * l.rate * (1 - (l.discPct ?? 0) / 100) * (1 + l.gstPct / 100));
                     const cell = 'h-9 w-full rounded-[7px] border border-[#E2E6F0] px-2 text-[12.5px] focus:border-[#3B4FE0] focus:outline-none';
                     return (
                       <tr key={l.key}>
@@ -440,6 +440,10 @@ export default function NewPurchaseEntry() {
                           <QtyStepper value={l.qty} name={l.name || `line ${i + 1}`} onChange={(q) => patch(l.key, { qty: q })} />
                         </td>
                         <td className="border-b border-[#F1F3F9] pr-3">
+                          <input type="number" min={0} aria-label={`Free qty for line ${i + 1}`} value={l.freeQty ?? 0}
+                            onChange={(e) => patch(l.key, { freeQty: Math.max(0, parseInt(e.target.value) || 0) })} className={cn(cell, 'w-[64px] text-right')} />
+                        </td>
+                        <td className="border-b border-[#F1F3F9] pr-3">
                           <input type="number" step="0.01" min={0} aria-label={`Rate for line ${i + 1}`} value={l.rate}
                             onChange={(e) => patch(l.key, { rate: Number(e.target.value) || 0 })} className={cn(cell, 'w-[86px] text-right')} />
                         </td>
@@ -450,6 +454,10 @@ export default function NewPurchaseEntry() {
                         <td className="border-b border-[#F1F3F9] pr-3">
                           <input type="number" min={0} max={28} aria-label={`GST for line ${i + 1}`} value={l.gstPct}
                             onChange={(e) => patch(l.key, { gstPct: Number(e.target.value) || 0 })} className={cn(cell, 'w-[64px] text-right')} />
+                        </td>
+                        <td className="border-b border-[#F1F3F9] pr-3">
+                          <input type="number" step="0.01" min={0} max={100} aria-label={`Discount % for line ${i + 1}`} value={l.discPct ?? 0}
+                            onChange={(e) => patch(l.key, { discPct: Math.min(100, Math.max(0, Number(e.target.value) || 0)) })} className={cn(cell, 'w-[64px] text-right')} />
                         </td>
                         <td className="border-b border-[#F1F3F9] pr-3 text-right text-[12.5px] font-bold text-[#0F172A]">{amt(lineTotal)}</td>
                         <td className="border-b border-[#F1F3F9] pr-5">

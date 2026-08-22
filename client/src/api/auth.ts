@@ -20,7 +20,7 @@ export interface User {
   subscriptionPlan?: 'monthly' | 'yearly';
   subscriptionExpiresAt?: string;
   createdAt?: string;
-  // True when an admin is currently impersonating this user.
+  specialization?: string;
   impersonating?: boolean;
 }
 

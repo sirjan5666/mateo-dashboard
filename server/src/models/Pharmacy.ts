@@ -158,9 +158,11 @@ export interface IPurchaseItem {
   batch: string;
   expiry?: Date;
   qty: number;
+  freeQty: number;
   rate: number;
   mrp: number;
   gstPct: number;
+  discPct: number;
 }
 
 export interface IPharmacyPurchase {
@@ -191,9 +193,11 @@ const purchaseItemSchema = new Schema<IPurchaseItem>(
     batch: { type: String, required: true, trim: true, uppercase: true },
     expiry: { type: Date },
     qty: { type: Number, required: true, min: 1 },
+    freeQty: { type: Number, required: true, default: 0, min: 0 },
     rate: { type: Number, required: true, min: 0 },
     mrp: { type: Number, required: true, min: 0 },
     gstPct: { type: Number, required: true, min: 0, max: 28 },
+    discPct: { type: Number, required: true, default: 0, min: 0, max: 100 },
   },
   { _id: false },
 );

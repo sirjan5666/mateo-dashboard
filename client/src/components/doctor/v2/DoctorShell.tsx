@@ -18,6 +18,7 @@ import {
   Mail,
   Menu,
   Receipt,
+  TestTubes,
   Search,
   Settings,
   ShieldPlus,
@@ -27,6 +28,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../../auth/context';
 import { useStaffSession } from '../../../auth/staffSession';
+import { getSpecialtyConfig } from '../../../data/specialtyDashboard';
 import { staffLogout } from '../../../api/staffAuth';
 import { ViewAsBanner } from './ViewAsBanner';
 import { Toaster } from '../../ui/Toaster';
@@ -99,6 +101,7 @@ const NAV: NavGroup[] = [
           { to: '/doctor/pharmacy/billing', label: 'Billing', icon: Receipt },
         ],
       },
+      { to: '/doctor/lab', label: 'Lab', icon: TestTubes, tile: '#8B5CF6', module: 'consultations' },
       { to: '/doctor/revenue', label: 'Revenue', icon: IndianRupee, tile: '#16A34A', module: 'billing' },
     ],
   },
@@ -272,17 +275,21 @@ function SidebarNav({
     .map((w) => w.charAt(0).toUpperCase())
     .join('');
 
+  const specialtyModules = useMemo(() => {
+    const config = getSpecialtyConfig(user?.specialization);
+    return new Set(config.modules);
+  }, [user?.specialization]);
+
   const groups = useMemo(
     () =>
       NAV.map((g) => ({
         ...g,
         items: g.items
-          // A staff role that cannot see a module does not get the nav row.
-          // Advisory only: the server refuses the request regardless.
           .filter((it) => !it.module || canSee(it.module))
+          .filter((it) => !it.module || specialtyModules.has(it.module))
           .map((it) => (it.to === '/doctor/messages' && unread ? { ...it, badge: unread } : it)),
       })).filter((g) => g.items.length > 0),
-    [unread, canSee],
+    [unread, canSee, specialtyModules],
   );
 
   return (

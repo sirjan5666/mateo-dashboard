@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { ArrowLeft, Download, Info, Printer } from 'lucide-react';
+import { WhatsAppIcon } from '../../components/doctor/v2/pharmacy/shared';
 import { getPrescriptionSheet } from '../../api/doctorPrescriptionDocs';
 import { PrescriptionSheet } from '../../components/doctor/v2/PrescriptionSheet';
 import { PanelState, useLoad } from '../../components/doctor/v2/workspace/shared';
@@ -47,10 +48,30 @@ export default function PrescriptionPrint() {
   }, [data]);
 
   function print() {
-    // Measured again at the moment of printing: fonts or images that loaded
-    // late would otherwise leave the sheet taller than when it was first sized.
     setScale(fitSheetToOnePage());
     window.print();
+  }
+
+  function shareWhatsApp() {
+    if (!data) return;
+    const lines = [
+      `*Prescription — ${data.doctor.name}*`,
+      data.clinic?.name ? `Clinic: ${data.clinic.name}` : '',
+      data.patient ? `Patient: ${data.patient.displayName}` : '',
+      data.document.issuedAt ? `Date: ${new Date(data.document.issuedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}` : '',
+      '',
+      '*Medicines:*',
+      ...data.items.map((m, i) =>
+        `${i + 1}. ${m.drug}${m.strength ? ` ${m.strength}` : ''}${m.dose ? ` — ${m.dose}` : ''}${m.frequency ? `, ${m.frequency}` : ''}${m.duration ? ` for ${m.duration}` : ''}`,
+      ),
+      '',
+      '_Please follow the prescribed dosage. Consult your doctor for any concerns._',
+    ].filter(Boolean).join('\n');
+    const phone = data.patient?.phone?.replace(/\D/g, '') ?? '';
+    const url = phone
+      ? `https://wa.me/${phone}?text=${encodeURIComponent(lines)}`
+      : `https://wa.me/?text=${encodeURIComponent(lines)}`;
+    window.open(url, '_blank', 'noopener');
   }
 
   if (loading || error || !data) {
@@ -76,6 +97,11 @@ export default function PrescriptionPrint() {
           {data.patient ? `Back to ${data.patient.displayName}` : 'Back'}
         </button>
         <div className="ml-auto flex flex-wrap items-center gap-3">
+          <button type="button" onClick={shareWhatsApp}
+            className="flex h-[42px] items-center gap-2 rounded-[10px] border border-[#E2E6F0] bg-white px-5 hover:bg-[#F7F8FC]">
+            <WhatsAppIcon size={16} />
+            <span className="text-[13px] font-bold text-[#1E2A5A]">WhatsApp</span>
+          </button>
           <button type="button" onClick={print}
             className="flex h-[42px] items-center gap-2 rounded-[10px] border border-[#E2E6F0] bg-white px-5 hover:bg-[#F7F8FC]">
             <Printer className="h-4 w-4 text-[#334155]" />

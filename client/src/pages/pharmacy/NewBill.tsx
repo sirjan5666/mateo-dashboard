@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate, useSearchParams } from 'react-router';
 import {
   FileText, Info, Loader2, Percent, Printer, Search, Trash2, X,
 } from 'lucide-react';
@@ -54,13 +54,15 @@ function SummaryRow({ label, value, symbol = true }: { label: string; value: str
 
 export default function NewBill() {
   const navigate = useNavigate();
+  const [sp] = useSearchParams();
+  const prePatient = sp.get('patient');
   const [stock, setStock] = useState<MedicineDto[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [lines, setLines] = useState<Line[]>([]);
-  const [patientId, setPatientId] = useState('');
-  const [walkIn, setWalkIn] = useState(true);
+  const [patientId, setPatientId] = useState(prePatient ?? '');
+  const [walkIn, setWalkIn] = useState(!prePatient);
   const [walkInName, setWalkInName] = useState('Walk-in customer');
   const [mode, setMode] = useState<PaymentMode>('upi');
   const [reference, setReference] = useState('');

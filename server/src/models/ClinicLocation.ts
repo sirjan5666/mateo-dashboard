@@ -25,6 +25,7 @@ export interface IClinicLocation {
   website?: string;
   drugLicenceNo?: string;
   gstin?: string;
+  upiVpa?: string;
   openingHours?: string;
   /** Exactly one location per doctor carries this — enforced in the route. */
   isPrimary: boolean;
@@ -50,6 +51,7 @@ const clinicLocationSchema = new Schema<IClinicLocation>(
     website: { type: String, trim: true, maxlength: 160 },
     drugLicenceNo: { type: String, trim: true, maxlength: 40 },
     gstin: { type: String, trim: true, uppercase: true, maxlength: 20 },
+    upiVpa: { type: String, trim: true, maxlength: 80 },
     openingHours: { type: String, trim: true, maxlength: 120 },
     isPrimary: { type: Boolean, default: false },
     active: { type: Boolean, default: true },
