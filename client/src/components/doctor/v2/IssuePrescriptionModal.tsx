@@ -2,8 +2,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { Loader2, Plus, Trash2, X } from 'lucide-react';
 import { issuePrescription } from '../../../api/doctorPrescriptionDocs';
 import { listEncounters } from '../../../api/doctorEncounters';
+import { getDosingCatalog } from '../../../api/dosing';
 import { useActiveLocation } from '../../../lib/doctorLocation';
 import { cn } from '../../../lib/cn';
+import { DrugInfoPanel, MedicineField, resolveDrug } from './MedicineAutocomplete';
+import type { DosingCatalog } from './MedicineAutocomplete';
 
 const LABEL = 'block text-[12.5px] font-semibold text-[#334155]';
 const INPUT = 'mt-1.5 h-11 w-full rounded-[10px] border border-[#E2E6F0] bg-white px-3.5 text-[13.5px] text-[#0F172A] focus:border-[#3B4FE0] focus:outline-none';
@@ -49,6 +52,15 @@ export function IssuePrescriptionModal({ patientId, patientName, onClose, onIssu
   const [locationOverride, setLocationOverride] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Curated pediatric dosing catalog powers the medicine typeahead + info. It's
+  // doctor-only decision-support (DRAFT, verify) — never LLM-generated. If it
+  // fails to load the fields stay plain free-text inputs.
+  const [catalog, setCatalog] = useState<DosingCatalog | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    void getDosingCatalog().then((c) => { if (!cancelled) setCatalog(c); }).catch(() => undefined);
+    return () => { cancelled = true; };
+  }, []);
 
   const locationId = locationOverride
     || (active && active.id !== 'overall' ? active.id : clinics.find((c) => c.primary)?.id ?? clinics[0]?.id ?? '');
@@ -167,21 +179,28 @@ export function IssuePrescriptionModal({ patientId, patientName, onClose, onIssu
         <fieldset className="mt-5">
           <legend className={LABEL}>Medications</legend>
           <ul className="mt-2 flex flex-col gap-2.5">
-            {lines.map((l, i) => (
-              <li key={i} className="grid grid-cols-2 items-center gap-2 lg:grid-cols-[1.3fr_1.2fr_.7fr_1fr_.8fr_1fr_auto]">
-                <input aria-label={`Medicine ${i + 1}`} value={l.drug} onChange={(e) => set(i, 'drug', e.target.value)} placeholder="Paracetamol Syrup" className={CELL} />
-                <input aria-label={`Composition or strength ${i + 1}`} value={l.strength} onChange={(e) => set(i, 'strength', e.target.value)} placeholder="250 mg / 5 ml" className={CELL} />
-                <input aria-label={`Dose ${i + 1}`} value={l.dose} onChange={(e) => set(i, 'dose', e.target.value)} placeholder="5 ml" className={CELL} />
-                <input aria-label={`Frequency ${i + 1}`} value={l.frequency} onChange={(e) => set(i, 'frequency', e.target.value)} placeholder="Every 6 hours" className={CELL} />
-                <input aria-label={`Duration ${i + 1}`} value={l.duration} onChange={(e) => set(i, 'duration', e.target.value)} placeholder="3 Days" className={CELL} />
-                <input aria-label={`Instructions ${i + 1}`} value={l.instructions} onChange={(e) => set(i, 'instructions', e.target.value)} placeholder="After Food" className={CELL} />
-                <button type="button" aria-label={`Remove medicine ${i + 1}`} disabled={lines.length === 1}
-                  onClick={() => setLines((rows) => rows.filter((_, j) => j !== i))}
-                  className="grid h-11 w-11 shrink-0 place-items-center rounded-[10px] border border-[#E2E6F0] text-[#EF4444] hover:bg-[#FEF2F2] disabled:opacity-40">
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </li>
-            ))}
+            {lines.map((l, i) => {
+              const info = resolveDrug(l.drug, catalog);
+              return (
+                <li key={i}>
+                  <div className="grid grid-cols-2 items-center gap-2 lg:grid-cols-[1.3fr_1.2fr_.7fr_1fr_.8fr_1fr_auto]">
+                    <MedicineField ariaLabel={`Medicine ${i + 1}`} value={l.drug} onChange={(v) => set(i, 'drug', v)}
+                      onPickStrength={(s) => set(i, 'strength', s)} catalog={catalog} placeholder="Paracetamol Syrup" className={CELL} />
+                    <input aria-label={`Composition or strength ${i + 1}`} value={l.strength} onChange={(e) => set(i, 'strength', e.target.value)} placeholder="250 mg / 5 ml" className={CELL} />
+                    <input aria-label={`Dose ${i + 1}`} value={l.dose} onChange={(e) => set(i, 'dose', e.target.value)} placeholder="5 ml" className={CELL} />
+                    <input aria-label={`Frequency ${i + 1}`} value={l.frequency} onChange={(e) => set(i, 'frequency', e.target.value)} placeholder="Every 6 hours" className={CELL} />
+                    <input aria-label={`Duration ${i + 1}`} value={l.duration} onChange={(e) => set(i, 'duration', e.target.value)} placeholder="3 Days" className={CELL} />
+                    <input aria-label={`Instructions ${i + 1}`} value={l.instructions} onChange={(e) => set(i, 'instructions', e.target.value)} placeholder="After Food" className={CELL} />
+                    <button type="button" aria-label={`Remove medicine ${i + 1}`} disabled={lines.length === 1}
+                      onClick={() => setLines((rows) => rows.filter((_, j) => j !== i))}
+                      className="grid h-11 w-11 shrink-0 place-items-center rounded-[10px] border border-[#E2E6F0] text-[#EF4444] hover:bg-[#FEF2F2] disabled:opacity-40">
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                  {info && <DrugInfoPanel drug={info} status={catalog?.status} />}
+                </li>
+              );
+            })}
           </ul>
           <button type="button" onClick={() => setLines((rows) => [...rows, { ...BLANK }])}
             className="mt-2.5 flex items-center gap-2 text-[13px] font-bold text-[#3B4FE0] hover:underline">
