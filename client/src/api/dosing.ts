@@ -101,3 +101,18 @@ export interface AiMedicineSearchResponse {
 export function aiMedicineSearch(query: string) {
   return api<AiMedicineSearchResponse>('/dosing/ai-search', { method: 'POST', body: JSON.stringify({ query }) });
 }
+
+// Real Indian-medicine typeahead over the IndiaMedicine reference catalog
+// (~254k rows) — the PRIMARY source for the prescribe medicine search. Reference
+// only: brand name + composition + pack, no dosing.
+export interface DatasetMedicine {
+  id: string;
+  name: string;
+  type: string | null;
+  packSize: string | null;
+  composition1: string | null;
+  composition2: string | null;
+}
+export function searchMedicines(q: string) {
+  return api<{ medicines: DatasetMedicine[] }>(`/dosing/medicines?q=${encodeURIComponent(q)}`);
+}
