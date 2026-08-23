@@ -12,6 +12,7 @@ import { GrowthLog } from '../models/GrowthLog.js';
 import { BRANDS, DRUGS, DOSING_DATA_STATUS, getDrug } from '../data/drug-dosing.js';
 import { checkDose } from '../medicines/dosing.js';
 import { aiMedicineReference, assistantConfigured } from '../ai/provider.js';
+import { IndiaMedicine } from '../models/IndiaMedicine.js';
 
 const MS_PER_MONTH = 30.4375 * 24 * 60 * 60 * 1000;
 
@@ -30,6 +31,37 @@ const router = Router();
 
 router.get('/catalog', requireAuth, requireRole('doctor'), (_req, res) => {
   res.json({ status: DOSING_DATA_STATUS, drugs: DRUGS, brands: BRANDS });
+});
+
+// Real-medicine typeahead over the IndiaMedicine reference catalog (~254k rows).
+// Doctor-only. Anchored-prefix regex on the indexed nameLower — fast, and the
+// primary source for the prescribe form's medicine search. Reference data only
+// (brand + composition + pack); it carries NO dosing guidance.
+const medSearchSchema = z.object({ q: z.string().trim().min(2).max(60) });
+
+router.get('/medicines', requireAuth, requireRole('doctor'), async (req, res) => {
+  const parsed = medSearchSchema.safeParse({ q: req.query.q });
+  if (!parsed.success) {
+    res.json({ medicines: [] });
+    return;
+  }
+  const q = parsed.data.q.toLowerCase();
+  const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const rows = await IndiaMedicine.find({ nameLower: { $regex: `^${escaped}` } })
+    .select('name type packSize composition1 composition2')
+    .sort({ nameLower: 1 })
+    .limit(12)
+    .lean();
+  res.json({
+    medicines: rows.map((r) => ({
+      id: String(r._id),
+      name: r.name,
+      type: r.type ?? null,
+      packSize: r.packSize ?? null,
+      composition1: r.composition1 ?? null,
+      composition2: r.composition2 ?? null,
+    })),
+  });
 });
 
 // AI medicine reference — a doctor-only FALLBACK for names not in the curated

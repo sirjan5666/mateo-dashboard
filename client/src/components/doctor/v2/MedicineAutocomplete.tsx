@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Loader2, Pill, ShieldAlert, ShieldCheck, Sparkles, TriangleAlert } from 'lucide-react';
-import { aiMedicineSearch } from '../../../api/dosing';
-import type { AiMedicine, DosingBrand, DosingDrug } from '../../../api/dosing';
+import { aiMedicineSearch, searchMedicines } from '../../../api/dosing';
+import type { AiMedicine, DatasetMedicine, DosingBrand, DosingDrug } from '../../../api/dosing';
 import { cn } from '../../../lib/cn';
 
 // The doctor-only pediatric dosing catalog (curated data — never LLM-generated).
@@ -11,23 +11,7 @@ export interface DosingCatalog {
   brands: DosingBrand[];
 }
 
-interface Match {
-  kind: 'brand' | 'drug';
-  id: string;
-  label: string; // brand name or generic name
-  sub: string; // composition / category line
-  drug: DosingDrug; // the underlying generic (for info + dose reference)
-  strength?: string; // for brands → pre-fills the strength cell
-}
-
-/** A brand's per-pack strength as prescription-friendly text (syrups are per 5 ml). */
-function strengthText(b: DosingBrand): string {
-  const s = b.strengths[0];
-  if (!s) return '';
-  return s.per === 'tablet' ? `${s.mg} mg` : `${s.mg * 5} mg / 5 ml`;
-}
-
-/** Resolve typed text back to a catalog generic — so info shows even without a click. */
+/** Resolve typed text back to a catalog generic — so pediatric info can show for a known name. */
 export function resolveDrug(text: string, catalog: DosingCatalog | null): DosingDrug | undefined {
   if (!catalog || !text.trim()) return undefined;
   const q = text.trim().toLowerCase();
@@ -42,40 +26,50 @@ export function resolveDrug(text: string, catalog: DosingCatalog | null): Dosing
   );
 }
 
-function buildMatches(query: string, catalog: DosingCatalog): Match[] {
-  const q = query.trim().toLowerCase();
-  if (!q) return [];
-  const byId = new Map(catalog.drugs.map((d) => [d.id, d]));
-  const out: Match[] = [];
-  // Brands first — doctors most often type the brand (Dolo, Azithral…).
-  for (const b of catalog.brands) {
-    const d = byId.get(b.strengths[0]?.drugId ?? '');
-    if (!d) continue;
-    if (`${b.name} ${d.name} ${d.aka ?? ''}`.toLowerCase().includes(q)) {
-      out.push({ kind: 'brand', id: b.id, label: b.name, sub: `${d.name} · ${b.form} ${strengthText(b)}`, drug: d, strength: strengthText(b) });
-    }
-  }
-  // Then generics.
+// A few generic-name spelling variants seen in the India dataset's composition.
+const EXTRA_ALIASES: Record<string, string[]> = {
+  amoxicillin: ['amoxycillin'],
+  aspirin: ['acetylsalicylic'],
+};
+
+/**
+ * Map a dataset medicine's composition to a curated pediatric drug — but ONLY for
+ * a SINGLE active (no composition2). We deliberately do NOT infer pediatric dosing
+ * for a combination product (e.g. Amoxicillin + Clavulanic acid) from one part.
+ */
+export function resolveDrugFromComposition(
+  c1: string | null | undefined,
+  c2: string | null | undefined,
+  catalog: DosingCatalog | null,
+): DosingDrug | undefined {
+  if (!catalog || (c2 && c2.trim())) return undefined;
+  const hay = (c1 ?? '').toLowerCase();
+  if (!hay.trim()) return undefined;
   for (const d of catalog.drugs) {
-    if (`${d.name} ${d.aka ?? ''}`.toLowerCase().includes(q)) {
-      out.push({ kind: 'drug', id: d.id, label: d.name, sub: d.category, drug: d });
-    }
+    const aliases = [d.name.toLowerCase(), ...(d.aka ? [d.aka.toLowerCase()] : []), ...(EXTRA_ALIASES[d.id] ?? [])];
+    if (aliases.some((a) => hay.includes(a))) return d;
   }
-  return out.slice(0, 8);
+  return undefined;
+}
+
+/** The strength cell text derived from a dataset medicine's composition. */
+export function compositionStrength(m: DatasetMedicine): string {
+  return [m.composition1, m.composition2].map((c) => (c ?? '').trim()).filter(Boolean).join(' + ');
 }
 
 /**
- * The medicine name cell in the prescribe form, upgraded to a typeahead over the
- * curated pediatric catalog. Free text is always allowed — the dropdown only
- * assists; picking a brand also fills the strength cell. All shown values are
- * DRAFT decision-support (see DrugInfoPanel), never LLM-generated.
+ * The medicine name cell in the prescribe form — a typeahead over the real
+ * IndiaMedicine catalog (~254k). Free text is always allowed; picking a medicine
+ * fills its composition into the strength cell. Curated pediatric dosing
+ * (DrugInfoPanel) still surfaces for single-active medicines we know, and AI is a
+ * last-resort fallback only when the dataset has nothing.
  */
 export function MedicineField({
   value,
   onChange,
   onPickStrength,
+  onPickDatasetMedicine,
   onPickAiMedicine,
-  catalog,
   className,
   ariaLabel,
   placeholder,
@@ -83,56 +77,77 @@ export function MedicineField({
   value: string;
   onChange: (v: string) => void;
   onPickStrength: (strength: string) => void;
-  /** A picked AI suggestion (not in the curated catalog) — surfaced as an unverified reference. */
+  /** A picked real medicine from the India dataset. */
+  onPickDatasetMedicine: (m: DatasetMedicine) => void;
+  /** A picked AI suggestion (dataset had nothing) — surfaced as an unverified reference. */
   onPickAiMedicine: (m: AiMedicine) => void;
-  catalog: DosingCatalog | null;
   className?: string;
   ariaLabel: string;
   placeholder?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
+  const [dsResults, setDsResults] = useState<DatasetMedicine[]>([]);
+  const [dsLoading, setDsLoading] = useState(false);
+  const [dsDone, setDsDone] = useState(false); // dataset query settled for the current value
   const [aiResults, setAiResults] = useState<AiMedicine[]>([]);
   const [aiLoading, setAiLoading] = useState(false);
-  const [aiOff, setAiOff] = useState(false); // no LLM provider configured → no AI affordance
+  const [aiOff, setAiOff] = useState(false); // no LLM provider → no AI affordance
   const blurTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const justPicked = useRef('');
-  const reqId = useRef(0);
+  const dsReq = useRef(0);
+  const aiReq = useRef(0);
 
-  const matches = useMemo(() => (catalog ? buildMatches(value, catalog) : []), [value, catalog]);
-
-  // AI fallback runs ONLY when the query isn't in our curated catalog. Debounced,
-  // stale-guarded (reqId), and suppressed right after a pick so it can't re-fire
-  // on the name we just filled in.
+  // PRIMARY source: the real India medicines dataset (name prefix). Debounced.
   useEffect(() => {
     const q = value.trim();
-    if (aiOff || matches.length > 0 || q.length < 3 || q === justPicked.current) {
-      setAiResults([]);
-      setAiLoading(false);
+    if (q.length < 2 || q === justPicked.current) {
+      setDsResults([]); setDsLoading(false); setDsDone(q === justPicked.current);
+      return;
+    }
+    setDsLoading(true); setDsDone(false);
+    const id = ++dsReq.current;
+    const t = setTimeout(() => {
+      void searchMedicines(q)
+        .then((r) => { if (id === dsReq.current) setDsResults(r.medicines); })
+        .catch(() => { if (id === dsReq.current) setDsResults([]); })
+        .finally(() => { if (id === dsReq.current) { setDsLoading(false); setDsDone(true); } });
+    }, 250);
+    return () => clearTimeout(t);
+  }, [value]);
+
+  // FALLBACK: AI, only after the dataset settled with NO results (typos, salts,
+  // rare items). Debounced, stale-guarded, suppressed right after a pick.
+  useEffect(() => {
+    const q = value.trim();
+    if (aiOff || dsLoading || !dsDone || dsResults.length > 0 || q.length < 3 || q === justPicked.current) {
+      setAiResults([]); setAiLoading(false);
       return;
     }
     setAiLoading(true);
-    const id = ++reqId.current;
+    const id = ++aiReq.current;
     const t = setTimeout(() => {
       void aiMedicineSearch(q)
         .then((r) => {
-          if (id !== reqId.current) return; // a newer keystroke superseded this
+          if (id !== aiReq.current) return;
           if (!r.enabled) { setAiOff(true); setAiResults([]); }
           else setAiResults(r.medicines);
         })
-        .catch(() => { if (id === reqId.current) setAiResults([]); })
-        .finally(() => { if (id === reqId.current) setAiLoading(false); });
-    }, 450);
+        .catch(() => { if (id === aiReq.current) setAiResults([]); })
+        .finally(() => { if (id === aiReq.current) setAiLoading(false); });
+    }, 400);
     return () => clearTimeout(t);
-  }, [value, matches.length, aiOff]);
+  }, [value, dsLoading, dsDone, dsResults.length, aiOff]);
 
-  const showAi = matches.length === 0 && (aiLoading || aiResults.length > 0);
-  const show = open && (matches.length > 0 || showAi);
+  const showAi = dsResults.length === 0 && !dsLoading && (aiLoading || aiResults.length > 0);
+  const show = open && (dsLoading || dsResults.length > 0 || showAi);
 
-  function pick(m: Match) {
-    onChange(m.label);
-    if (m.strength) onPickStrength(m.strength);
-    justPicked.current = m.label;
+  function pickDataset(m: DatasetMedicine) {
+    onChange(m.name);
+    const s = compositionStrength(m);
+    if (s) onPickStrength(s);
+    onPickDatasetMedicine(m);
+    justPicked.current = m.name;
     setOpen(false);
   }
   function pickAi(m: AiMedicine) {
@@ -157,11 +172,11 @@ export function MedicineField({
         onBlur={() => { blurTimer.current = setTimeout(() => setOpen(false), 120); }}
         onKeyDown={(e) => {
           if (!show) return;
-          const navLen = matches.length || aiResults.length;
+          const navLen = dsResults.length || aiResults.length;
           if (e.key === 'ArrowDown') { e.preventDefault(); setActive((a) => Math.min(a + 1, navLen - 1)); }
           else if (e.key === 'ArrowUp') { e.preventDefault(); setActive((a) => Math.max(a - 1, 0)); }
           else if (e.key === 'Enter') {
-            if (matches.length) { const m = matches[active]; if (m) { e.preventDefault(); pick(m); } }
+            if (dsResults.length) { const m = dsResults[active]; if (m) { e.preventDefault(); pickDataset(m); } }
             else if (aiResults.length) { const m = aiResults[active]; if (m) { e.preventDefault(); pickAi(m); } }
           } else if (e.key === 'Escape') { setOpen(false); }
         }}
@@ -171,24 +186,28 @@ export function MedicineField({
         <ul
           role="listbox"
           onMouseDown={() => { if (blurTimer.current) clearTimeout(blurTimer.current); }}
-          className="absolute left-0 top-[calc(100%+4px)] z-40 max-h-[280px] w-[320px] max-w-[82vw] overflow-y-auto overflow-x-hidden rounded-[11px] border border-[#ECEEF4] bg-white py-1 shadow-[0_20px_48px_-16px_rgba(15,23,42,.3)]"
+          className="absolute left-0 top-[calc(100%+4px)] z-40 max-h-[280px] w-[340px] max-w-[82vw] overflow-y-auto overflow-x-hidden rounded-[11px] border border-[#ECEEF4] bg-white py-1 shadow-[0_20px_48px_-16px_rgba(15,23,42,.3)]"
         >
-          {matches.map((m, i) => (
-            <li key={`${m.kind}:${m.id}`} role="option" aria-selected={i === active}>
+          {dsLoading && dsResults.length === 0 && (
+            <li className="flex items-center gap-2 px-3 py-2 text-[12px] text-[#94A3B8]">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Searching medicines…
+            </li>
+          )}
+          {dsResults.map((m, i) => (
+            <li key={`ds:${m.id}`} role="option" aria-selected={i === active}>
               <button
                 type="button"
-                onClick={() => pick(m)}
+                onClick={() => pickDataset(m)}
                 onMouseEnter={() => setActive(i)}
                 className={cn('flex w-full items-center gap-2.5 px-3 py-2 text-left', i === active ? 'bg-[#F0F3FF]' : 'hover:bg-[#F6F7FB]')}
               >
-                <span className={cn('grid h-7 w-7 shrink-0 place-items-center rounded-[8px]', m.kind === 'brand' ? 'bg-[#E4EBFD] text-[#2B6FF0]' : 'bg-[#EDE9FE] text-[#6D4FF0]')}>
+                <span className="grid h-7 w-7 shrink-0 place-items-center rounded-[8px] bg-[#E4EBFD] text-[#2B6FF0]">
                   <Pill className="h-[15px] w-[15px]" />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[13px] font-bold text-[#0F172A]">{m.label}</span>
-                  <span className="block truncate text-[11.5px] text-[#64748B]">{m.sub}</span>
+                  <span className="block truncate text-[13px] font-bold text-[#0F172A]">{m.name}</span>
+                  <span className="block truncate text-[11.5px] text-[#64748B]">{[m.composition1, m.composition2].filter(Boolean).join(' + ') || m.packSize || ''}</span>
                 </span>
-                {m.kind === 'brand' && <span className="shrink-0 rounded-full bg-[#F1F5F9] px-2 py-0.5 text-[10.5px] font-semibold text-[#64748B]">Brand</span>}
               </button>
             </li>
           ))}
@@ -196,7 +215,7 @@ export function MedicineField({
           {showAi && (
             <>
               <li className="flex items-center gap-1.5 px-3 pb-1 pt-2 text-[10px] font-bold uppercase tracking-wide text-[#B45309]">
-                <Sparkles className="h-3 w-3" /> AI suggestions — verify
+                <Sparkles className="h-3 w-3" /> Not in the catalog — AI suggestions (verify)
               </li>
               {aiLoading && aiResults.length === 0 && (
                 <li className="flex items-center gap-2 px-3 py-2 text-[12px] text-[#94A3B8]">
@@ -316,6 +335,31 @@ export function AiInfoPanel({ medicine, disclaimer }: { medicine: AiMedicine; di
         </p>
       )}
       {m.cautions.length > 0 && <p className="mt-1 text-[#64748B]"><span className="font-semibold text-[#475569]">Cautions:</span> {m.cautions.join('; ')}</p>}
+    </div>
+  );
+}
+
+/**
+ * Factual reference for a medicine picked from the real India dataset —
+ * composition, pack and type. It makes no dosing claim (the dataset has none);
+ * pediatric dosing, where we have it, shows in a separate DrugInfoPanel.
+ */
+export function DatasetInfoPanel({ medicine }: { medicine: DatasetMedicine }) {
+  const m = medicine;
+  const comp = [m.composition1, m.composition2].map((c) => (c ?? '').trim()).filter(Boolean);
+  return (
+    <div className="mt-1.5 rounded-[10px] border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-2.5 text-[12px] leading-relaxed">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+        <span className="inline-flex items-center gap-1 rounded-full bg-[#E4EBFD] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#2B6FF0]"><Pill className="h-3 w-3" />Medicine</span>
+        <span className="text-[12.5px] font-bold text-[#0F172A]">{m.name}</span>
+        {m.type && <span className="rounded-full bg-[#F1F5F9] px-2 py-0.5 text-[10.5px] font-medium capitalize text-[#64748B]">{m.type}</span>}
+      </div>
+      {comp.length > 0 && <p className="mt-1.5 text-[#334155]"><span className="font-semibold text-[#0F172A]">Composition:</span> {comp.join(' + ')}</p>}
+      {m.packSize && <p className="mt-1 text-[#334155]"><span className="font-semibold text-[#0F172A]">Pack:</span> {m.packSize}</p>}
+      <p className="mt-2 flex items-start gap-1.5 border-t border-[#E2E8F0] pt-1.5 text-[10.5px] text-[#94A3B8]">
+        <ShieldCheck className="mt-[1px] h-3 w-3 shrink-0" />
+        Reference: A–Z medicines dataset of India. Confirm strength, form and suitability before prescribing.
+      </p>
     </div>
   );
 }
