@@ -79,6 +79,14 @@ export function saveMyDoctorProfile(input: DoctorProfileInput) {
   return api<{ profile: DoctorProfile }>('/doctors/me', { method: 'PUT', body: JSON.stringify(input) });
 }
 
+/** Quick speciality switch from the dashboard — updates only the specialization. */
+export function updateMySpecialization(specialization: string) {
+  return api<{ specialization: string }>('/doctors/me/specialization', {
+    method: 'PATCH',
+    body: JSON.stringify({ specialization }),
+  });
+}
+
 // ── Parent-facing directory ──
 // A doctor as a parent sees them (no status / contact details).
 export interface DoctorListing {

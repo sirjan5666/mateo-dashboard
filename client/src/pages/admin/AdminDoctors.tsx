@@ -11,6 +11,7 @@ import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Skeleton } from '../../components/ui/Skeleton';
 import { inputCls } from '../../components/ui/field';
+import { SPECIALTY_OPTIONS } from '../../data/specialtyDashboard';
 import { cn } from '../../lib/cn';
 import { CredentialsPanel } from '../../components/admin/CredentialsPanel';
 
@@ -244,7 +245,16 @@ export default function AdminDoctors() {
               </div>
               <div>
                 <label htmlFor="dspec" className="block text-sm font-medium text-stone-700">Specialization *</label>
-                <input id="dspec" value={specialization} onChange={(e) => setSpecialization(e.target.value)} placeholder="Pediatrician" className={inputCls} />
+                <select id="dspec" value={specialization} onChange={(e) => setSpecialization(e.target.value)} className={inputCls}>
+                  <option value="" disabled>Select speciality…</option>
+                  {/* Preserve a legacy/custom specialization that isn't one of the four options. */}
+                  {specialization && !SPECIALTY_OPTIONS.some((o) => o.value.toLowerCase() === specialization.toLowerCase()) && (
+                    <option value={specialization}>{specialization}</option>
+                  )}
+                  {SPECIALTY_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
               </div>
               <div>
                 <label htmlFor="dfee" className="block text-sm font-medium text-stone-700">Consultation fee (₹) *</label>

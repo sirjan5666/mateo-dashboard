@@ -1,11 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Loader2, Stethoscope, Sun } from 'lucide-react';
+import { Check, ChevronDown, Loader2, Stethoscope, Sun } from 'lucide-react';
 import { useAuth } from '../../auth/context';
 import { useActiveLocation } from '../../lib/doctorLocation';
 import { subtitleFor } from '../../data/doctorDashboard';
 import type { Kpi } from '../../data/doctorDashboard';
-import { getSpecialtyConfig } from '../../data/specialtyDashboard';
+import { getSpecialtyConfig, SPECIALTY_OPTIONS } from '../../data/specialtyDashboard';
+import { updateMySpecialization } from '../../api/doctors';
 import { inr } from '../../lib/doctorLocation';
 import { cn } from '../../lib/cn';
 import { getOverview } from '../../api/doctorOverview';
@@ -87,6 +88,75 @@ function InOutToggle({ presence, busy, onToggle }: {
         {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
         Mark {isIn ? 'Out' : 'In'}
       </button>
+    </div>
+  );
+}
+
+/**
+ * Speciality pill that doubles as a switcher — the doctor can re-point their whole
+ * dashboard (and the record template new patients get) without opening the profile
+ * form. Saving refreshes the auth user so the label + template matching update
+ * immediately, with no manual page reload.
+ */
+function SpecialtySwitcher() {
+  const { user, refresh } = useAuth();
+  const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const currentLabel = getSpecialtyConfig(user?.specialization).label;
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onDown = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey); };
+  }, [open]);
+
+  async function pick(value: string) {
+    if (saving) return;
+    if (getSpecialtyConfig(value).label === currentLabel) { setOpen(false); return; }
+    setSaving(true);
+    try {
+      await updateMySpecialization(value);
+      await refresh();
+      setOpen(false);
+    } catch {
+      /* keep the menu open so the doctor can retry */
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div ref={ref} className="relative">
+      <button type="button" onClick={() => setOpen((o) => !o)} disabled={saving}
+        aria-haspopup="listbox" aria-expanded={open} title="Switch speciality"
+        className="inline-flex items-center gap-1 rounded-full bg-[#EEF2FF] px-2.5 py-0.5 text-[11.5px] font-bold text-[#4F46E5] transition-colors hover:bg-[#E0E7FF] disabled:opacity-60">
+        {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Stethoscope className="h-3 w-3" />}
+        {currentLabel}
+        <ChevronDown className="h-3 w-3" />
+      </button>
+      {open && (
+        <div role="listbox" className="absolute left-0 top-[calc(100%+6px)] z-40 w-56 overflow-hidden rounded-[12px] border border-[#ECEEF4] bg-white py-1 shadow-[0_12px_40px_-12px_rgba(16,24,40,.28)]">
+          <p className="px-3 py-1.5 text-[10.5px] font-bold uppercase tracking-[0.06em] text-[#94A3B8]">Switch speciality</p>
+          {SPECIALTY_OPTIONS.map((o) => {
+            const isActive = getSpecialtyConfig(o.value).label === currentLabel;
+            return (
+              <button key={o.value} type="button" role="option" aria-selected={isActive} onClick={() => pick(o.value)}
+                className={cn('flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] transition-colors hover:bg-[#F7F8FC]',
+                  isActive ? 'font-bold text-[#4F46E5]' : 'font-medium text-[#334155]')}>
+                <span className="grid h-4 w-4 place-items-center">{isActive && <Check className="h-3.5 w-3.5 text-[#4F46E5]" />}</span>
+                {o.label}
+              </button>
+            );
+          })}
+          <p className="mt-1 border-t border-[#F1F3F9] px-3 py-2 text-[11px] leading-snug text-[#94A3B8]">
+            Changes the dashboard and the record template new patients get.
+          </p>
+        </div>
+      )}
     </div>
   );
 }
@@ -196,10 +266,7 @@ export default function Dashboard() {
             <Sun className="h-5 w-5 shrink-0 text-[#F59E0B]" />
           </h1>
           <div className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1">
-            <span className="inline-flex items-center gap-1 rounded-full bg-[#EEF2FF] px-2.5 py-0.5 text-[11.5px] font-bold text-[#4F46E5]">
-              <Stethoscope className="h-3 w-3" />
-              {getSpecialtyConfig(user?.specialization).label}
-            </span>
+            <SpecialtySwitcher />
             <p className="text-sm text-[#64748B]">{subtitleFor(activeId, active.name, clinics.length)}</p>
           </div>
         </div>

@@ -152,6 +152,22 @@ router.put('/doctors/me', requireAuth, requireRole('doctor'), async (req, res) =
   res.status(201).json({ profile: publicSelf(created, req.authUser!.name) });
 });
 
+// Quick speciality switch (from the dashboard header) — updates ONLY the
+// specialization so a doctor can re-point their whole dashboard without
+// re-submitting the full profile form. New patient records follow this speciality.
+const specSchema = z.object({ specialization: z.string().trim().min(1).max(100) });
+router.patch('/doctors/me/specialization', requireAuth, requireRole('doctor'), async (req, res) => {
+  const { specialization } = specSchema.parse(req.body);
+  const existing = await DoctorProfile.findOne({ userId: req.userId });
+  if (!existing) {
+    res.status(400).json({ error: 'Complete your doctor profile before setting a speciality.' });
+    return;
+  }
+  existing.specialization = specialization;
+  await existing.save();
+  res.json({ specialization: existing.specialization });
+});
+
 // ── Parent-facing directory ────────────────────────────────────────────
 router.get('/doctors', requireAuth, async (_req, res) => {
   const profiles = await DoctorProfile.find({ status: 'approved' }).sort({ experienceYears: -1, createdAt: -1 }).limit(200);
