@@ -101,3 +101,31 @@ export function getSpecialtyConfig(specialization?: string | null): SpecialtyCon
   const key = specialization.toLowerCase().trim();
   return SPECIALTY_CONFIGS[key] ?? SPECIALTY_CONFIGS[ALIASES[key]] ?? DEFAULT_CONFIG;
 }
+
+/**
+ * Maps a doctor's speciality to the `specialization` key of the global
+ * SpecialtyTemplate that should drive their patient records. Paediatrician →
+ * the existing `pediatrics` template; the other three have their own seeds.
+ * Falls back to `pediatrics` (the paediatric-centric default) when unknown.
+ */
+const TEMPLATE_KEYS: Record<string, string> = {
+  paediatrician: 'pediatrics',
+  pediatrician: 'pediatrics',
+  paediatrics: 'pediatrics',
+  pediatrics: 'pediatrics',
+  neonatology: 'neonatology',
+  neonatologist: 'neonatology',
+  gynaecology: 'gynaecology',
+  gynecology: 'gynaecology',
+  gynaecologist: 'gynaecology',
+  gynecologist: 'gynaecology',
+  physician: 'physician',
+  'general physician': 'physician',
+  'general medicine': 'physician',
+};
+
+export function specialtyTemplateKey(specialization?: string | null): string {
+  if (!specialization) return 'pediatrics';
+  const key = specialization.toLowerCase().trim();
+  return TEMPLATE_KEYS[key] ?? key;
+}

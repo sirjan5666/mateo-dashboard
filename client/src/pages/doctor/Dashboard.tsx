@@ -5,6 +5,7 @@ import { useAuth } from '../../auth/context';
 import { useActiveLocation } from '../../lib/doctorLocation';
 import { subtitleFor } from '../../data/doctorDashboard';
 import type { Kpi } from '../../data/doctorDashboard';
+import { getSpecialtyConfig } from '../../data/specialtyDashboard';
 import { inr } from '../../lib/doctorLocation';
 import { cn } from '../../lib/cn';
 import { getOverview } from '../../api/doctorOverview';
@@ -194,7 +195,13 @@ export default function Dashboard() {
             Good morning, {greetingName(user?.name)}
             <Sun className="h-5 w-5 shrink-0 text-[#F59E0B]" />
           </h1>
-          <p className="mt-1.5 text-sm text-[#64748B]">{subtitleFor(activeId, active.name, clinics.length)}</p>
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1">
+            <span className="inline-flex items-center gap-1 rounded-full bg-[#EEF2FF] px-2.5 py-0.5 text-[11.5px] font-bold text-[#4F46E5]">
+              <Stethoscope className="h-3 w-3" />
+              {getSpecialtyConfig(user?.specialization).label}
+            </span>
+            <p className="text-sm text-[#64748B]">{subtitleFor(activeId, active.name, clinics.length)}</p>
+          </div>
         </div>
 
         <div className="flex w-full flex-wrap items-start justify-end gap-3 sm:w-auto sm:shrink-0">
