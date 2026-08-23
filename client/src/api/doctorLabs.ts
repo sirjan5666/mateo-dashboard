@@ -44,6 +44,22 @@ export function getLabCatalog() {
   return api<{ status: string; analytes: LabAnalyte[] }>('/doctor/labs/catalog');
 }
 
+// The real orderable lab-test price catalog (individual tests + packages).
+export interface LabCatalogTest {
+  name: string;
+  code: string;
+  price: number;
+  b2bPrice: number;
+  fasting: string;
+  gender: string;
+  kind: 'test' | 'package';
+  category: string;
+  parameters: string;
+}
+export function searchLabTestCatalog(q: string) {
+  return api<{ tests: LabCatalogTest[] }>(`/doctor/labs/test-catalog?q=${encodeURIComponent(q)}`);
+}
+
 export function interpretLabs(body: { ageMonths: number; results: { analyteId: string; value: number }[] }) {
   return api<LabInterpretResult>('/doctor/labs/interpret', { method: 'POST', body: JSON.stringify(body) });
 }
