@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import {
   AlertCircle, Check, Clock, FlaskConical, Loader2,
   Plus, Search, TestTubes, X,
 } from 'lucide-react';
-import { getLabOrders, createLabOrder, updateLabOrderStatus, getLabCatalog } from '../../api/doctorLabs';
-import type { LabOrderStatus, LabAnalyte } from '../../api/doctorLabs';
+import { getLabOrders, createLabOrder, updateLabOrderStatus, searchLabTestCatalog } from '../../api/doctorLabs';
+import type { LabOrderStatus, LabCatalogTest } from '../../api/doctorLabs';
 import { listPatients } from '../../api/doctorPatients';
 import { useLoad } from '../../components/doctor/v2/workspace/shared';
 import { cn } from '../../lib/cn';
@@ -28,36 +28,62 @@ function when(iso: string): string {
 
 type PatientOption = { id: string; name: string };
 
+const rupee = (n: number) => `₹${n.toLocaleString('en-IN')}`;
+// Fasting values in the dataset are messy — treat only clearly-required ones as such.
+const needsFasting = (f: string) => !!f && !/^(not required|no|no fasting required|not applicable|na|nil|-|none)$/i.test(f.trim());
+
 function NewOrderModal({
   patients,
-  catalog,
   onClose,
   onCreated,
 }: {
   patients: PatientOption[];
-  catalog: LabAnalyte[];
   onClose: () => void;
   onCreated: () => void;
 }) {
   const [patientId, setPatientId] = useState('');
-  const [selectedTests, setSelectedTests] = useState<string[]>([]);
+  const [selected, setSelected] = useState<LabCatalogTest[]>([]);
   const [priority, setPriority] = useState<'routine' | 'urgent'>('routine');
   const [notes, setNotes] = useState('');
   const [search, setSearch] = useState('');
+  const [results, setResults] = useState<LabCatalogTest[]>([]);
+  const [searching, setSearching] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const reqId = useRef(0);
 
-  const categories = [...new Set(catalog.map((a) => a.category))];
-  const filtered = catalog.filter((a) =>
-    !search || a.name.toLowerCase().includes(search.toLowerCase()) || a.category.toLowerCase().includes(search.toLowerCase()),
-  );
+  // Debounced search over the real ~1.8k-test price catalog. All state updates
+  // happen inside the timeout (never synchronously in the effect body), and prior
+  // results stay visible until the new ones arrive — no flicker between keystrokes.
+  useEffect(() => {
+    const q = search.trim();
+    const id = ++reqId.current;
+    if (q.length < 2) {
+      const clear = setTimeout(() => { if (id === reqId.current) { setResults([]); setSearching(false); } }, 0);
+      return () => clearTimeout(clear);
+    }
+    const t = setTimeout(() => {
+      if (id !== reqId.current) return;
+      setSearching(true);
+      void searchLabTestCatalog(q)
+        .then((r) => { if (id === reqId.current) setResults(r.tests); })
+        .catch(() => { if (id === reqId.current) setResults([]); })
+        .finally(() => { if (id === reqId.current) setSearching(false); });
+    }, 220);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  const selectedCodes = new Set(selected.map((t) => t.code));
+  const total = selected.reduce((s, t) => s + (t.price || 0), 0);
+  const toggle = (t: LabCatalogTest) =>
+    setSelected((prev) => (prev.some((x) => x.code === t.code) ? prev.filter((x) => x.code !== t.code) : [...prev, t]));
 
   async function submit() {
-    if (!patientId || selectedTests.length === 0) return;
+    if (!patientId || selected.length === 0) return;
     setSaving(true);
     setError(null);
     try {
-      await createLabOrder({ patientId, tests: selectedTests, priority, notes: notes.trim() || undefined });
+      await createLabOrder({ patientId, tests: selected.map((t) => t.name), priority, notes: notes.trim() || undefined });
       onCreated();
       onClose();
     } catch (e) {
@@ -106,37 +132,64 @@ function NewOrderModal({
           <div>
             <label htmlFor="lo-search" className="mb-[7px] block text-[12.5px] font-bold text-[#334155]">
               Tests <span className="text-[#EF4444]">*</span>
-              <span className="ml-2 font-medium text-[#94A3B8]">({selectedTests.length} selected)</span>
+              <span className="ml-2 font-medium text-[#94A3B8]">({selected.length} selected)</span>
             </label>
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94A3B8]" />
-              <input id="lo-search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search tests…"
+              <input id="lo-search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search 1,800+ tests & packages…" autoComplete="off"
                 className="h-10 w-full rounded-[10px] border border-[#E4E8F1] bg-white pl-9 pr-3.5 text-[13px] font-medium text-[#0F172A] placeholder:text-[#94A3B8] focus:border-[#3B4FE0] focus:outline-none" />
             </div>
-            <div className="mt-2 max-h-[200px] overflow-y-auto rounded-[10px] border border-[#E4E8F1]">
-              {categories.map((cat) => {
-                const tests = filtered.filter((a) => a.category === cat);
-                if (tests.length === 0) return null;
-                return (
-                  <div key={cat}>
-                    <p className="sticky top-0 bg-[#FAFBFD] px-3 py-1.5 text-[10.5px] font-bold uppercase tracking-[0.06em] text-[#64748B]">{cat}</p>
-                    {tests.map((t) => {
-                      const on = selectedTests.includes(t.id);
-                      return (
-                        <button key={t.id} type="button" onClick={() => setSelectedTests((prev) => on ? prev.filter((x) => x !== t.id) : [...prev, t.id])}
-                          className={cn('flex w-full items-center gap-2.5 px-3 py-2 text-left text-[12.5px] transition-colors hover:bg-[#F7F8FC]', on && 'bg-[#EEF2FF]')}>
-                          <span className={cn('grid h-[18px] w-[18px] shrink-0 place-items-center rounded-[4px] border', on ? 'border-[#3B4FE0] bg-[#3B4FE0]' : 'border-[#CBD5E1]')}>
-                            {on && <Check className="h-3 w-3 text-white" />}
-                          </span>
-                          <span className="font-medium text-[#0F172A]">{t.name}</span>
-                          <span className="ml-auto text-[11px] text-[#94A3B8]">{t.unit}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                );
-              })}
-            </div>
+
+            {search.trim().length >= 2 && (
+              <div className="mt-2 max-h-[230px] overflow-y-auto rounded-[10px] border border-[#E4E8F1]">
+                {searching && results.length === 0 && (
+                  <p className="flex items-center gap-2 px-3 py-2.5 text-[12px] text-[#94A3B8]"><Loader2 className="h-3.5 w-3.5 animate-spin" />Searching…</p>
+                )}
+                {!searching && results.length === 0 && (
+                  <p className="px-3 py-2.5 text-[12px] text-[#94A3B8]">No tests match “{search.trim()}”.</p>
+                )}
+                {results.map((t) => {
+                  const on = selectedCodes.has(t.code);
+                  return (
+                    <button key={t.code} type="button" onClick={() => toggle(t)}
+                      className={cn('flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors hover:bg-[#F7F8FC]', on && 'bg-[#EEF2FF]')}>
+                      <span className={cn('grid h-[18px] w-[18px] shrink-0 place-items-center rounded-[4px] border', on ? 'border-[#3B4FE0] bg-[#3B4FE0]' : 'border-[#CBD5E1]')}>
+                        {on && <Check className="h-3 w-3 text-white" />}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="flex items-center gap-1.5">
+                          <span className="truncate text-[12.5px] font-semibold text-[#0F172A]">{t.name}</span>
+                          {t.kind === 'package' && <span className="shrink-0 rounded-full bg-[#EDE9FE] px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-wide text-[#6D28D9]">Pkg</span>}
+                          {needsFasting(t.fasting) && <span className="shrink-0 rounded-full bg-[#FEF0D3] px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-wide text-[#B45309]">Fasting</span>}
+                        </span>
+                        {t.parameters && <span className="mt-0.5 block truncate text-[11px] text-[#94A3B8]">{t.parameters}</span>}
+                      </span>
+                      <span className="ml-auto shrink-0 text-[12.5px] font-bold text-[#0F172A] tabular-nums">{rupee(t.price)}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {selected.length > 0 && (
+              <div className="mt-2.5 rounded-[10px] border border-[#E4E8F1] bg-[#FAFBFD] p-2.5">
+                <div className="flex flex-wrap gap-1.5">
+                  {selected.map((t) => (
+                    <span key={t.code} className="inline-flex items-center gap-1.5 rounded-full border border-[#DDE3F5] bg-white py-1 pl-2.5 pr-1.5 text-[11.5px] font-semibold text-[#334155]">
+                      <span className="max-w-[180px] truncate">{t.name}</span>
+                      <span className="text-[#94A3B8]">{rupee(t.price)}</span>
+                      <button type="button" onClick={() => toggle(t)} aria-label={`Remove ${t.name}`} className="grid h-4 w-4 place-items-center rounded-full text-[#94A3B8] hover:bg-[#F1F3F9] hover:text-[#EF4444]">
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+                <div className="mt-2 flex items-center justify-between border-t border-[#E4E8F1] pt-2 text-[12.5px]">
+                  <span className="font-medium text-[#64748B]">{selected.length} test{selected.length !== 1 ? 's' : ''} selected</span>
+                  <span className="font-bold text-[#0F172A] tabular-nums">Total: {rupee(total)}</span>
+                </div>
+              </div>
+            )}
           </div>
 
           <div>
@@ -151,7 +204,7 @@ function NewOrderModal({
 
           <div className="flex justify-end gap-3 pt-2">
             <button type="button" onClick={onClose} className="h-11 rounded-[10px] border border-[#E2E6F0] bg-white px-6 text-[13.5px] font-bold text-[#1E2A5A] hover:bg-[#F7F8FC]">Cancel</button>
-            <button type="button" onClick={submit} disabled={saving || !patientId || selectedTests.length === 0}
+            <button type="button" onClick={submit} disabled={saving || !patientId || selected.length === 0}
               className="flex h-11 items-center gap-2 rounded-[10px] px-6 text-[13.5px] font-bold text-white shadow-[0_8px_18px_-8px_rgba(59,79,224,.65)] hover:brightness-105 disabled:opacity-60"
               style={{ background: 'linear-gradient(135deg, #4F63F5 0%, #3B3FE0 100%)' }}>
               {saving && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -180,15 +233,13 @@ export default function LabOrders() {
 
   const { data, loading, error, reload } = useLoad(
     async () => {
-      const [o, p, c] = await Promise.all([
+      const [o, p] = await Promise.all([
         getLabOrders(statusFilter ? { status: statusFilter } : undefined),
         listPatients(),
-        getLabCatalog(),
       ]);
       return {
         orders: o.orders,
         patients: p.patients.map((pt) => ({ id: pt.id, name: pt.displayName })) as PatientOption[],
-        catalog: c.analytes as LabAnalyte[],
       };
     },
     [statusFilter],
@@ -196,7 +247,6 @@ export default function LabOrders() {
 
   const orders = data?.orders ?? [];
   const patients = data?.patients ?? [];
-  const catalog = data?.catalog ?? [];
 
   async function changeStatus(id: string, status: LabOrderStatus) {
     setUpdatingId(id);
@@ -349,7 +399,7 @@ export default function LabOrders() {
         )}
       </section>
 
-      {showNew && <NewOrderModal patients={patients} catalog={catalog} onClose={() => setShowNew(false)} onCreated={reload} />}
+      {showNew && <NewOrderModal patients={patients} onClose={() => setShowNew(false)} onCreated={reload} />}
     </div>
   );
 }

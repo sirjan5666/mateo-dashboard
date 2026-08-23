@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { Types } from 'mongoose';
 import { guardRoutes } from '../middleware/permissions.js';
 import { LAB_ANALYTES, LAB_DATA_STATUS, flagValue, labById } from '../labs/reference.js';
+import { searchLabTests } from '../labs/testCatalog.js';
 import { LabOrder, LAB_ORDER_STATUSES } from '../models/LabOrder.js';
 import type { LabOrderStatus } from '../models/LabOrder.js';
 import { Patient } from '../models/Patient.js';
@@ -12,6 +13,12 @@ guardRoutes(router, 'consultations');
 
 router.get('/labs/catalog', (_req, res) => {
   res.json({ status: LAB_DATA_STATUS, analytes: LAB_ANALYTES });
+});
+
+// Typeahead over the real orderable lab-test price catalog (individual + packages).
+router.get('/labs/test-catalog', (req, res) => {
+  const q = typeof req.query.q === 'string' ? req.query.q : '';
+  res.json({ tests: searchLabTests(q, 20) });
 });
 
 const interpretSchema = z.object({
