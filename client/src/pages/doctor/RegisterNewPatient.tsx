@@ -4,6 +4,8 @@ import { createPatient, getPatient, listTemplates, updatePatient } from '../../a
 import { createAppointment } from '../../api/doctorAppointments';
 import { ApiError } from '../../api/client';
 import { useActiveLocation } from '../../lib/doctorLocation';
+import { useAuth } from '../../auth/context';
+import { specialtyTemplateKey } from '../../data/specialtyDashboard';
 import { ArrowLeft, Building2, CalendarClock, Calendar, ChevronDown, Info, Loader2, ShieldCheck, UploadCloud, X } from 'lucide-react';
 import { BLOOD_GROUPS, DELIVERY_TYPES, RELATIONSHIPS, STATES } from '../../data/geo';
 import { FieldError, INPUT, INPUT_ERR, Label, PhoneNumberInput } from '../../components/doctor/v2/subuser/fields';
@@ -66,6 +68,7 @@ const SEX_OF = { Male: 'male', Female: 'female', Other: 'other' } as Record<stri
  */
 export default function RegisterNewPatient({ book = false }: { book?: boolean }) {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [search] = useSearchParams();
   // Booking is only ever for a brand-new patient; an edit is never a booking.
   const editId = book ? null : search.get('edit');
@@ -239,7 +242,11 @@ export default function RegisterNewPatient({ book = false }: { book?: boolean })
         let pid = bookedPatientId;
         if (!pid) {
           const { templates } = await listTemplates();
-          const template = templates[0];
+          // Use the record template that matches the doctor's speciality, so patient
+          // information adapts (Paediatrics / Neonatology / Gynaecology / Physician).
+          // Fall back to the first template if no speciality match exists.
+          const wantKey = specialtyTemplateKey(user?.specialization);
+          const template = templates.find((t) => t.specialization.toLowerCase() === wantKey) ?? templates[0];
           if (!template) {
             setSubmitError('No specialty template exists yet — one is needed before patients can be registered.');
             setSaving(false);

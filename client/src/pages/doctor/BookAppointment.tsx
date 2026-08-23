@@ -8,6 +8,7 @@ import { useAuth } from '../../auth/context';
 import { createAppointment, getAppointment, listSchedule, updateAppointment } from '../../api/doctorAppointments';
 import type { AppointmentMode } from '../../api/doctorAppointments';
 import { createPatient, listPatients, listTemplates, patientNumber } from '../../api/doctorPatients';
+import { specialtyTemplateKey } from '../../data/specialtyDashboard';
 import type { Patient } from '../../api/doctorPatients';
 import { useActiveLocation } from '../../lib/doctorLocation';
 // Clinic day in IST — shared with the calendar grid so the two cannot drift.
@@ -319,7 +320,9 @@ export default function BookAppointment() {
       let id = patientId;
       if (tab === 'new') {
         const { templates } = await listTemplates();
-        const templateId = templates[0]?.id;
+        // Match the doctor's speciality template so records adapt; fall back to first.
+        const wantKey = specialtyTemplateKey(user?.specialization);
+        const templateId = (templates.find((t) => t.specialization.toLowerCase() === wantKey) ?? templates[0])?.id;
         if (!templateId) throw new Error('No patient template configured — add one in Settings first.');
         const created = await createPatient({
           templateId,
