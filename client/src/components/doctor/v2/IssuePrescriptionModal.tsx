@@ -12,6 +12,11 @@ import type { AiMedicine, DatasetMedicine } from '../../../api/dosing';
 const LABEL = 'block text-[12.5px] font-semibold text-[#334155]';
 const INPUT = 'mt-1.5 h-11 w-full rounded-[10px] border border-[#E2E6F0] bg-white px-3.5 text-[13.5px] text-[#0F172A] focus:border-[#3B4FE0] focus:outline-none';
 const CELL = 'h-11 min-w-0 rounded-[10px] border border-[#E2E6F0] bg-white px-3 text-[13px] text-[#0F172A] focus:border-[#3B4FE0] focus:outline-none';
+const COLH = 'truncate px-0.5 text-[10.5px] font-semibold uppercase tracking-wide text-[#94A3B8]';
+// One grid template shared by the header row and every medication row, so the
+// column widths line up. Weighted so the text-heavy Medicine + Composition cells
+// get the most room (long compositions were being clipped).
+const RX_GRID = 'lg:grid-cols-[1.5fr_2fr_.65fr_1fr_.7fr_1fr_auto]';
 
 interface Line {
   drug: string;
@@ -140,7 +145,7 @@ export function IssuePrescriptionModal({ patientId, patientName, onClose, onIssu
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-[rgba(15,23,42,.45)] p-4">
       <div role="dialog" aria-modal="true" aria-label={`Issue prescription for ${patientName}`}
-        className="max-h-[92vh] w-full max-w-[940px] overflow-y-auto rounded-[16px] border border-[#ECEEF4] bg-white p-6 shadow-[0_24px_60px_-20px_rgba(15,23,42,.35)]">
+        className="max-h-[92vh] w-full max-w-[1160px] overflow-y-auto rounded-[16px] border border-[#ECEEF4] bg-white p-5 shadow-[0_24px_60px_-20px_rgba(15,23,42,.35)] sm:p-6">
         <div className="flex items-start gap-3">
           <div className="min-w-0 flex-1">
             <h2 className="font-display text-[18px] font-extrabold tracking-[-0.02em] text-[#0F172A]">Issue prescription</h2>
@@ -185,6 +190,16 @@ export function IssuePrescriptionModal({ patientId, patientName, onClose, onIssu
         <fieldset className="mt-5">
           <legend className={LABEL}>Medications</legend>
           <ul className="mt-2 flex flex-col gap-2.5">
+            {/* Column headers — shown on wide screens where the row is a single line. */}
+            <li className={cn('hidden gap-2 px-0.5 lg:grid', RX_GRID)} aria-hidden="true">
+              <span className={COLH}>Medicine</span>
+              <span className={COLH}>Composition / strength</span>
+              <span className={COLH}>Dose</span>
+              <span className={COLH}>Frequency</span>
+              <span className={COLH}>Duration</span>
+              <span className={COLH}>Instructions</span>
+              <span className="w-11" />
+            </li>
             {lines.map((l, i) => {
               // A picked medicine (dataset first, else AI) wins over a loose typed
               // match — the doctor chose it for this line. Pediatric dosing comes
@@ -199,7 +214,7 @@ export function IssuePrescriptionModal({ patientId, patientName, onClose, onIssu
                 : (showAi ? undefined : resolveDrug(l.drug, catalog));
               return (
                 <li key={i}>
-                  <div className="grid grid-cols-2 items-center gap-2 lg:grid-cols-[1.3fr_1.2fr_.7fr_1fr_.8fr_1fr_auto]">
+                  <div className={cn('grid grid-cols-2 items-center gap-2 sm:grid-cols-3', RX_GRID)}>
                     <MedicineField ariaLabel={`Medicine ${i + 1}`} value={l.drug} onChange={(v) => set(i, 'drug', v)}
                       onPickStrength={(s) => set(i, 'strength', s)}
                       onPickDatasetMedicine={(m) => setDsPicks((p) => ({ ...p, [i]: m }))}
