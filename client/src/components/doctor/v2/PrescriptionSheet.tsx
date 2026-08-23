@@ -76,7 +76,7 @@ export function PrescriptionSheet({ data }: { data: PrescriptionSheetData }) {
         {/* ── Letterhead ── */}
         <header className="flex flex-wrap items-start gap-6">
           <div className="min-w-0">
-            <img src="/mateo-logo.png" alt="Mateo" className="h-[52px] w-auto" />
+            <img src="/mateo-logo.png" alt="MateoCare" className="h-[52px] w-auto" />
             <p className="mt-1.5 text-[13px] font-bold uppercase tracking-[0.14em]" style={{ color: TEAL }}>
               Child Care Clinic
             </p>
