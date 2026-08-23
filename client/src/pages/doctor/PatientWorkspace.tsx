@@ -3,12 +3,13 @@ import { useNavigate, useParams } from 'react-router';
 import { Area, AreaChart, CartesianGrid, LabelList, ResponsiveContainer, XAxis, YAxis } from 'recharts';
 import {
   ArrowLeft,
+  ClipboardList,
   Loader2, CalendarDays, CalendarPlus, ChevronRight, FileText, Mail,
   Pencil, Phone, Pill, Plus, ShieldCheck, Stethoscope, Syringe,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { getPatient, patientNumber } from '../../api/doctorPatients';
-import type { Patient as ApiPatient, PortalStatus, Template } from '../../api/doctorPatients';
+import { getPatient, patientNumber, savePatientRecord } from '../../api/doctorPatients';
+import type { Patient as ApiPatient, FieldDef, PortalStatus, Template } from '../../api/doctorPatients';
 import { listEncounters } from '../../api/doctorEncounters';
 import { listPatientAppointments } from '../../api/doctorAppointments';
 import { listPrescriptions } from '../../api/doctorPrescriptions';
@@ -45,9 +46,110 @@ const OVERVIEW_UNIT: Record<OverviewMetric, string> = { Weight: 'kg', Height: 'c
 const overviewValue = (r: GrowthRecord, m: OverviewMetric) =>
   (m === 'Weight' ? r.weightKg : m === 'Height' ? r.heightCm : m === 'Head' ? r.headCircumferenceCm : r.bmi);
 
+/**
+ * The speciality-specific clinical record — renders the patient's assigned
+ * SpecialtyTemplate fields (Neonatology / Gynaecology / Physician / Paediatrics …)
+ * as a read view + inline editor. This is what makes "patient information adapt to
+ * the speciality" visible: the fields shown here are defined by the template the
+ * patient was registered under. Saves via PUT /patients/:id/record.
+ */
+function ClinicalRecordCard({ patientId, fields, initial }: { patientId: string; fields: FieldDef[]; initial?: Record<string, unknown> }) {
+  const editable = useMemo(
+    () => fields.filter((f) => !f.archived).sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
+    [fields],
+  );
+  const [editing, setEditing] = useState(false);
+  const [values, setValues] = useState<Record<string, unknown>>(initial ?? {});
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  if (editable.length === 0) return null;
+
+  const inputCls = 'h-11 w-full rounded-[10px] border border-[#E4E8F1] bg-white px-3.5 text-[13.5px] text-[#0F172A] focus:border-[#3B4FE0] focus:outline-none';
+
+  async function save() {
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await savePatientRecord(patientId, { fields: values });
+      setValues(res.record.fields ?? values);
+      setEditing(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not save the record');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <section className={`${CARD} px-[22px] py-5`}>
+      <div className="flex items-center gap-2">
+        <ClipboardList className="h-[18px] w-[18px] text-[#3B4FE0]" />
+        <h2 className={H2}>Clinical Record</h2>
+        {!editing && (
+          <button type="button" onClick={() => setEditing(true)}
+            className="ml-auto flex items-center gap-1.5 text-[13px] font-semibold text-[#3B4FE0] hover:underline">
+            <Pencil className="h-[15px] w-[15px]" />Edit
+          </button>
+        )}
+      </div>
+
+      {!editing ? (
+        <dl className="mt-4 grid grid-cols-1 gap-x-8 gap-y-[15px] sm:grid-cols-2">
+          {editable.map((f) => (
+            <div key={f.key} className="flex flex-col gap-0.5">
+              <dt className="text-[12px] font-medium text-[#64748B]">{f.label}</dt>
+              <dd className="whitespace-pre-wrap text-[13.5px] font-semibold text-[#0F172A]">{fieldText(values[f.key]) ?? '—'}</dd>
+            </div>
+          ))}
+        </dl>
+      ) : (
+        <div className="mt-4 flex flex-col gap-3.5">
+          {editable.map((f) => {
+            const id = `rec-${f.key}`;
+            const val = values[f.key];
+            return (
+              <div key={f.key}>
+                <label htmlFor={id} className="mb-[6px] block text-[12.5px] font-bold text-[#334155]">
+                  {f.label}{f.required && <span className="text-[#EF4444]"> *</span>}
+                </label>
+                {f.type === 'textarea' ? (
+                  <textarea id={id} rows={3} maxLength={f.maxLength} value={String(val ?? '')} onChange={(e) => setValues((p) => ({ ...p, [f.key]: e.target.value }))}
+                    className="w-full resize-none rounded-[10px] border border-[#E4E8F1] bg-white px-3.5 py-2.5 text-[13.5px] text-[#0F172A] focus:border-[#3B4FE0] focus:outline-none" />
+                ) : f.type === 'select' ? (
+                  <select id={id} value={String(val ?? '')} onChange={(e) => setValues((p) => ({ ...p, [f.key]: e.target.value || undefined }))} className={inputCls}>
+                    <option value="">—</option>
+                    {(f.options ?? []).map((o) => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                ) : f.type === 'number' ? (
+                  <input id={id} type="number" min={f.min} max={f.max} value={val === undefined || val === null ? '' : String(val)}
+                    onChange={(e) => setValues((p) => ({ ...p, [f.key]: e.target.value === '' ? undefined : Number(e.target.value) }))} className={inputCls} />
+                ) : (
+                  <input id={id} type={f.type === 'date' ? 'date' : 'text'} maxLength={f.maxLength} value={String(val ?? '')}
+                    onChange={(e) => setValues((p) => ({ ...p, [f.key]: e.target.value }))} className={inputCls} />
+                )}
+              </div>
+            );
+          })}
+          {error && <p className="text-[13px] font-medium text-[#EF4444]">{error}</p>}
+          <div className="flex gap-2.5">
+            <button type="button" onClick={save} disabled={saving}
+              className="flex h-11 items-center gap-2 rounded-[10px] px-5 text-white disabled:opacity-60" style={{ background: 'linear-gradient(135deg, #5B5BF0 0%, #3B3FD8 100%)' }}>
+              {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+              <span className="text-[13px] font-bold">Save record</span>
+            </button>
+            <button type="button" onClick={() => { setValues(initial ?? {}); setEditing(false); setError(null); }} disabled={saving}
+              className="h-11 rounded-[10px] border border-[#E2E6F0] bg-white px-5 text-[13px] font-bold text-[#1E2A5A]">Cancel</button>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
 function OverviewTab({
-  patientId, patientName, dob, sex, templateFields, fields, phone, patientCode, portal, parentAccess,
-}: WorkspacePanelProps & { phone?: string | null; patientCode?: string | null; portal?: PortalStatus; parentAccess?: PortalStatus }) {
+  patientId, patientName, dob, sex, fields, recordFields, phone, patientCode, portal, parentAccess,
+}: WorkspacePanelProps & { phone?: string | null; patientCode?: string | null; portal?: PortalStatus; parentAccess?: PortalStatus; recordFields?: FieldDef[] }) {
   const navigate = useNavigate();
   const [metric, setMetric] = useState<OverviewMetric>('Weight');
   const [rxModal, setRxModal] = useState(false);
@@ -90,16 +192,13 @@ function OverviewTab({
 
   const latest = series.length ? series[series.length - 1] : null;
 
+  // Speciality clinical fields now live in their own editable Clinical Record card
+  // (below), so Basic Information stays pure demographics.
   const basic: [string, React.ReactNode][] = [
     ['Patient ID', patientNumber(patientCode)],
     ['Gender', sex === 'male' ? 'Male' : sex === 'female' ? 'Female' : 'Unspecified'],
     ['Date of Birth', dob ? formatDate(dob) : '—'],
     ['Age', dob ? `${ageParts(dob).years}y ${ageParts(dob).months}m` : '—'],
-    ...(templateFields ?? [])
-      .map((f) => [f.label, fieldText(fields?.[f.key])] as const)
-      .filter((pair): pair is readonly [string, string] => pair[1] !== null)
-      .slice(0, 5)
-      .map(([k, v]) => [k, v] as [string, React.ReactNode]),
   ];
 
   const health: { icon: LucideIcon; tint: string; fg: string; label: string; value: string; footer: React.ReactNode }[] = [
@@ -194,6 +293,9 @@ function OverviewTab({
             </div>
           </section>
         </div>
+
+        {/* Speciality-specific clinical record */}
+        <ClinicalRecordCard patientId={patientId} fields={recordFields ?? []} initial={fields} />
 
         {/* Row 2 */}
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-[0.78fr_1fr]">
@@ -536,7 +638,7 @@ export default function PatientWorkspace() {
       <div role="tabpanel" aria-label={tab}>
         {Panel
           ? <Panel key={tab} {...panelProps} />
-          : <OverviewTab {...panelProps} phone={patient.phone} patientCode={patient.code} portal={portal} parentAccess={parentAccess} />}
+          : <OverviewTab {...panelProps} recordFields={(template?.fields ?? []).filter((f) => !f.archived)} phone={patient.phone} patientCode={patient.code} portal={portal} parentAccess={parentAccess} />}
       </div>
     </div>
   );
