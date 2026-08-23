@@ -1,78 +1,103 @@
 /**
  * Specialty-based dashboard configuration.
  *
- * Maps a doctor's specialization to which sidebar modules and dashboard widgets
- * are relevant. A module not listed for a specialty is still accessible (routes
- * exist) but won't appear in the sidebar unless the doctor explicitly enables it.
+ * The doctor picks their specialty during profile setup (see DoctorProfileForm);
+ * it is stored on DoctorProfile.specialization and flows to the client via the
+ * auth `user.specialization`. This maps that specialty to which sidebar modules
+ * are on by default and how the dashboard is labelled.
  *
- * `modules` lists the sidebar module keys that are ON by default for this
- * specialty. `quickActions` lists the action labels shown on the dashboard.
- * `kpiHighlights` controls which KPI cards are promoted.
+ * The app is Paediatric-centric by DEFAULT (DEFAULT_CONFIG) — an unknown or
+ * unset specialty falls back to it — but the architecture supports the four
+ * launch specialties below and is easy to extend.
+ *
+ * NOTE (honest-data): module lists are a product/ownership decision, so every
+ * specialty currently exposes the full module set — nothing clinical is
+ * fabricated or hidden. Deeper per-specialty adaptation (patient fields,
+ * reports, clinical parameters) is intentionally NOT invented here; it needs
+ * clinical sign-off before it ships.
  */
 
 export interface SpecialtyConfig {
+  /** Human label shown in the UI (e.g. the topbar role line). */
   label: string;
+  /** Sidebar module keys that are ON by default for this specialty. */
   modules: string[];
+  /** Dashboard quick-action labels to promote. */
   quickActions: string[];
+  /** KPI cards to promote. */
   kpiHighlights: string[];
+  /** Dashboard widget keys to show. */
   dashboardWidgets: string[];
 }
 
+/** The four launch specialties, in display order. Single source for the picker. */
+export const SPECIALTY_OPTIONS = [
+  { value: 'Paediatrician', label: 'Paediatrician' },
+  { value: 'Neonatology', label: 'Neonatology' },
+  { value: 'Gynaecology', label: 'Gynaecology' },
+  { value: 'Physician', label: 'Physician' },
+] as const;
+
+export type SpecialtyValue = (typeof SPECIALTY_OPTIONS)[number]['value'];
+
 const ALL_MODULES = [
   'dashboard', 'appointments', 'patients', 'reports', 'pharmacy', 'billing',
-  'consultations', 'locations', 'team', 'audit', 'settings',
+  'consultations', 'lab', 'locations', 'team', 'audit', 'settings',
 ];
 
 const BASE_ACTIONS = ['New Appointment', 'Add Patient', 'View Reports'];
+const BASE_KPIS = ['patients', 'appointments', 'consultations', 'revenue'];
+const BASE_WIDGETS = ['schedule', 'consultations', 'alerts', 'demographics', 'visitTrend', 'visitReasons', 'recentPatients'];
 
 export const SPECIALTY_CONFIGS: Record<string, SpecialtyConfig> = {
-  pediatrician: {
-    label: 'Pediatrician',
-    modules: [...ALL_MODULES, 'lab'],
+  paediatrician: {
+    label: 'Paediatrician',
+    modules: ALL_MODULES,
     quickActions: [...BASE_ACTIONS, 'Vaccination Schedule', 'Growth Chart', 'Lab Order'],
-    kpiHighlights: ['patients', 'appointments', 'consultations', 'revenue'],
-    dashboardWidgets: ['schedule', 'consultations', 'alerts', 'demographics', 'visitTrend', 'visitReasons', 'recentPatients'],
+    kpiHighlights: BASE_KPIS,
+    dashboardWidgets: BASE_WIDGETS,
   },
-  dermatologist: {
-    label: 'Dermatologist',
+  neonatology: {
+    label: 'Neonatology',
     modules: ALL_MODULES,
-    quickActions: [...BASE_ACTIONS, 'Skin Assessment', 'Photo Review'],
-    kpiHighlights: ['patients', 'appointments', 'revenue', 'consultations'],
-    dashboardWidgets: ['schedule', 'consultations', 'alerts', 'demographics', 'recentPatients'],
+    quickActions: [...BASE_ACTIONS, 'Growth Chart', 'Lab Order'],
+    kpiHighlights: BASE_KPIS,
+    dashboardWidgets: BASE_WIDGETS,
   },
-  'general physician': {
-    label: 'General Physician',
-    modules: [...ALL_MODULES, 'lab'],
-    quickActions: [...BASE_ACTIONS, 'Lab Order', 'Create Prescription'],
-    kpiHighlights: ['patients', 'appointments', 'consultations', 'revenue'],
-    dashboardWidgets: ['schedule', 'consultations', 'alerts', 'demographics', 'visitTrend', 'visitReasons', 'recentPatients'],
-  },
-  orthopedic: {
-    label: 'Orthopedic',
+  gynaecology: {
+    label: 'Gynaecology',
     modules: ALL_MODULES,
-    quickActions: [...BASE_ACTIONS, 'Create Prescription', 'Order X-Ray'],
-    kpiHighlights: ['patients', 'appointments', 'revenue', 'consultations'],
-    dashboardWidgets: ['schedule', 'consultations', 'alerts', 'recentPatients'],
+    quickActions: [...BASE_ACTIONS, 'Create Prescription', 'Lab Order'],
+    kpiHighlights: BASE_KPIS,
+    dashboardWidgets: BASE_WIDGETS,
   },
-  ent: {
-    label: 'ENT Specialist',
-    modules: [...ALL_MODULES, 'lab'],
-    quickActions: [...BASE_ACTIONS, 'Lab Order', 'Create Prescription'],
-    kpiHighlights: ['patients', 'appointments', 'consultations', 'revenue'],
-    dashboardWidgets: ['schedule', 'consultations', 'alerts', 'demographics', 'recentPatients'],
+  physician: {
+    label: 'Physician',
+    modules: ALL_MODULES,
+    quickActions: [...BASE_ACTIONS, 'Create Prescription', 'Lab Order'],
+    kpiHighlights: BASE_KPIS,
+    dashboardWidgets: BASE_WIDGETS,
   },
 };
 
-const DEFAULT_CONFIG: SpecialtyConfig = {
-  label: 'General',
-  modules: [...ALL_MODULES, 'lab'],
-  quickActions: [...BASE_ACTIONS, 'Create Prescription'],
-  kpiHighlights: ['patients', 'appointments', 'consultations', 'revenue'],
-  dashboardWidgets: ['schedule', 'consultations', 'alerts', 'demographics', 'visitTrend', 'visitReasons', 'recentPatients'],
+// Common spelling variants map to the same config so a stored "Pediatrician"
+// (US spelling) or "Gynecology" still resolves.
+const ALIASES: Record<string, string> = {
+  pediatrician: 'paediatrician',
+  paediatrics: 'paediatrician',
+  pediatrics: 'paediatrician',
+  neonatologist: 'neonatology',
+  gynecology: 'gynaecology',
+  gynaecologist: 'gynaecology',
+  gynecologist: 'gynaecology',
+  'general physician': 'physician',
+  'general medicine': 'physician',
 };
+
+const DEFAULT_CONFIG: SpecialtyConfig = SPECIALTY_CONFIGS.paediatrician;
 
 export function getSpecialtyConfig(specialization?: string | null): SpecialtyConfig {
   if (!specialization) return DEFAULT_CONFIG;
   const key = specialization.toLowerCase().trim();
-  return SPECIALTY_CONFIGS[key] ?? DEFAULT_CONFIG;
+  return SPECIALTY_CONFIGS[key] ?? SPECIALTY_CONFIGS[ALIASES[key]] ?? DEFAULT_CONFIG;
 }

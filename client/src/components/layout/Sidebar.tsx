@@ -8,7 +8,6 @@ import { useT } from '../../i18n/context';
 import { useSubscribed } from '../../lib/subscription';
 import { PaidBadge } from '../subscription/bits';
 import { listBabies } from '../../api/babies';
-import { Brand } from './Brand';
 import { BrandTile } from '../ui/BrandTile';
 import { cn } from '../../lib/cn';
 
@@ -104,11 +103,13 @@ export function Sidebar({
   return (
     <div ref={navRef} className="flex h-full flex-col">
       {/* Header: wordmark + collapse toggle (rail shows a compact mark) */}
-      <div className={cn('flex py-5', collapsed ? 'flex-col items-center gap-3 px-2' : 'items-center justify-between gap-2 px-5')}>
+      <div className={cn('flex py-5', collapsed ? 'flex-col items-center gap-3 px-2' : 'items-center justify-between gap-2 px-3')}>
         {collapsed ? (
           <BrandTile className="h-9 w-9 rounded-xl text-sm font-extrabold tracking-tight">M</BrandTile>
         ) : (
-          <Brand className="h-9 drop-shadow-md" />
+          <div className="flex flex-1 items-center rounded-[10px] bg-white px-2 py-1.5">
+            <img src="/mateo-logo.png" alt="MateoCare" className="h-9 w-full object-contain" draggable={false} />
+          </div>
         )}
         {onToggleCollapse && (
           <button

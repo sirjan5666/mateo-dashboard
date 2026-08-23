@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router';
 import { ArrowLeft } from 'lucide-react';
 import { getMyDoctorProfile, saveMyDoctorProfile, WEEK_DAYS } from '../../api/doctors';
 import type { WorkingHours, DoctorNotifications, WeekDay, DayHours } from '../../api/doctors';
+import { SPECIALTY_OPTIONS } from '../../data/specialtyDashboard';
 import { ApiError } from '../../api/client';
 import { useT } from '../../i18n/context';
 import { Card } from '../../components/ui/Card';
@@ -167,7 +168,17 @@ export default function DoctorProfileForm() {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label htmlFor="spec" className="block text-sm font-medium text-stone-700">{t('doctor.profile.specialization')}</label>
-                <input id="spec" value={specialization} onChange={(e) => setSpecialization(e.target.value)} placeholder={t('doctor.profile.specPlaceholder')} className={inputCls} />
+                <select id="spec" value={specialization} onChange={(e) => setSpecialization(e.target.value)} className={inputCls}>
+                  <option value="" disabled>{t('doctor.profile.specPlaceholder')}</option>
+                  {/* Preserve a legacy/custom specialization that isn't one of the four options. */}
+                  {specialization && !SPECIALTY_OPTIONS.some((o) => o.value.toLowerCase() === specialization.toLowerCase()) && (
+                    <option value={specialization}>{specialization}</option>
+                  )}
+                  {SPECIALTY_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+                <p className="mt-1 text-xs text-stone-500">Your dashboard adapts to the speciality you choose.</p>
               </div>
               <div>
                 <label htmlFor="fee" className="block text-sm font-medium text-stone-700">{t('doctor.profile.fee')}</label>
