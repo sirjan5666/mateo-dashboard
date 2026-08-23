@@ -5,8 +5,9 @@ import { listEncounters } from '../../../api/doctorEncounters';
 import { getDosingCatalog } from '../../../api/dosing';
 import { useActiveLocation } from '../../../lib/doctorLocation';
 import { cn } from '../../../lib/cn';
-import { DrugInfoPanel, MedicineField, resolveDrug } from './MedicineAutocomplete';
+import { AiInfoPanel, DrugInfoPanel, MedicineField, resolveDrug } from './MedicineAutocomplete';
 import type { DosingCatalog } from './MedicineAutocomplete';
+import type { AiMedicine } from '../../../api/dosing';
 
 const LABEL = 'block text-[12.5px] font-semibold text-[#334155]';
 const INPUT = 'mt-1.5 h-11 w-full rounded-[10px] border border-[#E2E6F0] bg-white px-3.5 text-[13.5px] text-[#0F172A] focus:border-[#3B4FE0] focus:outline-none';
@@ -61,6 +62,9 @@ export function IssuePrescriptionModal({ patientId, patientName, onClose, onIssu
     void getDosingCatalog().then((c) => { if (!cancelled) setCatalog(c); }).catch(() => undefined);
     return () => { cancelled = true; };
   }, []);
+  // AI-suggested medicines the doctor picked, per line. Shown (unverified) only
+  // while the line's text still equals the picked name, so editing clears it.
+  const [aiPicks, setAiPicks] = useState<Record<number, AiMedicine>>({});
 
   const locationId = locationOverride
     || (active && active.id !== 'overall' ? active.id : clinics.find((c) => c.primary)?.id ?? clinics[0]?.id ?? '');
@@ -180,12 +184,19 @@ export function IssuePrescriptionModal({ patientId, patientName, onClose, onIssu
           <legend className={LABEL}>Medications</legend>
           <ul className="mt-2 flex flex-col gap-2.5">
             {lines.map((l, i) => {
-              const info = resolveDrug(l.drug, catalog);
+              // A picked AI suggestion wins over a loose catalog match — the doctor
+              // chose it for this line, and it's specific to what they searched
+              // (e.g. "Amoxicillin + Clavulanic acid" must not degrade to plain
+              // "Amoxicillin"). Editing the text away from the picked name clears it.
+              const aiPick = aiPicks[i];
+              const showAi = !!aiPick && aiPick.name === l.drug.trim();
+              const info = showAi ? undefined : resolveDrug(l.drug, catalog);
               return (
                 <li key={i}>
                   <div className="grid grid-cols-2 items-center gap-2 lg:grid-cols-[1.3fr_1.2fr_.7fr_1fr_.8fr_1fr_auto]">
                     <MedicineField ariaLabel={`Medicine ${i + 1}`} value={l.drug} onChange={(v) => set(i, 'drug', v)}
-                      onPickStrength={(s) => set(i, 'strength', s)} catalog={catalog} placeholder="Paracetamol Syrup" className={CELL} />
+                      onPickStrength={(s) => set(i, 'strength', s)} onPickAiMedicine={(m) => setAiPicks((p) => ({ ...p, [i]: m }))}
+                      catalog={catalog} placeholder="Paracetamol Syrup" className={CELL} />
                     <input aria-label={`Composition or strength ${i + 1}`} value={l.strength} onChange={(e) => set(i, 'strength', e.target.value)} placeholder="250 mg / 5 ml" className={CELL} />
                     <input aria-label={`Dose ${i + 1}`} value={l.dose} onChange={(e) => set(i, 'dose', e.target.value)} placeholder="5 ml" className={CELL} />
                     <input aria-label={`Frequency ${i + 1}`} value={l.frequency} onChange={(e) => set(i, 'frequency', e.target.value)} placeholder="Every 6 hours" className={CELL} />
@@ -197,7 +208,7 @@ export function IssuePrescriptionModal({ patientId, patientName, onClose, onIssu
                       <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
-                  {info && <DrugInfoPanel drug={info} status={catalog?.status} />}
+                  {info ? <DrugInfoPanel drug={info} status={catalog?.status} /> : showAi && aiPick ? <AiInfoPanel medicine={aiPick} /> : null}
                 </li>
               );
             })}

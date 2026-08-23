@@ -1,6 +1,7 @@
-import { useMemo, useRef, useState } from 'react';
-import { Pill, ShieldAlert, ShieldCheck, TriangleAlert } from 'lucide-react';
-import type { DosingBrand, DosingDrug } from '../../../api/dosing';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Loader2, Pill, ShieldAlert, ShieldCheck, Sparkles, TriangleAlert } from 'lucide-react';
+import { aiMedicineSearch } from '../../../api/dosing';
+import type { AiMedicine, DosingBrand, DosingDrug } from '../../../api/dosing';
 import { cn } from '../../../lib/cn';
 
 // The doctor-only pediatric dosing catalog (curated data — never LLM-generated).
@@ -73,6 +74,7 @@ export function MedicineField({
   value,
   onChange,
   onPickStrength,
+  onPickAiMedicine,
   catalog,
   className,
   ariaLabel,
@@ -81,6 +83,8 @@ export function MedicineField({
   value: string;
   onChange: (v: string) => void;
   onPickStrength: (strength: string) => void;
+  /** A picked AI suggestion (not in the curated catalog) — surfaced as an unverified reference. */
+  onPickAiMedicine: (m: AiMedicine) => void;
   catalog: DosingCatalog | null;
   className?: string;
   ariaLabel: string;
@@ -88,14 +92,53 @@ export function MedicineField({
 }) {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
+  const [aiResults, setAiResults] = useState<AiMedicine[]>([]);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiOff, setAiOff] = useState(false); // no LLM provider configured → no AI affordance
   const blurTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const justPicked = useRef('');
+  const reqId = useRef(0);
 
   const matches = useMemo(() => (catalog ? buildMatches(value, catalog) : []), [value, catalog]);
-  const show = open && matches.length > 0;
+
+  // AI fallback runs ONLY when the query isn't in our curated catalog. Debounced,
+  // stale-guarded (reqId), and suppressed right after a pick so it can't re-fire
+  // on the name we just filled in.
+  useEffect(() => {
+    const q = value.trim();
+    if (aiOff || matches.length > 0 || q.length < 3 || q === justPicked.current) {
+      setAiResults([]);
+      setAiLoading(false);
+      return;
+    }
+    setAiLoading(true);
+    const id = ++reqId.current;
+    const t = setTimeout(() => {
+      void aiMedicineSearch(q)
+        .then((r) => {
+          if (id !== reqId.current) return; // a newer keystroke superseded this
+          if (!r.enabled) { setAiOff(true); setAiResults([]); }
+          else setAiResults(r.medicines);
+        })
+        .catch(() => { if (id === reqId.current) setAiResults([]); })
+        .finally(() => { if (id === reqId.current) setAiLoading(false); });
+    }, 450);
+    return () => clearTimeout(t);
+  }, [value, matches.length, aiOff]);
+
+  const showAi = matches.length === 0 && (aiLoading || aiResults.length > 0);
+  const show = open && (matches.length > 0 || showAi);
 
   function pick(m: Match) {
     onChange(m.label);
     if (m.strength) onPickStrength(m.strength);
+    justPicked.current = m.label;
+    setOpen(false);
+  }
+  function pickAi(m: AiMedicine) {
+    onChange(m.name); // name only — an AI strength/dose is never auto-filled
+    onPickAiMedicine(m);
+    justPicked.current = m.name;
     setOpen(false);
   }
 
@@ -114,10 +157,13 @@ export function MedicineField({
         onBlur={() => { blurTimer.current = setTimeout(() => setOpen(false), 120); }}
         onKeyDown={(e) => {
           if (!show) return;
-          if (e.key === 'ArrowDown') { e.preventDefault(); setActive((a) => Math.min(a + 1, matches.length - 1)); }
+          const navLen = matches.length || aiResults.length;
+          if (e.key === 'ArrowDown') { e.preventDefault(); setActive((a) => Math.min(a + 1, navLen - 1)); }
           else if (e.key === 'ArrowUp') { e.preventDefault(); setActive((a) => Math.max(a - 1, 0)); }
-          else if (e.key === 'Enter') { e.preventDefault(); const m = matches[active]; if (m) pick(m); }
-          else if (e.key === 'Escape') { setOpen(false); }
+          else if (e.key === 'Enter') {
+            if (matches.length) { const m = matches[active]; if (m) { e.preventDefault(); pick(m); } }
+            else if (aiResults.length) { const m = aiResults[active]; if (m) { e.preventDefault(); pickAi(m); } }
+          } else if (e.key === 'Escape') { setOpen(false); }
         }}
         className={className}
       />
@@ -125,7 +171,7 @@ export function MedicineField({
         <ul
           role="listbox"
           onMouseDown={() => { if (blurTimer.current) clearTimeout(blurTimer.current); }}
-          className="absolute left-0 top-[calc(100%+4px)] z-40 max-h-[248px] w-[300px] max-w-[82vw] overflow-y-auto overflow-x-hidden rounded-[11px] border border-[#ECEEF4] bg-white py-1 shadow-[0_20px_48px_-16px_rgba(15,23,42,.3)]"
+          className="absolute left-0 top-[calc(100%+4px)] z-40 max-h-[280px] w-[320px] max-w-[82vw] overflow-y-auto overflow-x-hidden rounded-[11px] border border-[#ECEEF4] bg-white py-1 shadow-[0_20px_48px_-16px_rgba(15,23,42,.3)]"
         >
           {matches.map((m, i) => (
             <li key={`${m.kind}:${m.id}`} role="option" aria-selected={i === active}>
@@ -146,6 +192,38 @@ export function MedicineField({
               </button>
             </li>
           ))}
+
+          {showAi && (
+            <>
+              <li className="flex items-center gap-1.5 px-3 pb-1 pt-2 text-[10px] font-bold uppercase tracking-wide text-[#B45309]">
+                <Sparkles className="h-3 w-3" /> AI suggestions — verify
+              </li>
+              {aiLoading && aiResults.length === 0 && (
+                <li className="flex items-center gap-2 px-3 py-2 text-[12px] text-[#94A3B8]">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" /> Searching…
+                </li>
+              )}
+              {aiResults.map((m, i) => (
+                <li key={`ai:${i}`} role="option" aria-selected={i === active}>
+                  <button
+                    type="button"
+                    onClick={() => pickAi(m)}
+                    onMouseEnter={() => setActive(i)}
+                    className={cn('flex w-full items-center gap-2.5 px-3 py-2 text-left', i === active ? 'bg-[#FFF6E9]' : 'hover:bg-[#FFFBF2]')}
+                  >
+                    <span className="grid h-7 w-7 shrink-0 place-items-center rounded-[8px] bg-[#FEF0D3] text-[#B45309]">
+                      <Sparkles className="h-[15px] w-[15px]" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[13px] font-bold text-[#0F172A]">{m.name}</span>
+                      <span className="block truncate text-[11.5px] text-[#64748B]">{[m.drugClass, m.brands.slice(0, 3).join(', ')].filter(Boolean).join(' · ')}</span>
+                    </span>
+                    <span className="shrink-0 rounded-full bg-[#FEF0D3] px-2 py-0.5 text-[10.5px] font-bold text-[#B45309]">AI</span>
+                  </button>
+                </li>
+              ))}
+            </>
+          )}
         </ul>
       )}
     </div>
@@ -201,6 +279,43 @@ export function DrugInfoPanel({ drug, status }: { drug: DosingDrug; status?: str
         <ShieldCheck className="mt-[1px] h-3 w-3 shrink-0" />
         {status || 'Decision support only — verify against a current prescribing reference. The prescriber decides.'}
       </p>
+    </div>
+  );
+}
+
+/**
+ * Reference for an AI-suggested medicine (one NOT in the curated catalog). Amber
+ * on purpose — visually distinct from the trusted catalog panel — and it leads
+ * with a strong "AI-generated, unverified" warning. No dose is ever pre-filled
+ * from this; the doctor confirms everything and prescribes.
+ */
+export function AiInfoPanel({ medicine, disclaimer }: { medicine: AiMedicine; disclaimer?: string }) {
+  const m = medicine;
+  return (
+    <div className="mt-1.5 rounded-[10px] border border-[#F5D9A8] bg-[#FFFBF2] px-3 py-2.5 text-[12px] leading-relaxed">
+      <p className="flex items-start gap-1.5 text-[11px] font-bold text-[#B45309]">
+        <TriangleAlert className="mt-[1px] h-3.5 w-3.5 shrink-0" />
+        {disclaimer || 'AI-generated reference — NOT verified. Confirm every detail before prescribing.'}
+      </p>
+
+      <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
+        <span className="inline-flex items-center gap-1 rounded-full bg-[#FEF0D3] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#B45309]"><Sparkles className="h-3 w-3" />AI</span>
+        <span className="text-[12.5px] font-bold text-[#0F172A]">{m.name}</span>
+        {m.drugClass && <span className="rounded-full bg-[#FEF3E2] px-2 py-0.5 text-[10.5px] font-semibold text-[#B45309]">{m.drugClass}</span>}
+        {m.form && <span className="rounded-full bg-[#F1F5F9] px-2 py-0.5 text-[10.5px] font-medium text-[#64748B]">{m.form}</span>}
+      </div>
+
+      {m.brands.length > 0 && <p className="mt-1.5 text-[#334155]"><span className="font-semibold text-[#0F172A]">Common brands:</span> {m.brands.join(', ')}</p>}
+      {m.pediatricUse && <p className="mt-1 text-[#334155]"><span className="font-semibold text-[#0F172A]">Use:</span> {m.pediatricUse}</p>}
+      {m.typicalDose && <p className="mt-1 text-[#334155]"><span className="font-semibold text-[#0F172A]">Typical dose (reference — verify):</span> {m.typicalDose}</p>}
+
+      {m.contraindications.length > 0 && (
+        <p className="mt-1.5 flex items-start gap-1.5 text-[#B42318]">
+          <ShieldAlert className="mt-[1px] h-3.5 w-3.5 shrink-0" />
+          <span><span className="font-semibold">Contraindications:</span> {m.contraindications.join('; ')}</span>
+        </p>
+      )}
+      {m.cautions.length > 0 && <p className="mt-1 text-[#64748B]"><span className="font-semibold text-[#475569]">Cautions:</span> {m.cautions.join('; ')}</p>}
     </div>
   );
 }
