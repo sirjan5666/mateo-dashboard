@@ -298,14 +298,14 @@ function SidebarNav({
       style={{ background: 'linear-gradient(180deg, #0A1B4D 0%, #12309A 55%, #1B49D4 100%)' }}
     >
       {/* Logo */}
-      <div className={cn('flex items-center', collapsed ? 'justify-center px-2 py-4' : 'px-3 py-4')}>
+      <div className={cn('flex items-center justify-center', collapsed ? 'px-2 py-4' : 'px-3 py-4')}>
         {collapsed ? (
           <div className="grid h-11 w-11 shrink-0 place-items-center rounded-[10px] bg-white p-1">
             <img src="/mateo-logo.png" alt="MateoCare" className="h-full w-full object-contain" draggable={false} />
           </div>
         ) : (
-          <div className="w-full rounded-[10px] bg-white px-3 py-2.5">
-            <img src="/mateo-logo.png" alt="MateoCare" className="h-10 w-auto" draggable={false} />
+          <div className="w-full rounded-[10px] bg-white px-2 py-2.5">
+            <img src="/mateo-logo.png" alt="MateoCare" className="w-full object-contain" draggable={false} />
           </div>
         )}
       </div>
