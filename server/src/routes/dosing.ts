@@ -11,6 +11,7 @@ import { Baby } from '../models/Baby.js';
 import { GrowthLog } from '../models/GrowthLog.js';
 import { BRANDS, DRUGS, DOSING_DATA_STATUS, getDrug } from '../data/drug-dosing.js';
 import { checkDose } from '../medicines/dosing.js';
+import { aiMedicineReference, assistantConfigured } from '../ai/provider.js';
 
 const MS_PER_MONTH = 30.4375 * 24 * 60 * 60 * 1000;
 
@@ -29,6 +30,29 @@ const router = Router();
 
 router.get('/catalog', requireAuth, requireRole('doctor'), (_req, res) => {
   res.json({ status: DOSING_DATA_STATUS, drugs: DRUGS, brands: BRANDS });
+});
+
+// AI medicine reference — a doctor-only FALLBACK for names not in the curated
+// catalog. Results are AI-generated + UNVERIFIED (see the disclaimer, surfaced
+// in the UI); the doctor verifies and prescribes. Degrades to enabled:false when
+// no LLM provider is configured. Never fabricates a dose; never mentions formula.
+const AI_MEDICINE_DISCLAIMER =
+  'AI-generated reference — NOT verified. Confirm the name, dose, interactions and contraindications against a current prescribing reference before prescribing. You remain responsible.';
+
+const aiSearchSchema = z.object({ query: z.string().trim().min(2).max(80) });
+
+router.post('/ai-search', requireAuth, requireRole('doctor'), async (req, res) => {
+  const { query } = aiSearchSchema.parse(req.body);
+  if (!assistantConfigured()) {
+    res.json({ enabled: false, medicines: [], disclaimer: AI_MEDICINE_DISCLAIMER });
+    return;
+  }
+  try {
+    const medicines = await aiMedicineReference(query);
+    res.json({ enabled: true, medicines, disclaimer: AI_MEDICINE_DISCLAIMER });
+  } catch {
+    res.json({ enabled: true, medicines: [], disclaimer: AI_MEDICINE_DISCLAIMER, error: 'AI reference is unavailable right now.' });
+  }
 });
 
 router.post('/check', requireAuth, requireRole('doctor'), async (req, res) => {

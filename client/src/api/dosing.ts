@@ -79,3 +79,25 @@ export function getDosingCatalog() {
 export function checkDose(input: DoseCheckInput) {
   return api<DoseCheckResponse>('/dosing/check', { method: 'POST', body: JSON.stringify(input) });
 }
+
+// AI medicine reference — doctor-only fallback for names not in the curated
+// catalog. Every result is AI-generated + unverified (see `disclaimer`).
+export interface AiMedicine {
+  name: string;
+  brands: string[];
+  drugClass: string;
+  pediatricUse: string;
+  form: string;
+  typicalDose: string;
+  cautions: string[];
+  contraindications: string[];
+}
+export interface AiMedicineSearchResponse {
+  enabled: boolean;
+  medicines: AiMedicine[];
+  disclaimer: string;
+  error?: string;
+}
+export function aiMedicineSearch(query: string) {
+  return api<AiMedicineSearchResponse>('/dosing/ai-search', { method: 'POST', body: JSON.stringify({ query }) });
+}

@@ -107,22 +107,22 @@ export async function generateAssistantReply(system: string, history: ChatTurn[]
 }
 
 /** Single provider call, no compliance pass — use generateAssistantReply instead. */
-async function rawReply(system: string, history: ChatTurn[]): Promise<string> {
+async function rawReply(system: string, history: ChatTurn[], maxTokens = MAX_TOKENS): Promise<string> {
   switch (assistantProvider()) {
     case 'deepseek':
-      return deepseekReply(system, history);
+      return deepseekReply(system, history, maxTokens);
     case 'anthropic':
-      return anthropicReply(system, history);
+      return anthropicReply(system, history, maxTokens);
     default:
       throw new Error('Assistant is not configured');
   }
 }
 
-async function anthropicReply(system: string, history: ChatTurn[]): Promise<string> {
+async function anthropicReply(system: string, history: ChatTurn[], maxTokens = MAX_TOKENS): Promise<string> {
   const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
   const completion = await client.messages.create({
     model: env.ANTHROPIC_MODEL!,
-    max_tokens: MAX_TOKENS,
+    max_tokens: maxTokens,
     system,
     messages: history,
   });
@@ -141,7 +141,7 @@ interface DeepSeekResponse {
 
 // DeepSeek uses the OpenAI chat-completions shape: a single messages array with
 // the system prompt as the first message (role: 'system').
-async function deepseekReply(system: string, history: ChatTurn[]): Promise<string> {
+async function deepseekReply(system: string, history: ChatTurn[], maxTokens = MAX_TOKENS): Promise<string> {
   const baseUrl = env.DEEPSEEK_BASE_URL.replace(/\/$/, '');
   const res = await fetch(`${baseUrl}/chat/completions`, {
     method: 'POST',
@@ -151,7 +151,7 @@ async function deepseekReply(system: string, history: ChatTurn[]): Promise<strin
     },
     body: JSON.stringify({
       model: env.DEEPSEEK_MODEL,
-      max_tokens: MAX_TOKENS,
+      max_tokens: maxTokens,
       temperature: 0.6, // calm, consistent — this is a children's-health assistant
       stream: false,
       messages: [{ role: 'system', content: system }, ...history],
@@ -163,4 +163,67 @@ async function deepseekReply(system: string, history: ChatTurn[]): Promise<strin
   }
   const data = (await res.json()) as DeepSeekResponse;
   return data.choices?.[0]?.message?.content?.trim() || FALLBACK;
+}
+
+// ── AI medicine reference (doctor decision-support) ──────────────────────────
+// A doctor-only fallback for when a searched medicine is NOT in the curated
+// (deterministic) catalog. The model returns REFERENCE-ONLY structured data; it
+// is clearly labelled AI-generated + unverified everywhere it is shown, and the
+// doctor — a qualified prescriber who remains responsible — verifies before
+// prescribing. It NEVER prescribes, NEVER fabricates a dose (empty over a guess),
+// and NEVER mentions infant formula (IMS Act). Not routed through the parent
+// feeding-formula prose-guard: different domain, and we need strict JSON back.
+export interface AiMedicine {
+  name: string; // generic / active ingredient
+  brands: string[]; // common Indian brand names
+  drugClass: string;
+  pediatricUse: string;
+  form: string;
+  typicalDose: string; // GENERAL reference only ("" when not confidently standard)
+  cautions: string[];
+  contraindications: string[];
+}
+
+const MEDICINE_REF_SYSTEM =
+  'You are a pediatric pharmacology REFERENCE tool embedded in an EHR used by a QUALIFIED DOCTOR in India. ' +
+  'Given a partial or full medicine name, return up to 6 medicines relevant to Indian PEDIATRIC practice that match — generics and/or their common Indian brands. ' +
+  'For each item return: name (the generic / active ingredient), brands (up to 4 common Indian brand names, or []), ' +
+  'drugClass (short, e.g. "Analgesic / antipyretic"), pediatricUse (one short line), form (e.g. "Syrup, Drops, Tablet"), ' +
+  'typicalDose (a GENERAL widely-published pediatric dose, per kg where standard — if you are not confident it is standard, use "" and NEVER guess a number), ' +
+  'cautions (array) and contraindications (array). ' +
+  'HARD RULES: this is decision SUPPORT for a doctor who independently verifies and prescribes — you NEVER prescribe or diagnose. ' +
+  'NEVER invent or guess a dose (prefer ""). NEVER recommend or mention infant formula or any breast-milk substitute. ' +
+  'If the query is not a medicine, return []. ' +
+  'Output STRICT JSON ONLY: a single array, no prose, no markdown fences. ' +
+  'Each item: {"name":string,"brands":string[],"drugClass":string,"pediatricUse":string,"form":string,"typicalDose":string,"cautions":string[],"contraindications":string[]}.';
+
+export async function aiMedicineReference(query: string): Promise<AiMedicine[]> {
+  if (!assistantConfigured()) return [];
+  const raw = await rawReply(MEDICINE_REF_SYSTEM, [{ role: 'user', content: `Medicine search: ${query}` }], 1400);
+  const json = raw.replace(/^```(?:json)?/i, '').replace(/```$/, '').trim();
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(json);
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(parsed)) return [];
+  const strArr = (a: unknown, cap: number): string[] =>
+    Array.isArray(a) ? a.map((x) => String(x).slice(0, 160)).filter(Boolean).slice(0, cap) : [];
+  return parsed
+    .map((p) => {
+      const o = (p ?? {}) as Record<string, unknown>;
+      return {
+        name: String(o.name ?? '').slice(0, 120),
+        brands: strArr(o.brands, 4),
+        drugClass: String(o.drugClass ?? '').slice(0, 80),
+        pediatricUse: String(o.pediatricUse ?? '').slice(0, 200),
+        form: String(o.form ?? '').slice(0, 80),
+        typicalDose: String(o.typicalDose ?? '').slice(0, 160),
+        cautions: strArr(o.cautions, 6),
+        contraindications: strArr(o.contraindications, 6),
+      };
+    })
+    .filter((m) => m.name)
+    .slice(0, 6);
 }
