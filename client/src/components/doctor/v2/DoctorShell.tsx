@@ -304,8 +304,8 @@ function SidebarNav({
             <img src="/mateo-logo.png" alt="MateoCare" className="h-full w-full object-contain" draggable={false} />
           </div>
         ) : (
-          <div className="w-full rounded-[10px] bg-white px-2 py-2.5">
-            <img src="/mateo-logo.png" alt="MateoCare" className="w-full object-contain" draggable={false} />
+          <div className="w-full rounded-[10px] bg-white px-2 py-1.5">
+            <img src="/mateo-logo.png" alt="MateoCare" className="h-9 w-full object-contain" draggable={false} />
           </div>
         )}
       </div>
