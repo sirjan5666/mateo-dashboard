@@ -1,15 +1,19 @@
-import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
-import { NavLink, Outlet, useLocation } from 'react-router';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import type { LucideIcon } from 'lucide-react';
 import {
+  AlertCircle,
+  AlertTriangle,
   AlignLeft,
   Bell,
   Boxes,
   BriefcaseMedical,
   Building2,
+  CalendarCheck,
   CalendarDays,
   ChevronDown,
   ChevronLeft,
+  ChevronRight,
   FileText,
   IndianRupee,
   LayoutGrid,
@@ -45,6 +49,8 @@ import {
 } from '../../../lib/doctorLocation';
 import type { ClinicLocation, LocationId } from '../../../lib/doctorLocation';
 import { listLocations } from '../../../api/doctorLocations';
+import { getDashboardAlerts } from '../../../api/doctorDashboard';
+import type { AlertRow } from './panels';
 import { LocationSwitcher } from './LocationSwitcher';
 
 const META = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/i.test(navigator.userAgent) ? '⌘' : 'Ctrl';
@@ -416,6 +422,112 @@ function IconButton({
   );
 }
 
+const ALERT_ICONS: Record<string, LucideIcon> = { AlertCircle, AlertTriangle, CalendarCheck };
+
+/**
+ * Notification bell — opens a dropdown of the SAME real signals the dashboard's
+ * Alerts panel shows (today's remaining appointments, low/out-of-stock and
+ * expiring medicines, unpaid invoices, unread messages). The badge is the real
+ * count from the server — never a hardcoded number — and an empty list reads as
+ * "all caught up" rather than inventing a reminder.
+ */
+function NotificationBell() {
+  const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
+  const [alerts, setAlerts] = useState<AlertRow[]>([]);
+  const [loaded, setLoaded] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    getDashboardAlerts()
+      .then((d) => { if (!cancelled) setAlerts(d.alerts); })
+      .catch(() => { /* keep the bell silent on failure rather than faking a count */ })
+      .finally(() => { if (!cancelled) setLoaded(true); });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onDown = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  const count = alerts.length;
+
+  return (
+    <div ref={wrapRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-label={count ? `Notifications — ${count} to review` : 'Notifications'}
+        aria-expanded={open}
+        className="relative grid h-[38px] w-[38px] place-items-center rounded-[10px] text-[#475569] transition-colors hover:bg-[#F1F3F9]"
+      >
+        <Bell className="h-[19px] w-[19px]" />
+        {count ? (
+          <span className="absolute -right-0.5 -top-0.5 grid h-[17px] min-w-[17px] place-items-center rounded-full px-1 text-[10px] font-bold text-white" style={{ background: '#EF4444' }}>
+            {count}
+          </span>
+        ) : null}
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-[calc(100%+8px)] z-50 w-[340px] max-w-[calc(100vw-24px)] overflow-hidden rounded-[14px] border border-[#ECEEF4] bg-white shadow-[0_12px_40px_-12px_rgba(16,24,40,.28)]">
+          <div className="flex items-center justify-between border-b border-[#F1F3F9] px-4 py-3">
+            <span className="font-display text-[14px] font-bold text-[#0F172A]">Notifications</span>
+            <span className="text-[11px] font-semibold text-[#64748B]">{count ? `${count} to review` : 'All caught up'}</span>
+          </div>
+
+          {!loaded ? (
+            <p className="px-4 py-6 text-center text-[12.5px] text-[#94A3B8]">Loading…</p>
+          ) : count === 0 ? (
+            <div className="px-4 py-7 text-center">
+              <span className="mx-auto mb-2 grid h-9 w-9 place-items-center rounded-full bg-[#ECFDF5]">
+                <Bell className="h-4 w-4 text-[#12A150]" />
+              </span>
+              <p className="text-[12.5px] font-medium text-[#64748B]">You&rsquo;re all caught up.</p>
+            </div>
+          ) : (
+            <ul className="max-h-[60vh] space-y-1.5 overflow-y-auto p-2.5">
+              {alerts.map((a) => {
+                const Icon = ALERT_ICONS[a.icon] ?? AlertCircle;
+                return (
+                  <li key={a.id}>
+                    <button
+                      type="button"
+                      onClick={() => { setOpen(false); navigate(a.to); }}
+                      className="flex w-full items-center gap-2.5 rounded-[10px] px-3 py-2.5 text-left transition-opacity hover:opacity-90"
+                      style={{ background: a.tint, borderLeft: `3px solid ${a.accent}` }}
+                    >
+                      <span className="grid h-[18px] w-[18px] shrink-0 place-items-center rounded-full" style={{ background: a.accent }}>
+                        <Icon className="h-[11px] w-[11px] text-white" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-xs font-semibold" style={{ color: a.accent }}>{a.title}</span>
+                        <span className="mt-0.5 block truncate text-[11px] font-medium text-[#64748B]">{a.note}</span>
+                      </span>
+                      <ChevronRight className="h-4 w-4 shrink-0 text-[#94A3B8]" />
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function TopBar({ unread, onOpenNav, railCollapsed }: { unread: number; onOpenNav: () => void; railCollapsed: boolean }) {
   const { user } = useAuth();
   const { staff, roleName } = useStaffSession();
@@ -456,7 +568,7 @@ function TopBar({ unread, onOpenNav, railCollapsed }: { unread: number; onOpenNa
       </button>
 
       <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-3.5">
-        <IconButton icon={Bell} badge={6} badgeColor="#EF4444" label="Notifications" />
+        <NotificationBell />
         <span className="hidden sm:contents">
           <IconButton icon={Mail} badge={unread || undefined} badgeColor="#3B4FE0" label="Messages" />
         </span>
@@ -467,7 +579,7 @@ function TopBar({ unread, onOpenNav, railCollapsed }: { unread: number; onOpenNa
           </span>
           <span className="hidden text-left lg:block">
             <span className="block text-sm font-bold leading-tight text-[#0F172A]">{displayName}</span>
-            <span className="block text-xs font-medium text-[#3B4FE0]">{staff ? roleName ?? 'Staff' : 'Paediatrician'}</span>
+            <span className="block text-xs font-medium capitalize text-[#3B4FE0]">{staff ? roleName ?? 'Staff' : (user?.specialization || 'Doctor')}</span>
           </span>
           <ChevronDown className="hidden h-[18px] w-[18px] text-[#94A3B8] lg:block" />
         </button>
