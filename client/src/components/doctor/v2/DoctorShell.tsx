@@ -298,18 +298,15 @@ function SidebarNav({
       style={{ background: 'linear-gradient(180deg, #0A1B4D 0%, #12309A 55%, #1B49D4 100%)' }}
     >
       {/* Logo */}
-      <div className={cn('flex items-center gap-3', collapsed ? 'justify-center px-2 py-5' : 'px-5 py-5')}>
-        <span
-          className="grid h-11 w-11 shrink-0 place-items-center rounded-[12px] text-2xl font-extrabold text-white shadow-[0_0_24px_-4px_rgba(124,92,255,.9)]"
-          style={{ background: 'linear-gradient(135deg, #7C5CFF 0%, #3B82F6 100%)' }}
-        >
-          M
-        </span>
-        {!collapsed && (
-          <span className="min-w-0">
-            <span className="block font-display text-2xl font-extrabold leading-none tracking-tight text-white">Mateo</span>
-            <span className="mt-1 block text-[11px] font-bold uppercase tracking-[0.14em] text-[#22D3EE]">Clinic OS</span>
-          </span>
+      <div className={cn('flex items-center', collapsed ? 'justify-center px-2 py-5' : 'px-4 py-5')}>
+        {collapsed ? (
+          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-[12px] bg-white/10 p-1.5">
+            <img src="/mateo-logo.png" alt="MateoCare" className="h-full w-full object-contain" draggable={false} />
+          </div>
+        ) : (
+          <div className="rounded-[12px] bg-white/10 px-3 py-2">
+            <img src="/mateo-logo.png" alt="MateoCare" className="h-9 w-auto" draggable={false} />
+          </div>
         )}
       </div>
 

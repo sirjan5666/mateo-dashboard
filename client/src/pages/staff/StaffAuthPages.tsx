@@ -31,7 +31,7 @@ function Frame({ title, subtitle, children, footer }: {
     <div className="grid min-h-screen place-items-center bg-[#F6F7FB] px-4 py-10">
       <div className="w-full max-w-[420px]">
         <div className="mb-6 text-center">
-          <img src="/mateo-logo.png" alt="Mateo" className="mx-auto h-[46px] w-auto" />
+          <img src="/mateo-logo.png" alt="MateoCare" className="mx-auto h-[46px] w-auto" />
           <p className="mt-2 text-[12px] font-bold uppercase tracking-[0.16em] text-[#0E9F9B]">Clinic OS</p>
         </div>
         <div className="rounded-[16px] border border-[#ECEEF4] bg-white px-7 py-7 shadow-[0_1px_2px_rgba(16,24,40,.04),0_18px_44px_-24px_rgba(16,24,40,.22)]">
