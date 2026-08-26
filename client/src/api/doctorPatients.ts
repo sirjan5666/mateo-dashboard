@@ -66,6 +66,7 @@ export interface PatientDemographics {
   emergencyPhone?: string | null;
   birthWeightKg?: number | null;
   birthHeightCm?: number | null;
+  birthHeadCircumferenceCm?: number | null;
   deliveryType?: string | null;
   gestationalAgeWeeks?: number | null;
 }
