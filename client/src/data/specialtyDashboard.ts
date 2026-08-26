@@ -30,11 +30,15 @@ export interface SpecialtyConfig {
   dashboardWidgets: string[];
 }
 
-/** The four launch specialties, in display order. Single source for the picker. */
+/**
+ * The four launch specialities, in display order. Single source for the picker.
+ * Professional/designation names (Neonatologist, not Neonatology). Legacy stored
+ * values (e.g. "Neonatology") still resolve via ALIASES / TEMPLATE_KEYS below.
+ */
 export const SPECIALTY_OPTIONS = [
   { value: 'Paediatrician', label: 'Paediatrician' },
-  { value: 'Neonatology', label: 'Neonatology' },
-  { value: 'Gynaecology', label: 'Gynaecology' },
+  { value: 'Neonatologist', label: 'Neonatologist' },
+  { value: 'Gynaecologist', label: 'Gynaecologist' },
   { value: 'Physician', label: 'Physician' },
 ] as const;
 
@@ -57,15 +61,15 @@ export const SPECIALTY_CONFIGS: Record<string, SpecialtyConfig> = {
     kpiHighlights: BASE_KPIS,
     dashboardWidgets: BASE_WIDGETS,
   },
-  neonatology: {
-    label: 'Neonatology',
+  neonatologist: {
+    label: 'Neonatologist',
     modules: ALL_MODULES,
     quickActions: [...BASE_ACTIONS, 'Growth Chart', 'Lab Order'],
     kpiHighlights: BASE_KPIS,
     dashboardWidgets: BASE_WIDGETS,
   },
-  gynaecology: {
-    label: 'Gynaecology',
+  gynaecologist: {
+    label: 'Gynaecologist',
     modules: ALL_MODULES,
     quickActions: [...BASE_ACTIONS, 'Create Prescription', 'Lab Order'],
     kpiHighlights: BASE_KPIS,
@@ -80,16 +84,18 @@ export const SPECIALTY_CONFIGS: Record<string, SpecialtyConfig> = {
   },
 };
 
-// Common spelling variants map to the same config so a stored "Pediatrician"
-// (US spelling) or "Gynecology" still resolves.
+// Spelling/legacy variants map to a canonical config key, so a stored
+// "Neonatology" / "Gynaecology" (older label) or "Pediatrician" (US spelling)
+// still resolves after the rename to professional designations.
 const ALIASES: Record<string, string> = {
   pediatrician: 'paediatrician',
   paediatrics: 'paediatrician',
   pediatrics: 'paediatrician',
-  neonatologist: 'neonatology',
-  gynecology: 'gynaecology',
-  gynaecologist: 'gynaecology',
-  gynecologist: 'gynaecology',
+  neonatology: 'neonatologist',
+  neonatologist: 'neonatologist',
+  gynaecology: 'gynaecologist',
+  gynecology: 'gynaecologist',
+  gynecologist: 'gynaecologist',
   'general physician': 'physician',
   'general medicine': 'physician',
 };
