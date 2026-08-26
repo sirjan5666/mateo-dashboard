@@ -15,6 +15,27 @@ import { cn } from '../../lib/cn';
 const REASONS = ['Fever', 'Cough & Cold', 'Vaccination', 'Well-baby checkup', 'Follow-up', 'Growth review', 'Rash / skin', 'Other'];
 const DURATIONS = [15, 30, 45, 60];
 
+/**
+ * A number field with a fixed trailing unit chip (kg / cm / weeks …). The unit
+ * is shown, never typed, so values can't arrive as "51 cm" and break the save.
+ */
+function UnitInput({ id, value, onChange, unit, placeholder, step }: {
+  id: string; value: string; onChange: (v: string) => void; unit: string; placeholder?: string; step?: string;
+}) {
+  return (
+    <div className="flex items-stretch">
+      <input
+        id={id} type="number" inputMode="decimal" step={step} min={0} value={value}
+        onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
+        className={cn(INPUT, 'rounded-r-none border-r-0')}
+      />
+      <span className="inline-flex shrink-0 items-center rounded-r-[10px] border border-l-0 border-[#E4E8F1] bg-[#F7F8FC] px-3.5 text-[13px] font-semibold text-[#64748B]">
+        {unit}
+      </span>
+    </div>
+  );
+}
+
 const CARD =
   'rounded-[14px] border border-[#ECEEF4] bg-white px-[22px] pb-6 pt-5 shadow-[0_1px_2px_rgba(16,24,40,.04),0_8px_24px_-12px_rgba(16,24,40,.10)]';
 const TITLE = 'font-display text-base font-bold tracking-[-0.01em] text-[#0F172A]';
@@ -90,7 +111,7 @@ export default function RegisterNewPatient({ book = false }: { book?: boolean })
 
   const [f, setF] = useState({
     fullName: '', dob: '', gender: 'Male', bloodGroup: '',
-    birthWeight: '', birthHeight: '', birthHeadCm: '', deliveryType: '', gestationalAge: '',
+    birthWeight: '', birthHeight: '', birthHeadCm: '', deliveryType: '', deliveryTypeOther: '', gestationalAge: '',
     guardianName: '', guardianRelationship: '', guardianPhone: '', guardianEmail: '', sameAsPermanent: false,
     phone: '', whatsapp: false, email: '', address1: '', address2: '', city: '', state: '', pincode: '',
     emergencyName: '', emergencyRelationship: '', emergencyPhone: '', sameAsGuardian: false,
@@ -121,7 +142,9 @@ export default function RegisterNewPatient({ book = false }: { book?: boolean })
           bloodGroup: patient.bloodGroup ?? '',
           birthWeight: patient.birthWeightKg != null ? String(patient.birthWeightKg) : '',
           birthHeight: patient.birthHeightCm != null ? String(patient.birthHeightCm) : '',
-          deliveryType: patient.deliveryType ?? '',
+          birthHeadCm: patient.birthHeadCircumferenceCm != null ? String(patient.birthHeadCircumferenceCm) : '',
+          deliveryType: patient.deliveryType && !['Normal', 'C-Section', 'Assisted'].includes(patient.deliveryType) ? 'Other' : (patient.deliveryType ?? ''),
+          deliveryTypeOther: patient.deliveryType && !['Normal', 'C-Section', 'Assisted', 'Other'].includes(patient.deliveryType) ? patient.deliveryType : '',
           gestationalAge: patient.gestationalAgeWeeks != null ? String(patient.gestationalAgeWeeks) : '',
           guardianName: patient.guardianName ?? '',
           guardianRelationship: patient.guardianRelationship ?? '',
@@ -198,7 +221,13 @@ export default function RegisterNewPatient({ book = false }: { book?: boolean })
       setSaving(true);
       setSubmitError(null);
       try {
-        const num = (v: string) => (v.trim() ? Number(v) : undefined);
+        // Accept "51 cm" / "40 weeks" etc. by stripping non-numeric characters,
+        // and NEVER emit NaN — JSON.stringify turns NaN into null, which the
+        // server rejects ("expected number, received null"). Blank/invalid → omit.
+        const num = (v: string) => {
+          const n = parseFloat(v.replace(/[^\d.-]/g, ''));
+          return Number.isFinite(n) ? n : undefined;
+        };
         // EVERY field the form asks for is sent. Previously twenty-odd were
         // collected and five stored, so re-opening a patient showed blanks.
         const demographics = {
@@ -206,7 +235,9 @@ export default function RegisterNewPatient({ book = false }: { book?: boolean })
           birthWeightKg: num(f.birthWeight),
           birthHeightCm: num(f.birthHeight),
           birthHeadCircumferenceCm: num(f.birthHeadCm),
-          deliveryType: f.deliveryType || undefined,
+          deliveryType: f.deliveryType === 'Other'
+            ? (f.deliveryTypeOther.trim() || 'Other')
+            : (f.deliveryType || undefined),
           gestationalAgeWeeks: num(f.gestationalAge),
           guardianName: f.guardianName.trim() || undefined,
           guardianRelationship: f.guardianRelationship || undefined,
@@ -475,24 +506,30 @@ export default function RegisterNewPatient({ book = false }: { book?: boolean })
             <div className="mt-[18px] grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div>
                 <Label htmlFor="birthWeight">Birth Weight</Label>
-                <input id="birthWeight" value={f.birthWeight} onChange={(e) => set('birthWeight', e.target.value)} placeholder="e.g. 3.2 kg" className={INPUT} />
+                <UnitInput id="birthWeight" value={f.birthWeight} onChange={(v) => set('birthWeight', v)} unit="kg" step="0.01" placeholder="3.2" />
               </div>
               <div>
                 <Label htmlFor="birthHeight">Birth Height</Label>
-                <input id="birthHeight" value={f.birthHeight} onChange={(e) => set('birthHeight', e.target.value)} placeholder="e.g. 50 cm" className={INPUT} />
+                <UnitInput id="birthHeight" value={f.birthHeight} onChange={(v) => set('birthHeight', v)} unit="cm" step="0.1" placeholder="50" />
               </div>
               <div>
                 <Label htmlFor="birthHeadCm">Head Circumference</Label>
-                <input id="birthHeadCm" value={f.birthHeadCm} onChange={(e) => set('birthHeadCm', e.target.value)} placeholder="e.g. 34 cm" className={INPUT} />
+                <UnitInput id="birthHeadCm" value={f.birthHeadCm} onChange={(v) => set('birthHeadCm', v)} unit="cm" step="0.1" placeholder="34" />
+              </div>
+              <div>
+                <Label htmlFor="gestationalAge">Gestational Age</Label>
+                <UnitInput id="gestationalAge" value={f.gestationalAge} onChange={(v) => set('gestationalAge', v)} unit="weeks" step="1" placeholder="40" />
               </div>
               <div>
                 <Label htmlFor="deliveryType">Delivery Type</Label>
                 <Select id="deliveryType" value={f.deliveryType} onChange={(v) => set('deliveryType', v)} placeholder="Select type" options={DELIVERY_TYPES} />
               </div>
-              <div className="sm:col-span-3">
-                <Label htmlFor="gestationalAge">Gestational Age</Label>
-                <input id="gestationalAge" value={f.gestationalAge} onChange={(e) => set('gestationalAge', e.target.value)} placeholder="e.g. 40 weeks" className={INPUT} />
-              </div>
+              {f.deliveryType === 'Other' && (
+                <div>
+                  <Label htmlFor="deliveryTypeOther">Specify delivery type</Label>
+                  <input id="deliveryTypeOther" value={f.deliveryTypeOther} onChange={(e) => set('deliveryTypeOther', e.target.value)} maxLength={40} placeholder="e.g. Water birth" className={INPUT} />
+                </div>
+              )}
             </div>
           </section>
 
