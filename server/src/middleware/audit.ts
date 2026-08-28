@@ -40,6 +40,15 @@ export interface AuditInput {
   doctorUserId?: Types.ObjectId | string;
   changedFields?: string[]; // field KEYS only — NEVER PHI values
   outcome: 'allow' | 'deny';
+  // Optional readability — same columns logAction() writes, so the compliance row
+  // reads "Marked invoice INV-0007 paid" instead of a bare "update · invoice".
+  // ALL PHI-FREE, same rule as changedFields:
+  /** One-line human summary (no patient names/values). */
+  description?: string;
+  /** Precise dotted action, e.g. 'invoice.paid' — indexed, powers list filters. */
+  actionKey?: string;
+  /** The record's human-facing number/CODE (invoice no, Rx no, patient CODE) — pseudonymous, NEVER a name. */
+  entityHumanId?: string | number;
 }
 
 /** Write one audit row from the request context. Awaited by write handlers. */
@@ -52,11 +61,15 @@ export async function recordAudit(req: Request, input: AuditInput): Promise<void
   }
   await AuditLog.create({
     actorUserId: req.userId,
+    actorName: req.authUser?.name, // SNAPSHOT — readable after the actor is deleted
     actorRole: req.userRole,
     impersonatorUserId: req.impersonatorId,
     action: input.action,
+    actionKey: input.actionKey,
+    description: input.description,
     resourceType: input.resourceType,
     resourceId: input.resourceId,
+    targetEntityId: input.entityHumanId != null ? String(input.entityHumanId) : undefined,
     doctorUserId: input.doctorUserId ?? req.userId,
     patientId: input.patientId,
     changedFields: input.changedFields,

@@ -197,8 +197,11 @@ router.post('/billing/invoices', auditAccess('invoice'), async (req, res) => {
   }
   await recordAudit(req, {
     action: 'create',
+    actionKey: 'invoice.created',
+    description: `Created invoice ${inv.number} (₹${total})`,
     resourceType: 'invoice',
     resourceId: inv._id,
+    entityHumanId: inv.number,
     patientId: patient._id,
     changedFields: ['number', 'total', 'items'],
     outcome: 'allow',
@@ -250,8 +253,16 @@ router.patch('/billing/invoices/:id', auditAccess('invoice'), async (req, res) =
 
   await recordAudit(req, {
     action: 'update',
+    actionKey: `invoice.${status}`, // invoice.paid | invoice.unpaid | invoice.cancelled
+    description:
+      status === 'paid'
+        ? `Marked invoice ${inv.number} paid (₹${inv.total})`
+        : status === 'cancelled'
+          ? `Cancelled invoice ${inv.number}`
+          : `Reopened invoice ${inv.number} as unpaid`,
     resourceType: 'invoice',
     resourceId: inv._id,
+    entityHumanId: inv.number,
     patientId: inv.patientId,
     changedFields: ['status', 'amountPaid', 'paidAt'],
     outcome: 'allow',

@@ -264,10 +264,14 @@ router.post('/patients', async (req, res) => {
     { patientId: patient._id, doctorUserId: req.userId, purpose: 'treatment', status: 'granted', method: 'in_clinic', policyVersion: POLICY_VERSION },
   ]);
 
+  const patientCode = String(patient.code).padStart(5, '0');
   await recordAudit(req, {
     action: 'create',
+    actionKey: 'patient.created',
+    description: `Registered patient #${patientCode}`,
     resourceType: 'patient',
     resourceId: patient._id,
+    entityHumanId: patientCode,
     patientId: patient._id,
     changedFields: ['displayName', 'dob', 'sex', 'phone', 'status'],
     outcome: 'allow',
@@ -536,10 +540,14 @@ router.patch('/patients/:id', loadOwnedPatient, async (req, res) => {
   }
   applyDemographics(patient, body, changed);
   await patient.save(); // re-encrypts any changed PHI; unchanged ciphertext is skipped
+  const updTag = patient.code != null ? `#${String(patient.code).padStart(5, '0')}` : patient._id.toString().slice(-6);
   await recordAudit(req, {
     action: 'update',
+    actionKey: 'patient.updated',
+    description: `Updated patient ${updTag} (${changed.length} field${changed.length === 1 ? '' : 's'})`,
     resourceType: 'patient',
     resourceId: patient._id,
+    entityHumanId: updTag,
     patientId: patient._id,
     changedFields: changed,
     outcome: 'allow',
@@ -553,10 +561,14 @@ router.delete('/patients/:id', loadOwnedPatient, async (req, res) => {
     patient.archivedAt = new Date();
     await patient.save();
   }
+  const delTag = patient.code != null ? `#${String(patient.code).padStart(5, '0')}` : patient._id.toString().slice(-6);
   await recordAudit(req, {
     action: 'delete',
+    actionKey: 'patient.archived',
+    description: `Archived patient ${delTag}`,
     resourceType: 'patient',
     resourceId: patient._id,
+    entityHumanId: delTag,
     patientId: patient._id,
     outcome: 'allow',
   });
