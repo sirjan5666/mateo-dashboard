@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useNavigate } from 'react-router';
 import { LogIn, Pencil, Plus, Trash2, X } from 'lucide-react';
-import { createDoctor, deleteUser, listAdminDoctors, updateDoctor } from '../../api/admin';
-import type { AdminDoctor, CreatedAccount } from '../../api/admin';
+import { createClinic, createDoctor, deleteUser, listAdminDoctors, listClinics, updateDoctor } from '../../api/admin';
+import type { AdminClinic, AdminDoctor, CreatedAccount } from '../../api/admin';
 import { ApiError } from '../../api/client';
 import { useAuth } from '../../auth/context';
 import { formatDateIST } from '../../lib/age';
@@ -72,6 +72,10 @@ export default function AdminDoctors() {
   const [experienceYears, setExperienceYears] = useState('');
   const [languages, setLanguages] = useState('');
   const [city, setCity] = useState('');
+  const [clinicId, setClinicId] = useState('');
+  const [clinics, setClinics] = useState<AdminClinic[]>([]);
+  const [newClinicName, setNewClinicName] = useState('');
+  const [addingClinic, setAddingClinic] = useState(false);
   const [status, setStatus] = useState<'pending' | 'approved' | 'rejected'>('approved');
   const [days, setDays] = useState<number[]>([1, 2, 3, 4, 5]);
   const [startTime, setStartTime] = useState('10:00');
@@ -89,6 +93,8 @@ export default function AdminDoctors() {
     setExperienceYears('');
     setLanguages('');
     setCity('');
+    setClinicId('');
+    setNewClinicName('');
     setStatus('approved');
     setDays([1, 2, 3, 4, 5]);
     setStartTime('10:00');
@@ -116,6 +122,8 @@ export default function AdminDoctors() {
     setExperienceYears(d.experienceYears ? String(d.experienceYears) : '');
     setLanguages(d.languages.join(', '));
     setCity(d.city ?? '');
+    setClinicId(d.clinicId ?? '');
+    setNewClinicName('');
     setStatus(d.status as 'pending' | 'approved' | 'rejected');
     setDays(d.availability.days);
     setStartTime(d.availability.startTime);
@@ -137,9 +145,11 @@ export default function AdminDoctors() {
 
   useEffect(() => {
     let cancelled = false;
-    listAdminDoctors()
-      .then((d) => {
-        if (!cancelled) setDoctors(d.doctors);
+    Promise.all([listAdminDoctors(), listClinics()])
+      .then(([d, c]) => {
+        if (cancelled) return;
+        setDoctors(d.doctors);
+        setClinics(c.clinics);
       })
       .catch((e: unknown) => {
         if (!cancelled) setError(e instanceof ApiError ? e.message : 'Something went wrong, please try again');
@@ -148,6 +158,22 @@ export default function AdminDoctors() {
       cancelled = true;
     };
   }, []);
+
+  async function addClinic() {
+    const nm = newClinicName.trim();
+    if (!nm || addingClinic) return;
+    setAddingClinic(true);
+    try {
+      const { clinic } = await createClinic({ name: nm });
+      setClinics((prev) => [...prev, clinic].sort((a, b) => a.name.localeCompare(b.name)));
+      setClinicId(clinic.id);
+      setNewClinicName('');
+    } catch (e) {
+      setFormError(e instanceof ApiError ? e.message : 'Could not create the clinic');
+    } finally {
+      setAddingClinic(false);
+    }
+  }
 
   function toggleDay(d: number) {
     setDays((prev) => (prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d].sort((a, b) => a - b)));
@@ -182,12 +208,13 @@ export default function AdminDoctors() {
       if (editingId) {
         await updateDoctor(editingId, {
           ...payload,
+          clinicId: clinicId || null,
           password: password || undefined,
           status,
         });
         setEditingId(null);
       } else {
-        const account = await createDoctor({ ...payload, password: password || undefined });
+        const account = await createDoctor({ ...payload, clinicId: clinicId || undefined, password: password || undefined });
         setCreated(account);
       }
       setShowForm(false);
@@ -276,6 +303,23 @@ export default function AdminDoctors() {
                 <label htmlFor="dcity" className="block text-sm font-medium text-stone-700">City</label>
                 <input id="dcity" value={city} onChange={(e) => setCity(e.target.value)} className={inputCls} />
               </div>
+              <div className="sm:col-span-2">
+                <label htmlFor="dclinic" className="block text-sm font-medium text-stone-700">Clinic</label>
+                <select id="dclinic" value={clinicId} onChange={(e) => setClinicId(e.target.value)} className={inputCls}>
+                  <option value="">Standalone (no clinic)</option>
+                  {clinics.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}{c.doctorCount ? ` — ${c.doctorCount} doctor${c.doctorCount > 1 ? 's' : ''}` : ''}</option>
+                  ))}
+                </select>
+                <p className="mt-1 text-xs text-stone-500">Group this doctor under a clinic. Multiple doctors (same or different speciality) can share a clinic; their patients stay private per doctor.</p>
+                <div className="mt-2 flex gap-2">
+                  <input value={newClinicName} onChange={(e) => setNewClinicName(e.target.value)} placeholder="Or add a new clinic…" className={inputCls}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void addClinic(); } }} />
+                  <Button type="button" variant="secondary" onClick={() => void addClinic()} disabled={!newClinicName.trim() || addingClinic}>
+                    {addingClinic ? 'Adding…' : 'Add'}
+                  </Button>
+                </div>
+              </div>
               {editingId && (
                 <div>
                   <label htmlFor="dstatus" className="block text-sm font-medium text-stone-700">Status</label>
@@ -343,6 +387,7 @@ export default function AdminDoctors() {
                 <th className="px-5 py-3 font-semibold">Phone</th>
                 <th className="px-5 py-3 font-semibold">Email</th>
                 <th className="px-5 py-3 font-semibold">Specialization</th>
+                <th className="px-5 py-3 font-semibold">Clinic</th>
                 <th className="px-5 py-3 font-semibold">Fee</th>
                 <th className="px-5 py-3 font-semibold">Status</th>
                 <th className="px-5 py-3 font-semibold">Added</th>
@@ -350,7 +395,8 @@ export default function AdminDoctors() {
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-100">
-              {doctors.map((d) => (
+              {/* Sorted by clinic so a clinic's doctors sit together (spec #12). */}
+              {[...doctors].sort((a, b) => (a.clinicName ?? '~').localeCompare(b.clinicName ?? '~') || a.name.localeCompare(b.name)).map((d) => (
                 <tr key={d.id} className="hover:bg-stone-50">
                   <td className="px-5 py-3 font-medium text-stone-800">Dr. {d.name}</td>
                   <td className="px-5 py-3 text-stone-600">{d.phone ?? '—'}</td>
@@ -358,6 +404,7 @@ export default function AdminDoctors() {
                     <span className="block max-w-[460px] truncate" title={d.email ?? ''}>{d.email}</span>
                   </td>
                   <td className="px-5 py-3 text-stone-600">{d.specialization}</td>
+                  <td className="px-5 py-3 text-stone-600">{d.clinicName ?? <span className="text-stone-400">Independent</span>}</td>
                   <td className="px-5 py-3 text-stone-600">₹{d.consultationFee}</td>
                   <td className="px-5 py-3">
                     <span className={cn('rounded-full px-2 py-0.5 text-xs font-semibold capitalize', STATUS_STYLES[d.status] ?? 'bg-stone-100 text-stone-500')}>{d.status}</span>

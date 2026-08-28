@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { User } from '../models/User.js';
 import { Baby } from '../models/Baby.js';
 import { DoctorProfile } from '../models/DoctorProfile.js';
+import { Clinic } from '../models/Clinic.js';
 import { Consultation } from '../models/Consultation.js';
 import { VaccineDose } from '../models/VaccineDose.js';
 import { GrowthLog } from '../models/GrowthLog.js';
@@ -157,6 +158,7 @@ router.get('/doctors', async (_req, res) => {
       bio: p.bio,
       consultationFee: p.consultationFee,
       languages: p.languages,
+      clinicId: p.clinicId ? p.clinicId.toString() : null,
       clinicName: p.clinicName ?? null,
       city: p.city ?? null,
       availability: p.availability,
@@ -164,6 +166,41 @@ router.get('/doctors', async (_req, res) => {
       createdAt: p.createdAt,
     })),
   });
+});
+
+// ── Clinics (multi-doctor grouping) ────────────────────────────────────
+// A clinic groups several independent doctor accounts (private per doctor).
+router.get('/clinics', async (_req, res) => {
+  const clinics = await Clinic.find({}).sort({ name: 1 }).limit(1000);
+  const counts = await DoctorProfile.aggregate<{ _id: Types.ObjectId; n: number }>([
+    { $match: { clinicId: { $ne: null } } },
+    { $group: { _id: '$clinicId', n: { $sum: 1 } } },
+  ]);
+  const countBy = new Map(counts.map((c) => [c._id.toString(), c.n]));
+  res.json({
+    clinics: clinics.map((c) => ({
+      id: c._id.toString(),
+      name: c.name,
+      address: c.address ?? null,
+      phone: c.phone ?? null,
+      city: c.city ?? null,
+      doctorCount: countBy.get(c._id.toString()) ?? 0,
+      createdAt: c.createdAt,
+    })),
+  });
+});
+
+const createClinicSchema = z.object({
+  name: z.string().trim().min(1).max(160),
+  address: z.string().trim().max(300).optional(),
+  phone: z.string().trim().max(20).optional(),
+  city: z.string().trim().max(80).optional(),
+});
+
+router.post('/clinics', async (req, res) => {
+  const body = createClinicSchema.parse(req.body);
+  const clinic = await Clinic.create(body);
+  res.status(201).json({ clinic: { id: clinic._id.toString(), name: clinic.name, address: clinic.address ?? null, phone: clinic.phone ?? null, city: clinic.city ?? null, doctorCount: 0, createdAt: clinic.createdAt } });
 });
 
 const availabilitySchema = z.object({
@@ -186,10 +223,22 @@ const createDoctorSchema = z.object({
   bio: z.string().trim().max(1000).optional().default(''),
   consultationFee: z.number().int().min(0).max(100000),
   languages: z.array(z.string().trim().min(1).max(40)).max(10).optional().default([]),
+  clinicId: z.string().optional(),
   clinicName: z.string().trim().max(120).optional(),
   city: z.string().trim().max(80).optional(),
   availability: availabilitySchema.optional(),
 });
+
+/** Resolve a clinic id to the record, and derive the clinicName/city to store on
+ *  the doctor so display + prescriptions never need a join. Returns nulls when no
+ *  clinic is linked. Throws a 400-friendly error string if the id is unknown. */
+async function resolveClinic(clinicId?: string): Promise<{ clinicId?: Types.ObjectId; clinicName?: string; city?: string }> {
+  if (!clinicId) return {};
+  if (!isValidObjectId(clinicId)) throw new Error('Unknown clinic');
+  const clinic = await Clinic.findById(clinicId);
+  if (!clinic) throw new Error('Unknown clinic');
+  return { clinicId: clinic._id, clinicName: clinic.name, city: clinic.city ?? undefined };
+}
 
 // Create a doctor: a User (role doctor) + an approved DoctorProfile. Returns a
 // one-time password for the admin to share. Admin-added doctors are immediately
@@ -200,6 +249,9 @@ router.post('/doctors', async (req, res) => {
     res.status(409).json({ error: 'An account with this email already exists' });
     return;
   }
+  let clinic: { clinicId?: Types.ObjectId; clinicName?: string; city?: string };
+  try { clinic = await resolveClinic(body.clinicId); }
+  catch { res.status(400).json({ error: 'Unknown clinic' }); return; }
   const tempPassword = body.password ?? generatePassword();
   const passwordHash = await bcrypt.hash(tempPassword, 12);
   const user = await User.create({ name: body.name, email: body.email, phone: body.phone, role: 'doctor', passwordHash, consentAcceptedAt: new Date() });
@@ -212,8 +264,9 @@ router.post('/doctors', async (req, res) => {
     bio: body.bio,
     consultationFee: body.consultationFee,
     languages: body.languages,
-    clinicName: body.clinicName,
-    city: body.city,
+    clinicId: clinic.clinicId,
+    clinicName: clinic.clinicName ?? body.clinicName,
+    city: clinic.city ?? body.city,
     availability: body.availability,
     status: 'approved',
   });
@@ -263,6 +316,7 @@ const updateDoctorSchema = z.object({
   bio: z.string().trim().max(1000).optional(),
   consultationFee: z.number().int().min(0).max(100000).optional(),
   languages: z.array(z.string().trim().min(1).max(40)).max(10).optional(),
+  clinicId: z.string().nullable().optional(),
   clinicName: z.string().trim().max(120).optional(),
   city: z.string().trim().max(80).optional(),
   availability: availabilitySchema.optional(),
@@ -304,6 +358,18 @@ router.patch('/doctors/:id', async (req, res) => {
   if (body.bio !== undefined) profile.bio = body.bio;
   if (body.consultationFee !== undefined) profile.consultationFee = body.consultationFee;
   if (body.languages !== undefined) profile.languages = body.languages;
+  if (body.clinicId !== undefined) {
+    if (body.clinicId === null || body.clinicId === '') {
+      profile.clinicId = undefined;
+    } else {
+      let clinic: { clinicId?: Types.ObjectId; clinicName?: string; city?: string };
+      try { clinic = await resolveClinic(body.clinicId); }
+      catch { res.status(400).json({ error: 'Unknown clinic' }); return; }
+      profile.clinicId = clinic.clinicId;
+      if (clinic.clinicName) profile.clinicName = clinic.clinicName;
+      if (clinic.city) profile.city = clinic.city;
+    }
+  }
   if (body.clinicName !== undefined) profile.clinicName = body.clinicName;
   if (body.city !== undefined) profile.city = body.city;
   if (body.availability !== undefined) profile.availability = body.availability;
