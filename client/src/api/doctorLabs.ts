@@ -1,4 +1,4 @@
-import { api } from './client';
+import { api, apiForm } from './client';
 
 export type LabLevel = 'low' | 'normal' | 'high';
 
@@ -91,6 +91,8 @@ export interface LabOrderDto {
   orderedAt: string;
   sampleCollectedAt: string | null;
   completedAt: string | null;
+  hasReport: boolean;
+  reportUploadedAt: string | null;
 }
 
 export function getLabOrders(params?: { status?: LabOrderStatus; patientId?: string }) {
@@ -111,4 +113,16 @@ export function updateLabOrderStatus(id: string, status: LabOrderStatus) {
 
 export function addLabOrderResults(id: string, body: { results: { analyteId: string; value: number }[]; ageMonths: number }) {
   return api<{ results: LabOrderTestResult[]; status: LabOrderStatus }>(`/doctor/labs/orders/${id}/results`, { method: 'POST', body: JSON.stringify(body) });
+}
+
+/** Upload the completed lab report (PDF/image) against an order. */
+export function uploadLabReport(id: string, file: File) {
+  const form = new FormData();
+  form.append('file', file);
+  return apiForm<{ hasReport: true; reportUploadedAt: string }>(`/doctor/labs/orders/${id}/report`, form);
+}
+
+/** The inline URL to view an order's uploaded report. */
+export function labReportUrl(id: string) {
+  return `/api/doctor/labs/orders/${id}/report`;
 }

@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import {
-  AlertCircle, Check, Clock, FlaskConical, Loader2,
-  Plus, Search, TestTubes, X,
+  AlertCircle, Check, Clock, FileText, FlaskConical, Loader2,
+  Plus, Search, TestTubes, Upload, X,
 } from 'lucide-react';
-import { getLabOrders, createLabOrder, updateLabOrderStatus, searchLabTestCatalog } from '../../api/doctorLabs';
+import { getLabOrders, createLabOrder, updateLabOrderStatus, searchLabTestCatalog, uploadLabReport, labReportUrl } from '../../api/doctorLabs';
 import type { LabOrderStatus, LabCatalogTest } from '../../api/doctorLabs';
 import { listPatients } from '../../api/doctorPatients';
 import { useLoad } from '../../components/doctor/v2/workspace/shared';
@@ -230,6 +230,7 @@ export default function LabOrders() {
   const [statusFilter, setStatusFilter] = useState<LabOrderStatus | ''>('');
   const [showNew, setShowNew] = useState(false);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [uploadingId, setUploadingId] = useState<string | null>(null);
 
   const { data, loading, error, reload } = useLoad(
     async () => {
@@ -257,6 +258,18 @@ export default function LabOrders() {
       /* ignore */
     } finally {
       setUpdatingId(null);
+    }
+  }
+
+  async function uploadReport(id: string, file: File) {
+    setUploadingId(id);
+    try {
+      await uploadLabReport(id, file);
+      reload();
+    } catch {
+      /* ignore — the order simply stays without a report */
+    } finally {
+      setUploadingId(null);
     }
   }
 
@@ -366,29 +379,47 @@ export default function LabOrders() {
                       </td>
                       <td className="border-b border-[#F1F3F9] pr-3 text-[12px] font-medium text-[#334155]">{when(o.orderedAt)}</td>
                       <td className="border-b border-[#F1F3F9] pr-5">
-                        {o.status === 'ordered' && (
-                          <button type="button" disabled={updatingId === o.id} onClick={() => changeStatus(o.id, 'sample_collected')}
-                            className="h-8 rounded-[8px] border border-[#E2E6F0] bg-white px-3 text-[11.5px] font-bold text-[#334155] hover:bg-[#F7F8FC] disabled:opacity-50">
-                            {updatingId === o.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Collect Sample'}
-                          </button>
-                        )}
-                        {o.status === 'sample_collected' && (
-                          <button type="button" disabled={updatingId === o.id} onClick={() => changeStatus(o.id, 'in_progress')}
-                            className="h-8 rounded-[8px] border border-[#E2E6F0] bg-white px-3 text-[11.5px] font-bold text-[#0284C7] hover:bg-[#F0F9FF] disabled:opacity-50">
-                            {updatingId === o.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Start Processing'}
-                          </button>
-                        )}
-                        {o.status === 'in_progress' && (
-                          <button type="button" disabled={updatingId === o.id} onClick={() => changeStatus(o.id, 'completed')}
-                            className="h-8 rounded-[8px] bg-[#12A150] px-3 text-[11.5px] font-bold text-white hover:brightness-105 disabled:opacity-50">
-                            {updatingId === o.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Mark Complete'}
-                          </button>
-                        )}
-                        {o.status === 'completed' && o.results.length > 0 && (
-                          <span className="flex items-center gap-1.5 text-[11.5px] font-bold text-[#12A150]">
-                            <Check className="h-3.5 w-3.5" />Results ready
-                          </span>
-                        )}
+                        <div className="flex flex-wrap items-center gap-2">
+                          {o.status === 'ordered' && (
+                            <button type="button" disabled={updatingId === o.id} onClick={() => changeStatus(o.id, 'sample_collected')}
+                              className="h-8 rounded-[8px] border border-[#E2E6F0] bg-white px-3 text-[11.5px] font-bold text-[#334155] hover:bg-[#F7F8FC] disabled:opacity-50">
+                              {updatingId === o.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Collect Sample'}
+                            </button>
+                          )}
+                          {o.status === 'sample_collected' && (
+                            <button type="button" disabled={updatingId === o.id} onClick={() => changeStatus(o.id, 'in_progress')}
+                              className="h-8 rounded-[8px] border border-[#E2E6F0] bg-white px-3 text-[11.5px] font-bold text-[#0284C7] hover:bg-[#F0F9FF] disabled:opacity-50">
+                              {updatingId === o.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Start Processing'}
+                            </button>
+                          )}
+                          {o.status === 'in_progress' && (
+                            <button type="button" disabled={updatingId === o.id} onClick={() => changeStatus(o.id, 'completed')}
+                              className="h-8 rounded-[8px] bg-[#12A150] px-3 text-[11.5px] font-bold text-white hover:brightness-105 disabled:opacity-50">
+                              {updatingId === o.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Mark Complete'}
+                            </button>
+                          )}
+                          {o.status === 'completed' && o.results.length > 0 && (
+                            <span className="flex items-center gap-1.5 text-[11.5px] font-bold text-[#12A150]">
+                              <Check className="h-3.5 w-3.5" />Results ready
+                            </span>
+                          )}
+                          {/* Report upload/view once the sample is in the lab (spec #27, #30). */}
+                          {(o.status === 'in_progress' || o.status === 'completed') && (
+                            o.hasReport ? (
+                              <a href={labReportUrl(o.id)} target="_blank" rel="noopener noreferrer"
+                                className="flex h-8 items-center gap-1.5 rounded-[8px] border border-[#C7D2FE] bg-[#EEF2FF] px-3 text-[11.5px] font-bold text-[#3B4FE0] hover:bg-[#E0E7FF]">
+                                <FileText className="h-3.5 w-3.5" />View Report
+                              </a>
+                            ) : (
+                              <label className={cn('flex h-8 cursor-pointer items-center gap-1.5 rounded-[8px] border border-[#E2E6F0] bg-white px-3 text-[11.5px] font-bold text-[#334155] hover:bg-[#F7F8FC]', uploadingId === o.id && 'opacity-50')}>
+                                {uploadingId === o.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                                Upload Report
+                                <input type="file" accept=".pdf,image/*" className="hidden" disabled={uploadingId === o.id}
+                                  onChange={(e) => { const f = e.target.files?.[0]; if (f) void uploadReport(o.id, f); e.target.value = ''; }} />
+                              </label>
+                            )
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
