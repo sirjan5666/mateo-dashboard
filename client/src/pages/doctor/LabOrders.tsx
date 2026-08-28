@@ -4,7 +4,7 @@ import {
   AlertCircle, Check, Clock, FileText, FlaskConical, Loader2,
   Plus, Search, TestTubes, Upload, X,
 } from 'lucide-react';
-import { getLabOrders, createLabOrder, updateLabOrderStatus, searchLabTestCatalog, uploadLabReport, labReportUrl } from '../../api/doctorLabs';
+import { getLabOrders, createLabOrder, updateLabOrderStatus, searchLabTestCatalog, uploadLabReport, labReportUrl, recordLabPayment } from '../../api/doctorLabs';
 import type { LabOrderStatus, LabCatalogTest } from '../../api/doctorLabs';
 import { listPatients } from '../../api/doctorPatients';
 import { useLoad } from '../../components/doctor/v2/workspace/shared';
@@ -83,7 +83,7 @@ function NewOrderModal({
     setSaving(true);
     setError(null);
     try {
-      await createLabOrder({ patientId, tests: selected.map((t) => t.name), priority, notes: notes.trim() || undefined });
+      await createLabOrder({ patientId, tests: selected.map((t) => t.name), priority, notes: notes.trim() || undefined, amount: total });
       onCreated();
       onClose();
     } catch (e) {
@@ -231,6 +231,7 @@ export default function LabOrders() {
   const [showNew, setShowNew] = useState(false);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [uploadingId, setUploadingId] = useState<string | null>(null);
+  const [payingId, setPayingId] = useState<string | null>(null);
 
   const { data, loading, error, reload } = useLoad(
     async () => {
@@ -270,6 +271,18 @@ export default function LabOrders() {
       /* ignore — the order simply stays without a report */
     } finally {
       setUploadingId(null);
+    }
+  }
+
+  async function markPaid(id: string, amount: number) {
+    setPayingId(id);
+    try {
+      await recordLabPayment(id, amount);
+      reload();
+    } catch {
+      /* ignore */
+    } finally {
+      setPayingId(null);
     }
   }
 
@@ -349,8 +362,8 @@ export default function LabOrders() {
             <table className="w-full min-w-[820px] border-separate border-spacing-0">
               <thead>
                 <tr>
-                  {['Order #', 'Patient', 'Tests', 'Priority', 'Status', 'Ordered', 'Actions'].map((h, i) => (
-                    <th key={h} scope="col" className={cn('h-[42px] border-y border-[#ECEEF4] bg-[#FAFBFD] text-left text-[10.5px] font-bold uppercase tracking-[0.06em] text-[#64748B]', i === 0 && 'pl-5', i === 6 && 'pr-5')}>
+                  {['Order #', 'Patient', 'Tests', 'Priority', 'Status', 'Billing', 'Ordered', 'Actions'].map((h, i, arr) => (
+                    <th key={h} scope="col" className={cn('h-[42px] border-y border-[#ECEEF4] bg-[#FAFBFD] text-left text-[10.5px] font-bold uppercase tracking-[0.06em] text-[#64748B]', i === 0 && 'pl-5', i === arr.length - 1 && 'pr-5')}>
                       {h}
                     </th>
                   ))}
@@ -377,6 +390,17 @@ export default function LabOrders() {
                       <td className="border-b border-[#F1F3F9] pr-3">
                         <span className="inline-block rounded-[6px] px-2.5 py-[3px] text-[11px] font-bold" style={{ background: st.bg, color: st.fg }}>{st.label}</span>
                       </td>
+                      <td className="border-b border-[#F1F3F9] pr-3">
+                        {o.amount > 0 ? (
+                          <div className="flex items-center gap-2">
+                            <span className="text-[12.5px] font-bold tabular-nums text-[#0F172A]">₹{o.amount.toLocaleString('en-IN')}</span>
+                            <span className={cn('rounded-[6px] px-1.5 py-[2px] text-[10px] font-bold uppercase',
+                              o.amountPaid >= o.amount ? 'bg-[#DCF7E6] text-[#12A150]' : 'bg-[#FEF2F2] text-[#EF4444]')}>
+                              {o.amountPaid >= o.amount ? 'Paid' : 'Unpaid'}
+                            </span>
+                          </div>
+                        ) : <span className="text-[12px] text-[#94A3B8]">—</span>}
+                      </td>
                       <td className="border-b border-[#F1F3F9] pr-3 text-[12px] font-medium text-[#334155]">{when(o.orderedAt)}</td>
                       <td className="border-b border-[#F1F3F9] pr-5">
                         <div className="flex flex-wrap items-center gap-2">
@@ -402,6 +426,13 @@ export default function LabOrders() {
                             <span className="flex items-center gap-1.5 text-[11.5px] font-bold text-[#12A150]">
                               <Check className="h-3.5 w-3.5" />Results ready
                             </span>
+                          )}
+                          {/* Billing: collect payment when there's an outstanding amount (spec #29). */}
+                          {o.status !== 'cancelled' && o.amount > 0 && o.amountPaid < o.amount && (
+                            <button type="button" disabled={payingId === o.id} onClick={() => markPaid(o.id, o.amount)}
+                              className="flex h-8 items-center gap-1.5 rounded-[8px] border border-[#BBF7D0] bg-[#F0FDF4] px-3 text-[11.5px] font-bold text-[#12A150] hover:bg-[#DCFCE7] disabled:opacity-50">
+                              {payingId === o.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Mark Paid'}
+                            </button>
                           )}
                           {/* Report upload/view once the sample is in the lab (spec #27, #30). */}
                           {(o.status === 'in_progress' || o.status === 'completed') && (

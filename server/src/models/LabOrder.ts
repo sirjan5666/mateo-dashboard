@@ -23,6 +23,9 @@ export interface ILabOrder {
   priority: 'routine' | 'urgent';
   results: ILabTestResult[];
   notes?: string;
+  /** Billing: total charge (from the catalog at order time) and amount collected. */
+  amount: number;
+  amountPaid: number;
   /** Uploaded report file (stored under uploadsDir; served via the report route). */
   reportFile?: string;
   reportUploadedAt?: Date;
@@ -56,6 +59,8 @@ const labOrderSchema = new Schema<ILabOrder>(
     priority: { type: String, enum: ['routine', 'urgent'], default: 'routine' },
     results: [labTestResultSchema],
     notes: { type: String, maxlength: 2000 },
+    amount: { type: Number, default: 0, min: 0 },
+    amountPaid: { type: Number, default: 0, min: 0 },
     reportFile: { type: String },
     reportUploadedAt: { type: Date },
     orderedAt: { type: Date, required: true },

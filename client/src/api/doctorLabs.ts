@@ -91,6 +91,8 @@ export interface LabOrderDto {
   orderedAt: string;
   sampleCollectedAt: string | null;
   completedAt: string | null;
+  amount: number;
+  amountPaid: number;
   hasReport: boolean;
   reportUploadedAt: string | null;
 }
@@ -103,8 +105,13 @@ export function getLabOrders(params?: { status?: LabOrderStatus; patientId?: str
   return api<{ orders: LabOrderDto[] }>(`/doctor/labs/orders${qs ? `?${qs}` : ''}`);
 }
 
-export function createLabOrder(body: { patientId: string; tests: string[]; priority?: 'routine' | 'urgent'; notes?: string }) {
+export function createLabOrder(body: { patientId: string; tests: string[]; priority?: 'routine' | 'urgent'; notes?: string; amount?: number }) {
   return api<{ id: string; orderNumber: string; status: LabOrderStatus }>('/doctor/labs/orders', { method: 'POST', body: JSON.stringify(body) });
+}
+
+/** Record a payment against a lab order (e.g. mark it fully paid). */
+export function recordLabPayment(id: string, amountPaid: number) {
+  return api<{ amount: number; amountPaid: number }>(`/doctor/labs/orders/${id}/payment`, { method: 'PATCH', body: JSON.stringify({ amountPaid }) });
 }
 
 export function updateLabOrderStatus(id: string, status: LabOrderStatus) {
