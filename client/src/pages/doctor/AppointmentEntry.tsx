@@ -3,22 +3,20 @@ import BookAppointment from './BookAppointment';
 import RegisterNewPatient from './RegisterNewPatient';
 
 /**
- * The `/doctor/appointments/new` entry, which serves three cases:
+ * The `/doctor/appointments/new` entry.
  *
- *   • brand-new booking (no query)  → register the patient AND book in one form
- *     (RegisterNewPatient in `book` mode). This is what a walk-in needs: a new
- *     patient number is issued as part of booking.
- *   • reschedule (`?edit=<id>`)     → the slot picker, editing an existing
- *     appointment's time — there is no patient to register.
- *   • follow-up for a known patient (`?patient=<id>`) → the slot picker with the
- *     patient pre-selected; re-registering an existing patient would duplicate
- *     them.
+ * Every case goes through the BookAppointment wizard, which lets the doctor
+ * either SEARCH & SELECT an existing patient (its default) or quickly register a
+ * new one — so booking never forces re-creating a patient who already exists
+ * (spec #16). `?edit=<id>` reschedules an appointment; `?patient=<id>` pre-selects
+ * a known patient.
  *
- * The last two keep the BookAppointment wizard because they act on a patient who
- * already exists; only a first-time booking goes through registration.
+ * `?register=1` opts into the full new-patient registration form (all
+ * demographics) combined with booking, for a walk-in whose full record is being
+ * created up front.
  */
 export default function AppointmentEntry() {
   const [search] = useSearchParams();
-  const forExisting = !!search.get('edit') || !!search.get('patient');
-  return forExisting ? <BookAppointment /> : <RegisterNewPatient book />;
+  if (search.get('register') === '1') return <RegisterNewPatient book />;
+  return <BookAppointment />;
 }
