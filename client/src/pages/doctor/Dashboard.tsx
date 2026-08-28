@@ -158,6 +158,8 @@ export default function Dashboard() {
   const [range, setRange] = useState<DateRange>(() => rangeForPreset('30d'));
   const [report, setReport] = useState<DoctorReport | null>(null);
   const [reportLoading, setReportLoading] = useState(true);
+  // One handler for the top RangeSelector and the per-panel range pills (spec #26).
+  const changeRange = (p: RangePreset) => { setReportLoading(true); setPreset(p); setRange(rangeForPreset(p)); };
   const rangeKey = `${preset}:${range?.from ?? ''}:${range?.to ?? ''}`;
   useEffect(() => {
     let cancelled = false;
@@ -253,8 +255,8 @@ export default function Dashboard() {
 
       {/* Middle row */}
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1.06fr_1.15fr_0.95fr]">
-        <PatientDemographics data={demographics} />
-        <NewVsReturning data={visitTrend} />
+        <PatientDemographics data={demographics} preset={preset} onPreset={changeRange} />
+        <NewVsReturning data={visitTrend} preset={preset} onPreset={changeRange} />
         <div className="flex flex-col gap-5">
           <TodaysSchedule rows={overview?.today ?? []} />
           {/* Consultation summary alongside today's schedule */}

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router';
+import { useNavigate, useParams, useSearchParams } from 'react-router';
 import { Area, AreaChart, CartesianGrid, LabelList, ResponsiveContainer, XAxis, YAxis } from 'recharts';
 import {
   ArrowLeft,
@@ -489,7 +489,11 @@ function OverviewTab({
 export default function PatientWorkspace() {
   const navigate = useNavigate();
   const { id } = useParams();
-  const [tab, setTab] = useState('Overview');
+  const [searchParams] = useSearchParams();
+  // Deep-link support: the patient row menu opens Medical History / Growth Charts
+  // via ?tab=, so each action lands on its own section instead of the Overview.
+  const requestedTab = searchParams.get('tab');
+  const [tab, setTab] = useState(requestedTab && TABS.includes(requestedTab) ? requestedTab : 'Overview');
   const [patient, setPatient] = useState<ApiPatient | null>(null);
   const [template, setTemplate] = useState<Template | null>(null);
   const [record, setRecord] = useState<Record<string, unknown> | null>(null);
