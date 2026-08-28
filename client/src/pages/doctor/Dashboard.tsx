@@ -6,6 +6,7 @@ import { useActiveLocation } from '../../lib/doctorLocation';
 import { subtitleFor } from '../../data/doctorDashboard';
 import type { Kpi } from '../../data/doctorDashboard';
 import { getSpecialtyConfig } from '../../data/specialtyDashboard';
+import { NewPrescriptionButton } from '../../components/doctor/v2/NewPrescriptionButton';
 import { inr } from '../../lib/doctorLocation';
 import { cn } from '../../lib/cn';
 import { getOverview } from '../../api/doctorOverview';
@@ -219,6 +220,7 @@ export default function Dashboard() {
         </div>
 
         <div className="flex w-full flex-wrap items-start justify-end gap-3 sm:w-auto sm:shrink-0">
+          <NewPrescriptionButton />
           <InOutToggle presence={presence} busy={presenceBusy} onToggle={togglePresence} />
           <div className="flex min-w-0 flex-col items-end gap-1.5">
             <div className="flex items-center gap-2">
