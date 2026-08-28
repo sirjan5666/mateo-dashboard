@@ -9,6 +9,7 @@ import { LAB_ANALYTES, LAB_DATA_STATUS, flagValue, labById } from '../labs/refer
 import { searchLabTests } from '../labs/testCatalog.js';
 import { LabOrder, LAB_ORDER_STATUSES } from '../models/LabOrder.js';
 import type { LabOrderStatus } from '../models/LabOrder.js';
+import { decryptField } from '../lib/crypto/fieldCipher.js';
 import { Patient } from '../models/Patient.js';
 
 const router = Router();
@@ -81,8 +82,10 @@ router.get('/labs/orders', async (req, res) => {
   const orders = await LabOrder.find(filter).sort({ orderedAt: -1 }).limit(Math.min(Number(lim) || 100, 500)).lean();
 
   const patientIds = [...new Set(orders.map((o) => o.patientId.toString()))];
+  // displayName is field-encrypted at rest — decrypt in the response shaper
+  // (never send the raw v1:… ciphertext to the client).
   const patients = await Patient.find({ _id: { $in: patientIds } }).select('displayName').lean();
-  const pMap = new Map(patients.map((p) => [p._id.toString(), p.displayName]));
+  const pMap = new Map(patients.map((p) => [p._id.toString(), decryptField(p.displayName)]));
 
   res.json({
     orders: orders.map((o) => ({
