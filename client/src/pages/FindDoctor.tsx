@@ -33,6 +33,7 @@ import { Skeleton } from '../components/ui/Skeleton';
 import { buttonClass } from '../components/ui/buttonStyles';
 import { inputCls } from '../components/ui/field';
 import { cn } from '../lib/cn';
+import { specialtyDisplayLabel } from '../data/specialtyDashboard';
 import { prefersReducedMotion } from '../lib/gsap';
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -232,7 +233,7 @@ function DoctorCard({ d, selected, onBook, onProfile }: { d: DoctorListing; sele
           <p className="mt-0.5 line-clamp-1 flex items-center gap-1 text-xs text-stone-500">
             <Stethoscope className="h-3 w-3 shrink-0" />
             <span className="truncate">
-              {d.specialization}
+              {specialtyDisplayLabel(d.specialization)}
               {d.qualifications ? ` · ${d.qualifications}` : ''}
             </span>
           </p>
@@ -591,8 +592,8 @@ export default function FindDoctor() {
   const aboutFull = selectedDoctor
     ? selectedDoctor.bio?.trim() ||
       (selectedDoctor.experienceYears > 0
-        ? `${selectedDoctor.specialization} with ${selectedDoctor.experienceYears}+ years caring for little ones.`
-        : `${selectedDoctor.specialization} on Mateo.`)
+        ? `${specialtyDisplayLabel(selectedDoctor.specialization)} with ${selectedDoctor.experienceYears}+ years caring for little ones.`
+        : `${specialtyDisplayLabel(selectedDoctor.specialization)} on Mateo.`)
     : '';
   const aboutLong = aboutFull.length > 220;
   const aboutText = aboutLong && !bioExpanded ? `${aboutFull.slice(0, 220).trimEnd()}…` : aboutFull;
@@ -886,7 +887,7 @@ export default function FindDoctor() {
                   aria-pressed={filter === s}
                   className={cn('rounded-full border px-3 py-1 text-xs font-medium transition-colors', filter === s ? 'border-emerald-400 bg-emerald-50 text-emerald-800' : 'border-stone-200 text-stone-600 hover:bg-stone-50')}
                 >
-                  {s}
+                  {specialtyDisplayLabel(s)}
                 </button>
               ))}
               <button
@@ -960,7 +961,7 @@ export default function FindDoctor() {
                     <h2 className="mt-2.5 font-display text-lg font-semibold text-stone-900">Dr. {selectedDoctor.name}</h2>
                     <p className="flex items-center gap-1 text-sm font-medium text-emerald-700">
                       <Stethoscope className="h-3.5 w-3.5" />
-                      {selectedDoctor.specialization}
+                      {specialtyDisplayLabel(selectedDoctor.specialization)}
                     </p>
                     {(selectedDoctor.qualifications || verifiedOf(selectedDoctor)) && (
                       <p className="mt-0.5 text-xs text-stone-400">

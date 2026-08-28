@@ -6,6 +6,7 @@ import { createBaby, deleteBaby, getBaby, updateBaby } from '../api/babies';
 import type { BabyInput, BloodGroup, FeedingType } from '../api/babies';
 import { ApiError } from '../api/client';
 import { toDateInputValueIST, todayInputValueIST } from '../lib/age';
+import { forgetActiveBaby, getActiveBabyId } from '../lib/activeBaby';
 import { avatarsForSex, avatarUrl } from '../lib/avatars';
 import { Card } from '../components/ui/Card';
 import { DatePicker } from '../components/ui/DatePicker';
@@ -202,11 +203,7 @@ export default function BabyForm() {
     setDeleting(true);
     try {
       await deleteBaby(id);
-      try {
-        if (localStorage.getItem('mateo:activeBaby') === id) localStorage.removeItem('mateo:activeBaby');
-      } catch {
-        /* ignore storage errors */
-      }
+      if (getActiveBabyId() === id) forgetActiveBaby(); // don't leave the Sidebar pointing at a deleted baby
       navigate('/');
     } catch (err) {
       setDeleteError(err instanceof ApiError ? err.message : 'Something went wrong, please try again');
@@ -359,7 +356,7 @@ export default function BabyForm() {
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label htmlFor="pedName" className="mb-1 block text-[0.72rem] font-semibold text-stone-600">Pediatrician</label>
+                        <label htmlFor="pedName" className="mb-1 block text-[0.72rem] font-semibold text-stone-600">Paediatrician</label>
                         <input id="pedName" type="text" value={pedName} onChange={(e) => setPedName(e.target.value)} placeholder="Dr. name" className={fieldCls} />
                       </div>
                       <div>

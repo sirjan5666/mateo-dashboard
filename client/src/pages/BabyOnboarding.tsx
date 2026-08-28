@@ -23,6 +23,7 @@ import { addSleep } from '../api/sleep';
 import { updateNotificationPreferences, type NotificationLanguage } from '../api/notificationPrefs';
 import { ApiError } from '../api/client';
 import { ageInMonths, todayInputValueIST } from '../lib/age';
+import { rememberActiveBaby } from '../lib/activeBaby';
 import { avatarsForSex, avatarUrl } from '../lib/avatars';
 import { Card } from '../components/ui/Card';
 import { DatePicker } from '../components/ui/DatePicker';
@@ -281,13 +282,7 @@ export default function BabyOnboarding() {
   }
 
   function finish() {
-    if (babyId) {
-      try {
-        localStorage.setItem('mateo:activeBaby', babyId);
-      } catch {
-        /* ignore storage errors */
-      }
-    }
+    if (babyId) rememberActiveBaby(babyId); // the freshly-added baby becomes the focused one
     navigate('/');
   }
 
@@ -459,7 +454,7 @@ export default function BabyOnboarding() {
               </label>
               <label className="block">
                 <span className="mb-1 block text-sm font-bold text-stone-800">
-                  Pediatrician <span className="font-normal text-stone-400">· optional</span>
+                  Paediatrician <span className="font-normal text-stone-400">· optional</span>
                 </span>
                 <input value={pedName} onChange={(e) => setPedName(e.target.value)} placeholder="Dr. name" className="w-full rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm outline-none focus:border-violet-400" />
               </label>

@@ -8,6 +8,7 @@ import { useT } from '../../i18n/context';
 import { useSubscribed } from '../../lib/subscription';
 import { PaidBadge } from '../subscription/bits';
 import { listBabies } from '../../api/babies';
+import { useActiveBabyId } from '../../lib/activeBaby';
 import { BrandTile } from '../ui/BrandTile';
 import { cn } from '../../lib/cn';
 
@@ -67,6 +68,7 @@ export function Sidebar({
   const subscribed = useSubscribed();
   const location = useLocation();
   const [babyIds, setBabyIds] = useState<string[]>([]);
+  const persistedBabyId = useActiveBabyId();
   const initial = user?.name?.trim().charAt(0).toUpperCase() || 'M';
 
   useEffect(() => {
@@ -83,12 +85,22 @@ export function Sidebar({
     };
   }, []);
 
-  // Trackers navigate for the baby you're currently viewing, else the first baby.
-  // Only trust the URL's baby id if it's actually one the user owns — a stale/
-  // deleted id lingering in the route must fall back to a real baby, not 404
-  // every tracker link with "Baby not found" (mirrors Dashboard.tsx reconciliation).
+  // Which baby the tracker links point to, in priority order:
+  //   1. the baby id in the current URL (you're already viewing that baby),
+  //   2. the baby last selected on the Dashboard (persisted + reactive), so
+  //      switching babies re-points Growth/Milestones/etc. here too — without
+  //      this the sidebar defaulted to the newest baby and every tracker opened
+  //      the most-recently-added baby regardless of the selection,
+  //   3. the first baby as a last resort.
+  // Each candidate is checked against babyIds the user actually owns, so a stale/
+  // deleted id never 404s the links with "Baby not found".
   const routeBabyId = /^\/babies\/([^/]+)\//.exec(location.pathname)?.[1] ?? null;
-  const activeBabyId = (routeBabyId && babyIds.includes(routeBabyId) ? routeBabyId : babyIds[0]) ?? null;
+  const activeBabyId =
+    (routeBabyId && babyIds.includes(routeBabyId)
+      ? routeBabyId
+      : persistedBabyId && babyIds.includes(persistedBabyId)
+        ? persistedBabyId
+        : babyIds[0]) ?? null;
 
   // Cascade the nav links in on mount. Re-runs once the baby id resolves so the
   // trackers (which switch from disabled <li> to active <a>) animate in too.
