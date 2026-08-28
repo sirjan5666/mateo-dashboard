@@ -8,6 +8,7 @@ import { DoctorReview } from '../models/DoctorReview.js';
 import { User } from '../models/User.js';
 import type { Types } from 'mongoose';
 import { requireAuth, requireRole } from '../middleware/auth.js';
+import { logAction } from '../middleware/audit.js';
 import { generateSlots } from '../doctors/slots.js';
 import { decryptOptional } from '../lib/crypto/fieldCipher.js';
 
@@ -165,6 +166,11 @@ router.patch('/doctors/me/specialization', requireAuth, requireRole('doctor'), a
   }
   existing.specialization = specialization;
   await existing.save();
+  logAction(req, {
+    action: 'doctor.specialty_changed',
+    description: `Changed speciality to ${specialization}`,
+    meta: { specialization },
+  });
   res.json({ specialization: existing.specialization });
 });
 

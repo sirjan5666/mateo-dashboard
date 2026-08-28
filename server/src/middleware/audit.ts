@@ -87,6 +87,12 @@ export interface LogActionInput {
   action: string;
   /** One-line human summary. MUST be PHI-free (no patient names/values). */
   description: string;
+  /**
+   * Explicit actor — for actions before the auth context exists on `req`
+   * (login), or when the acting identity isn't `req`'s user. Defaults to the
+   * request's authenticated user.
+   */
+  actor?: { id: Types.ObjectId | string; name?: string; role?: string };
   target?: {
     /** Patient whose clinical data was touched (name resolved at read, never snapshotted). */
     patient?: Types.ObjectId | string;
@@ -115,9 +121,9 @@ export function logAction(req: Request, input: LogActionInput): void {
   try {
     const entity = input.target?.entity;
     void AuditLog.create({
-      actorUserId: req.userId,
-      actorName: req.authUser?.name, // SNAPSHOT — business identity, PHI-safe
-      actorRole: req.userRole,
+      actorUserId: toOid(input.actor?.id) ?? req.userId,
+      actorName: input.actor?.name ?? req.authUser?.name, // SNAPSHOT — business identity, PHI-safe
+      actorRole: input.actor?.role ?? req.userRole,
       impersonatorUserId: req.impersonatorId,
       action: coarseFromKey(input.action),
       actionKey: input.action,

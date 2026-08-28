@@ -6,6 +6,7 @@ import type { IUser } from '../models/User.js';
 import { DoctorProfile } from '../models/DoctorProfile.js';
 import { AUTH_COOKIE, requireAuth, setAuthCookie } from '../middleware/auth.js';
 import { loginRateLimiter } from '../middleware/security.js';
+import { logAction } from '../middleware/audit.js';
 
 const loginSchema = z.object({
   email: z.string().trim().toLowerCase().email(),
@@ -54,6 +55,13 @@ router.post('/login', loginRateLimiter, async (req, res) => {
     return;
   }
   setAuthCookie(res, user.id);
+  logAction(req, {
+    actor: { id: user.id, name: user.name, role: user.role },
+    action: 'auth.login',
+    description: 'Signed in',
+    doctorUserId: user.id,
+    meta: { role: user.role },
+  });
   res.json({ user: await publicUser(user) });
 });
 
@@ -81,6 +89,13 @@ router.post('/stop-impersonating', requireAuth, async (req, res) => {
     res.status(401).json({ error: 'Not authenticated' });
     return;
   }
+  logAction(req, {
+    actor: { id: admin.id, name: admin.name, role: admin.role },
+    action: 'auth.impersonate.stop',
+    description: 'Stopped acting as another user',
+    target: { user: req.userId },
+    doctorUserId: req.userId, // the impersonated account's tenant
+  });
   setAuthCookie(res, admin.id);
   res.json({ user: await publicUser(admin) });
 });
