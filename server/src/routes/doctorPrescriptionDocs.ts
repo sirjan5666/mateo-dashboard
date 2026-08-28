@@ -264,8 +264,11 @@ router.post('/patients/:id/prescription-documents', loadOwnedPatient, requireCon
 
   await recordAudit(req, {
     action: 'create',
+    actionKey: 'prescription.issued',
+    description: `Issued prescription ${doc.number} (${body.items.length} item${body.items.length === 1 ? '' : 's'})`,
     resourceType: 'prescription',
     resourceId: doc._id,
+    entityHumanId: doc.number,
     patientId: patient._id,
     changedFields: ['number', 'items'],
     outcome: 'allow',
