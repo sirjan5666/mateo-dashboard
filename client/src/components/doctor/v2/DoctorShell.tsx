@@ -117,6 +117,7 @@ const NAV: NavGroup[] = [
     items: [
       { to: '/doctor/locations', label: 'Locations', icon: Building2, module: 'locations' },
       { to: '/doctor/team', label: 'Team & Roles', icon: ShieldPlus, module: 'team' },
+      { to: '/doctor/attendance', label: 'Attendance', icon: CalendarCheck, tile: '#0EA5E9', module: 'team' },
       { to: '/doctor/audit', label: 'Audit Logs', icon: AlignLeft, tile: '#6366F1', module: 'audit' },
       { to: '/doctor/email-logs', label: 'Email Logs', icon: Mail, tile: '#22D3EE', module: 'audit' },
       { to: '/doctor/settings', label: 'Settings', icon: Settings, module: 'settings' },

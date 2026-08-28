@@ -32,6 +32,7 @@ import Report from './pages/Report';
 import DoctorDashboard from './pages/doctor/Dashboard';
 import LocationsManagement from './pages/doctor/LocationsManagement';
 import TeamAndRoles from './pages/doctor/TeamAndRoles';
+import Attendance from './pages/doctor/Attendance';
 import CreateSubUser from './pages/doctor/CreateSubUser';
 import PatientsList from './pages/doctor/PatientsList';
 import PatientWorkspace from './pages/doctor/PatientWorkspace';
@@ -160,6 +161,7 @@ function AppRoutes() {
           <Route path="/doctor/staff" element={<Navigate to="/doctor/team" replace />} />
           <Route path="/doctor/locations" element={<LocationsManagement />} />
           <Route path="/doctor/team" element={<TeamAndRoles />} />
+          <Route path="/doctor/attendance" element={<Attendance />} />
           <Route path="/doctor/team/new" element={<CreateSubUser />} />
           <Route path="/doctor/audit" element={<AuditLogs />} />
           <Route path="/doctor/email-logs" element={<EmailLogs />} />
