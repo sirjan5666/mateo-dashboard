@@ -8,20 +8,22 @@ import { cn } from '../../../../lib/cn';
 interface MenuEntry {
   label: string;
   icon: LucideIcon;
+  /** Workspace tab to open. Omitted = the Overview (workspace landing). */
+  tab?: string;
   external?: boolean;
   tone?: 'default' | 'danger';
   dividerBefore?: boolean;
 }
 
 /**
- * Every entry goes somewhere real. Immunisations and growth records live in the
- * Patient Workspace tabs, so those two deep-link into the workspace rather than
- * opening a second, separate view of the same records.
+ * Every entry goes somewhere real, and each opens its OWN workspace tab so the
+ * three actions are distinct: View → Overview, Medical History → the history
+ * tab, Growth Charts → the growth tab (via a ?tab= deep link the workspace reads).
  */
 const ENTRIES: MenuEntry[] = [
   { label: 'View Patient Workspace', icon: Monitor },
-  { label: 'Medical History', icon: Syringe },
-  { label: 'Growth Charts', icon: BarChart3 },
+  { label: 'Medical History', icon: Syringe, tab: 'Medical History' },
+  { label: 'Growth Charts', icon: BarChart3, tab: 'Growth Charts' },
   { label: 'Edit Patient', icon: Pencil, dividerBefore: true },
 ];
 
@@ -124,7 +126,7 @@ export function PatientRowMenu({
                   autoFocus={i === 0}
                   onClick={() => {
                     if (e.label === 'Edit Patient') navigate(`/doctor/patients/new?edit=${patient.id}`);
-                    else navigate(`/doctor/patients/${patient.id}`);
+                    else navigate(`/doctor/patients/${patient.id}${e.tab ? `?tab=${encodeURIComponent(e.tab)}` : ''}`);
                     setOpen(false);
                     triggerRef.current?.focus();
                   }}

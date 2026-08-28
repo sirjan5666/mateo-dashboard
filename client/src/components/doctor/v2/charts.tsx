@@ -1,6 +1,61 @@
+import { useEffect, useRef, useState } from 'react';
 import { Area, AreaChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { CalendarCheck, ClipboardList, TrendingUp, Users, UsersRound } from 'lucide-react';
+import { CalendarCheck, Check, ChevronDown, ClipboardList, TrendingUp, Users, UsersRound } from 'lucide-react';
 import { ChartData, LinkArrow, Panel, PanelHead, SelectPill } from './kit';
+import type { RangePreset } from './RangeSelector';
+import { cn } from '../../../lib/cn';
+
+/** The dashboard's period presets, reused as a per-panel filter (spec #26). */
+const RANGE_OPTIONS: { id: RangePreset; label: string }[] = [
+  { id: 'today', label: 'Today' },
+  { id: '7d', label: 'Last 7 days' },
+  { id: '30d', label: 'Last 30 days' },
+  { id: 'all', label: 'All time' },
+];
+
+/**
+ * A working period filter on a chart panel. It reflects the dashboard's current
+ * range and changes it when picked, so the "This Month"-style label is no longer
+ * a dead control. Falls back to a static pill when no handler is wired.
+ */
+function RangePill({ preset, onChange }: { preset?: RangePreset; onChange?: (p: RangePreset) => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return undefined;
+    const onDown = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey); };
+  }, [open]);
+
+  if (!preset || !onChange) return <SelectPill label="This Month" />;
+  const label = RANGE_OPTIONS.find((o) => o.id === preset)?.label ?? 'Custom';
+
+  return (
+    <div ref={ref} className="relative">
+      <button type="button" onClick={() => setOpen((o) => !o)} aria-haspopup="listbox" aria-expanded={open}
+        className="flex h-8 items-center gap-1.5 rounded-[8px] border border-[#E2E6F0] bg-white px-2.5 text-xs font-semibold text-[#475569] transition-colors hover:bg-[#F6F7FB]">
+        {label}
+        <ChevronDown className={cn('h-3.5 w-3.5 text-[#94A3B8] transition-transform', open && 'rotate-180')} />
+      </button>
+      {open && (
+        <div role="listbox" className="absolute right-0 top-[calc(100%+6px)] z-30 w-40 overflow-hidden rounded-[10px] border border-[#ECEEF4] bg-white py-1 shadow-[0_12px_32px_-12px_rgba(16,24,40,.28)]">
+          {RANGE_OPTIONS.map((o) => (
+            <button key={o.id} type="button" role="option" aria-selected={o.id === preset}
+              onClick={() => { onChange(o.id); setOpen(false); }}
+              className={cn('flex w-full items-center gap-2 px-3 py-2 text-left text-xs transition-colors hover:bg-[#F7F8FC]',
+                o.id === preset ? 'font-bold text-[#3B4FE0]' : 'font-medium text-[#334155]')}>
+              <span className="grid h-3.5 w-3.5 place-items-center">{o.id === preset && <Check className="h-3 w-3 text-[#3B4FE0]" />}</span>
+              {o.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 const AXIS = '#64748B';
 const GRID = '#EEF1F6';
@@ -102,12 +157,12 @@ export interface Slice { label: string; value: number; color: string }
 export interface TrendPoint { label: string; new: number; returning: number }
 export interface Reason { label: string; value: number }
 
-export function PatientDemographics({ data }: { data: Slice[] }) {
+export function PatientDemographics({ data, preset, onPreset }: { data: Slice[]; preset?: RangePreset; onPreset?: (p: RangePreset) => void }) {
   const DEMOGRAPHICS = data;
   const DEMOGRAPHICS_TOTAL = data.reduce((t, d) => t + d.value, 0);
   return (
     <Panel className="flex flex-col">
-      <PanelHead icon={Users} title="Patient Demographics" info right={<SelectPill label="This Month" />} />
+      <PanelHead icon={Users} title="Patient Demographics" info right={<RangePill preset={preset} onChange={onPreset} />} />
 
       <div className="flex flex-1 flex-wrap items-center gap-5 px-5 py-4 sm:flex-nowrap">
         <Donut
@@ -132,7 +187,7 @@ export function PatientDemographics({ data }: { data: Slice[] }) {
         <p className="min-w-0 flex-1 truncate text-xs font-medium text-[#64748B]">
           Most patients in: <span className="font-bold text-[#0F172A]">1 – 5 years</span>
         </p>
-        <LinkArrow to="/doctor/patients" label="View full report" />
+        <LinkArrow to="/doctor/reports" label="View full report" />
       </div>
 
       <ChartData
@@ -148,7 +203,7 @@ export function PatientDemographics({ data }: { data: Slice[] }) {
 
 const TREND_TICKS = ['1 May', '8 May', '15 May', '22 May', '31 May'];
 
-export function NewVsReturning({ data }: { data: TrendPoint[] }) {
+export function NewVsReturning({ data, preset, onPreset }: { data: TrendPoint[]; preset?: RangePreset; onPreset?: (p: RangePreset) => void }) {
   const VISIT_TREND = data;
   const TOTAL_NEW = data.reduce((t, d) => t + d.new, 0);
   const TOTAL_RETURNING = data.reduce((t, d) => t + d.returning, 0);
@@ -157,7 +212,7 @@ export function NewVsReturning({ data }: { data: TrendPoint[] }) {
     : 0;
   return (
     <Panel className="flex flex-col">
-      <PanelHead icon={TrendingUp} title="New vs Returning Patients" iconColor="#3B4FE0" solid info right={<SelectPill label="This Month" />} />
+      <PanelHead icon={TrendingUp} title="New vs Returning Patients" iconColor="#3B4FE0" solid info right={<RangePill preset={preset} onChange={onPreset} />} />
 
       {/* Returning is listed first because it is the upper series. */}
       <div className="flex items-center gap-5 px-5 pt-3">
@@ -235,7 +290,7 @@ export function NewVsReturning({ data }: { data: TrendPoint[] }) {
             Total New: <span className="font-bold tabular-nums text-[#3B4FE0]">{TOTAL_NEW.toLocaleString('en-IN')}</span>
           </p>
           <span className="ml-auto">
-            <LinkArrow to="/doctor/patients" label="View analytics" />
+            <LinkArrow to="/doctor/reports" label="View analytics" />
           </span>
         </div>
         <p className="mt-1 text-[11px] font-medium text-[#64748B]">
@@ -315,7 +370,7 @@ export function TopVisitReasons({ data }: { data: Reason[] }) {
       <div className="mt-auto flex items-center px-5 pb-4">
         <p className="text-[11px] font-medium text-[#64748B]">of {TOTAL_VISITS.toLocaleString('en-IN')} visits this month</p>
         <span className="ml-auto">
-          <LinkArrow to="/doctor/patients" label="View full report" />
+          <LinkArrow to="/doctor/reports" label="View full report" />
         </span>
       </div>
 
