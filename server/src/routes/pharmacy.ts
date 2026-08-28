@@ -432,9 +432,11 @@ router.post('/distributors', auditAccess('pharmacy'), async (req, res) => {
   const body = z.object({
     name: z.string().trim().min(2).max(120),
     contactPerson: z.string().trim().max(120).optional().or(z.literal('')),
-    phone: z.string().trim().min(1, 'Phone number is required').max(24),
+    // Phone: 10-digit Indian mobile (ignoring any spacing the client sent).
+    phone: z.string().trim().transform((s) => s.replace(/\D/g, '')).pipe(z.string().regex(/^[6-9]\d{9}$/, 'Enter a valid 10-digit mobile number')),
     email: z.string().trim().email().max(160).optional().or(z.literal('')),
-    gstin: z.string().trim().min(1, 'GST number is required').max(20),
+    // GSTIN: 15-char statutory format; stored uppercase.
+    gstin: z.string().trim().toUpperCase().pipe(z.string().regex(/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/, 'Enter a valid 15-character GSTIN')),
     addressLine: z.string().trim().min(1, 'Address is required').max(240),
   }).parse(req.body);
   const d = await Distributor.create({
