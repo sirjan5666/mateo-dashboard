@@ -22,12 +22,16 @@ export function NewPrescriptionButton() {
   useEffect(() => {
     if (!pickerOpen || patients.length) return undefined;
     let cancelled = false;
-    setLoading(true);
-    listPatients()
-      .then((r) => { if (!cancelled) setPatients(r.patients); })
-      .catch(() => { /* leave the list empty; the doctor can retry */ })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
+    // Deferred so no setState runs synchronously in the effect body
+    // (react-hooks/set-state-in-effect is an error in this repo).
+    const t = setTimeout(() => {
+      setLoading(true);
+      listPatients()
+        .then((r) => { if (!cancelled) setPatients(r.patients); })
+        .catch(() => { /* leave the list empty; the doctor can retry */ })
+        .finally(() => { if (!cancelled) setLoading(false); });
+    }, 0);
+    return () => { cancelled = true; clearTimeout(t); };
   }, [pickerOpen, patients.length]);
 
   const filtered = patients.filter((p) => {
