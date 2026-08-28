@@ -67,6 +67,78 @@ export async function recordAudit(req: Request, input: AuditInput): Promise<void
   });
 }
 
+/** Best-effort coarse category for a dotted business action, for the enum column. */
+function coarseFromKey(key: string): AuditAction {
+  const k = key.toLowerCase();
+  if (/(^|\.)(login|logout|signin|impersonate)/.test(k)) return 'login';
+  if (/consent/.test(k) && /revoke/.test(k)) return 'consent_revoke';
+  if (/consent/.test(k) && /grant/.test(k)) return 'consent_grant';
+  if (/(export|download)/.test(k)) return 'export';
+  if (/\.(deleted|delete|remove|removed|cancel|cancelled|canceled|disable|disabled)$/.test(k)) return 'delete';
+  if (/\.(created|create|add|added|issue|issued|register|registered|book|booked|upload|uploaded)$/.test(k)) return 'create';
+  return 'update';
+}
+
+const toOid = (v: Types.ObjectId | string | undefined): Types.ObjectId | undefined =>
+  v == null ? undefined : (typeof v === 'string' ? (isValidObjectId(v) ? new Types.ObjectId(v) : undefined) : v);
+
+export interface LogActionInput {
+  /** Dotted business action, e.g. 'invoice.paid', 'auth.impersonate.start'. */
+  action: string;
+  /** One-line human summary. MUST be PHI-free (no patient names/values). */
+  description: string;
+  target?: {
+    /** Patient whose clinical data was touched (name resolved at read, never snapshotted). */
+    patient?: Types.ObjectId | string;
+    /** A non-patient user account affected (staff / parent). FK only. */
+    user?: Types.ObjectId | string;
+    /** The main affected record. `humanId` is snapshotted (invoice no, order no, patient CODE). */
+    entity?: { type: string; id?: Types.ObjectId | string; humanId?: string | number };
+  };
+  /** Free-form, PHI-free (amount, quantity, status, filename…). */
+  meta?: Record<string, unknown>;
+  outcome?: 'allow' | 'deny';
+  /** Tenant override; defaults to the actor's own id. */
+  doctorUserId?: Types.ObjectId | string;
+}
+
+/**
+ * Business-action audit logger — "who did what, when, on whose data".
+ *
+ * FIRE-AND-FORGET and NEVER THROWS: the write is not awaited and any failure is
+ * only console-logged, so a broken audit write can never break the action that
+ * triggered it. Do NOT `await` this. Actor context (id, name snapshot, role,
+ * impersonator) is derived from `req`; the caller supplies the action, a PHI-free
+ * description, the target, and meta.
+ */
+export function logAction(req: Request, input: LogActionInput): void {
+  try {
+    const entity = input.target?.entity;
+    void AuditLog.create({
+      actorUserId: req.userId,
+      actorName: req.authUser?.name, // SNAPSHOT — business identity, PHI-safe
+      actorRole: req.userRole,
+      impersonatorUserId: req.impersonatorId,
+      action: coarseFromKey(input.action),
+      actionKey: input.action,
+      description: input.description,
+      resourceType: entity?.type ?? 'action',
+      resourceId: toOid(entity?.id),
+      targetEntityId: entity?.humanId != null ? String(entity.humanId) : undefined,
+      doctorUserId: toOid(input.doctorUserId) ?? req.userId,
+      patientId: toOid(input.target?.patient),
+      targetUserId: toOid(input.target?.user),
+      meta: input.meta,
+      ip: req.ip,
+      userAgent: req.get('user-agent'),
+      requestId: req.get('x-request-id'),
+      outcome: input.outcome ?? 'allow',
+    }).catch((err) => console.error('[audit] logAction write failed', input.action, err));
+  } catch (err) {
+    console.error('[audit] logAction threw', err);
+  }
+}
+
 /**
  * Middleware that records a PHI access once the response is sent. Captures reads
  * and access-denied (401/403) outcomes centrally. Read-side auditing is
