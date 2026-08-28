@@ -97,6 +97,8 @@ router.get('/labs/orders', async (req, res) => {
       orderedAt: o.orderedAt.toISOString(),
       sampleCollectedAt: o.sampleCollectedAt?.toISOString() ?? null,
       completedAt: o.completedAt?.toISOString() ?? null,
+      amount: o.amount ?? 0,
+      amountPaid: o.amountPaid ?? 0,
       hasReport: !!o.reportFile,
       reportUploadedAt: o.reportUploadedAt?.toISOString() ?? null,
     })),
@@ -108,6 +110,7 @@ const createOrderSchema = z.object({
   tests: z.array(z.string().min(1)).min(1).max(40),
   priority: z.enum(['routine', 'urgent']).optional(),
   notes: z.string().max(2000).optional(),
+  amount: z.number().min(0).max(10_000_000).optional(),
 });
 
 router.post('/labs/orders', async (req, res) => {
@@ -124,6 +127,7 @@ router.post('/labs/orders', async (req, res) => {
     tests: body.tests,
     priority: body.priority ?? 'routine',
     notes: body.notes,
+    amount: body.amount ?? 0,
     orderedAt: new Date(),
   });
 
@@ -190,6 +194,19 @@ router.post('/labs/orders/:id/results', async (req, res) => {
   await order.save();
 
   res.json({ results: order.results, status: order.status });
+});
+
+// ── Billing: record a payment against a lab order ──
+const paymentSchema = z.object({ amountPaid: z.number().min(0).max(10_000_000) });
+router.patch('/labs/orders/:id/payment', async (req, res) => {
+  const id = String(req.params.id);
+  if (!Types.ObjectId.isValid(id)) return res.status(400).json({ error: 'Invalid id' });
+  const { amountPaid } = paymentSchema.parse(req.body);
+  const order = await LabOrder.findOne({ _id: id, doctorUserId: req.userId });
+  if (!order) return res.status(404).json({ error: 'Order not found' });
+  order.amountPaid = order.amount > 0 ? Math.min(amountPaid, order.amount) : amountPaid;
+  await order.save();
+  return res.json({ amount: order.amount, amountPaid: order.amountPaid });
 });
 
 // ── Lab report file (upload once the test is done; served back inline) ──
