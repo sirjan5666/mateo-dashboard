@@ -31,10 +31,21 @@ export interface AdminDoctor {
   bio: string;
   consultationFee: number;
   languages: string[];
+  clinicId: string | null;
   clinicName: string | null;
   city: string | null;
   availability: DoctorAvailability;
   status: string;
+  createdAt: string;
+}
+
+export interface AdminClinic {
+  id: string;
+  name: string;
+  address: string | null;
+  phone: string | null;
+  city: string | null;
+  doctorCount: number;
   createdAt: string;
 }
 
@@ -56,6 +67,7 @@ export interface DoctorCreateInput {
   bio?: string;
   consultationFee: number;
   languages?: string[];
+  clinicId?: string | null;
   clinicName?: string;
   city?: string;
   availability?: DoctorAvailability;
@@ -82,6 +94,14 @@ export function updateParent(userId: string, input: { name?: string; email?: str
 
 export function listAdminDoctors() {
   return api<{ doctors: AdminDoctor[] }>('/admin/doctors');
+}
+
+export function listClinics() {
+  return api<{ clinics: AdminClinic[] }>('/admin/clinics');
+}
+
+export function createClinic(input: { name: string; address?: string; phone?: string; city?: string }) {
+  return api<{ clinic: AdminClinic }>('/admin/clinics', { method: 'POST', body: JSON.stringify(input) });
 }
 
 export function createDoctor(input: DoctorCreateInput) {

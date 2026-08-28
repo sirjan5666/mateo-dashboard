@@ -98,6 +98,10 @@ export interface IDoctorProfile {
   bio: string;
   consultationFee: number; // whole INR
   languages: string[];
+  // The clinic (org) this doctor belongs to, when grouped under a multi-doctor
+  // clinic. Optional — a standalone doctor has none. clinicName is kept in sync
+  // for display/prescriptions so nothing has to join to render the clinic name.
+  clinicId?: Types.ObjectId;
   clinicName?: string;
   clinicAddress?: string;
   city?: string;
@@ -181,6 +185,7 @@ const doctorProfileSchema = new Schema<IDoctorProfile>(
     bio: { type: String, default: '', trim: true },
     consultationFee: { type: Number, required: true, min: 0, max: 100000 },
     languages: { type: [String], default: [] },
+    clinicId: { type: Schema.Types.ObjectId, ref: 'Clinic', index: true },
     clinicName: { type: String, trim: true },
     clinicAddress: { type: String, trim: true },
     city: { type: String, trim: true },
