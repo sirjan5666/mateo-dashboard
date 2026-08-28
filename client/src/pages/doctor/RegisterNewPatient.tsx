@@ -450,8 +450,34 @@ export default function RegisterNewPatient({ book = false }: { book?: boolean })
 
       {/* Columns */}
       <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-2 xl:grid-cols-3">
-        {/* ── Column 1 ── */}
+        {/* ── Column 1 ── Guardian/Parent first, then the baby's details (spec #9) */}
         <div className="flex flex-col gap-5">
+          <section className={CARD}>
+            <h2 className={TITLE}>Primary Guardian / Parent</h2>
+            <div className="mt-[18px] grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
+              <div>
+                <Label htmlFor="guardianName" required>Name</Label>
+                <input id="guardianName" value={f.guardianName} onChange={(e) => set('guardianName', e.target.value)} placeholder="Enter guardian name" aria-required="true" aria-invalid={errors.guardianName ? true : undefined} className={cn(INPUT, errors.guardianName && INPUT_ERR)} />
+                <FieldError id="guardianName-error" message={errors.guardianName} />
+              </div>
+              <div>
+                <Label htmlFor="guardianRelationship" required>Relationship</Label>
+                <Select id="guardianRelationship" value={f.guardianRelationship} onChange={(v) => set('guardianRelationship', v)} placeholder="Select relationship" options={RELATIONSHIPS} error={!!errors.guardianRelationship} />
+                <FieldError id="guardianRelationship-error" message={errors.guardianRelationship} />
+              </div>
+              <div>
+                <Label htmlFor="guardianPhone" required>Phone Number</Label>
+                <PhoneNumberInput id="guardianPhone" value={f.guardianPhone} onChange={(v) => set('guardianPhone', v)} error={!!errors.guardianPhone} describedBy="guardianPhone-error" />
+                <FieldError id="guardianPhone-error" message={errors.guardianPhone} />
+              </div>
+              <div>
+                <Label htmlFor="guardianEmail">Email</Label>
+                <input id="guardianEmail" type="email" value={f.guardianEmail} onChange={(e) => set('guardianEmail', e.target.value)} placeholder="Enter email address" className={cn(INPUT, errors.guardianEmail && INPUT_ERR)} />
+                <FieldError id="guardianEmail-error" message={errors.guardianEmail} />
+              </div>
+            </div>
+            <Checkbox id="sameAsPermanent" checked={f.sameAsPermanent} onChange={(v) => set('sameAsPermanent', v)}>Same as permanent address</Checkbox>
+          </section>
           <section className={CARD}>
             <h2 className={TITLE}>Patient Information</h2>
             <div className="mt-[18px] grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
@@ -532,33 +558,6 @@ export default function RegisterNewPatient({ book = false }: { book?: boolean })
               )}
             </div>
           </section>
-
-          <section className={CARD}>
-            <h2 className={TITLE}>Primary Guardian / Parent</h2>
-            <div className="mt-[18px] grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
-              <div>
-                <Label htmlFor="guardianName" required>Name</Label>
-                <input id="guardianName" value={f.guardianName} onChange={(e) => set('guardianName', e.target.value)} placeholder="Enter guardian name" aria-required="true" aria-invalid={errors.guardianName ? true : undefined} className={cn(INPUT, errors.guardianName && INPUT_ERR)} />
-                <FieldError id="guardianName-error" message={errors.guardianName} />
-              </div>
-              <div>
-                <Label htmlFor="guardianRelationship" required>Relationship</Label>
-                <Select id="guardianRelationship" value={f.guardianRelationship} onChange={(v) => set('guardianRelationship', v)} placeholder="Select relationship" options={RELATIONSHIPS} error={!!errors.guardianRelationship} />
-                <FieldError id="guardianRelationship-error" message={errors.guardianRelationship} />
-              </div>
-              <div>
-                <Label htmlFor="guardianPhone" required>Phone Number</Label>
-                <PhoneNumberInput value={f.guardianPhone} onChange={(v) => set('guardianPhone', v)} error={!!errors.guardianPhone} />
-                <FieldError id="guardianPhone-error" message={errors.guardianPhone} />
-              </div>
-              <div>
-                <Label htmlFor="guardianEmail">Email</Label>
-                <input id="guardianEmail" type="email" value={f.guardianEmail} onChange={(e) => set('guardianEmail', e.target.value)} placeholder="Enter email address" className={cn(INPUT, errors.guardianEmail && INPUT_ERR)} />
-                <FieldError id="guardianEmail-error" message={errors.guardianEmail} />
-              </div>
-            </div>
-            <Checkbox id="sameAsPermanent" checked={f.sameAsPermanent} onChange={(v) => set('sameAsPermanent', v)}>Same as permanent address</Checkbox>
-          </section>
         </div>
 
         {/* ── Column 2 ── */}
@@ -569,7 +568,7 @@ export default function RegisterNewPatient({ book = false }: { book?: boolean })
               <div className="sm:col-span-2">
                 <Label htmlFor="phone" required>Phone Number</Label>
                 <div className="flex items-center gap-2">
-                  <div className="min-w-0 flex-1"><PhoneNumberInput value={f.phone} onChange={(v) => set('phone', v)} error={!!errors.phone} /></div>
+                  <div className="min-w-0 flex-1"><PhoneNumberInput id="phone" value={f.phone} onChange={(v) => set('phone', v)} error={!!errors.phone} /></div>
                   <button
                     type="button" aria-label="Same number is on WhatsApp" aria-pressed={f.whatsapp} onClick={() => set('whatsapp', !f.whatsapp)}
                     className={cn('grid h-[38px] w-[38px] shrink-0 place-items-center rounded-[9px] transition-colors', f.whatsapp ? 'bg-[#25D366]' : 'bg-[#DCF7E6]')}
@@ -595,15 +594,16 @@ export default function RegisterNewPatient({ book = false }: { book?: boolean })
                 <Label htmlFor="address2">Address Line 2</Label>
                 <input id="address2" value={f.address2} onChange={(e) => set('address2', e.target.value)} placeholder="Area / Locality (Optional)" className={INPUT} />
               </div>
-              <div>
-                <Label htmlFor="city" required>City</Label>
-                <Select id="city" value={f.city} onChange={(v) => set('city', v)} placeholder="Select city" options={cities} error={!!errors.city} />
-                <FieldError id="city-error" message={errors.city} />
-              </div>
+              {/* State first, then City filtered by the chosen state (spec #8). */}
               <div>
                 <Label htmlFor="state" required>State</Label>
                 <Select id="state" value={f.state} onChange={(v) => { set('state', v); set('city', ''); }} placeholder="Select state" options={STATES.map((s) => s.name)} error={!!errors.state} />
                 <FieldError id="state-error" message={errors.state} />
+              </div>
+              <div>
+                <Label htmlFor="city" required>City</Label>
+                <Select id="city" value={f.city} onChange={(v) => set('city', v)} placeholder={f.state ? 'Select city' : 'Select state first'} options={cities} error={!!errors.city} />
+                <FieldError id="city-error" message={errors.city} />
               </div>
               <div>
                 <Label htmlFor="pincode" required>Pincode</Label>
@@ -628,7 +628,7 @@ export default function RegisterNewPatient({ book = false }: { book?: boolean })
               </div>
               <div className="sm:col-span-2">
                 <Label htmlFor="emergencyPhone" required>Phone Number</Label>
-                <PhoneNumberInput value={f.emergencyPhone} onChange={(v) => set('emergencyPhone', v)} error={!!errors.emergencyPhone} />
+                <PhoneNumberInput id="emergencyPhone" value={f.emergencyPhone} onChange={(v) => set('emergencyPhone', v)} error={!!errors.emergencyPhone} describedBy="emergencyPhone-error" />
                 <FieldError id="emergencyPhone-error" message={errors.emergencyPhone} />
               </div>
             </div>

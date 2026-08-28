@@ -32,11 +32,14 @@ export function FieldError({ id, message }: { id: string; message?: string }) {
 
 /** Country code + masked national number in one bordered control. */
 export function PhoneNumberInput({
+  id = 'phone',
   value,
   onChange,
   error,
   describedBy,
 }: {
+  /** Unique per instance — a page has several phone fields, so ids must not collide. */
+  id?: string;
   value: string;
   onChange: (v: string) => void;
   error?: boolean;
@@ -75,7 +78,7 @@ export function PhoneNumberInput({
       </button>
 
       <input
-        id="phone"
+        id={id}
         type="tel"
         inputMode="numeric"
         value={value}
