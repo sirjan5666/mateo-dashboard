@@ -1,6 +1,7 @@
 import { Printer } from 'lucide-react';
 import type { Prescription } from '../api/prescriptions';
 import { formatAge, formatDateIST } from '../lib/age';
+import { specialtyDisplayLabel } from '../data/specialtyDashboard';
 
 function esc(s: string): string {
   return s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c] ?? c);
@@ -38,7 +39,7 @@ function buildHtml(rx: Prescription): string {
   <div class="top">
     <div class="doc">
       <h1>Dr. ${esc(rx.doctor.name)}</h1>
-      <div class="q">${esc([rx.doctor.qualifications, rx.doctor.specialization].filter(Boolean).join(' · '))}</div>
+      <div class="q">${esc([rx.doctor.qualifications, specialtyDisplayLabel(rx.doctor.specialization)].filter(Boolean).join(' · '))}</div>
       ${rx.doctor.registrationNo ? `<div class="q">Reg. No: ${esc(rx.doctor.registrationNo)}</div>` : ''}
       ${rx.doctor.clinicName ? `<div class="q">${esc(rx.doctor.clinicName)}</div>` : ''}
     </div>
@@ -70,7 +71,7 @@ export function PrescriptionCard({ rx }: { rx: Prescription }) {
       <div className="flex items-start justify-between gap-3 border-b border-stone-100 pb-3">
         <div>
           <p className="font-bold text-stone-900">Dr. {rx.doctor.name}</p>
-          <p className="text-xs text-stone-500">{[rx.doctor.qualifications, rx.doctor.specialization].filter(Boolean).join(' · ')}</p>
+          <p className="text-xs text-stone-500">{[rx.doctor.qualifications, specialtyDisplayLabel(rx.doctor.specialization)].filter(Boolean).join(' · ')}</p>
           {rx.doctor.registrationNo && <p className="text-xs text-stone-400">Reg. No: {rx.doctor.registrationNo}</p>}
         </div>
         <button

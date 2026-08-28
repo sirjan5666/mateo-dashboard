@@ -11,7 +11,7 @@ import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Skeleton } from '../../components/ui/Skeleton';
 import { inputCls } from '../../components/ui/field';
-import { SPECIALTY_OPTIONS } from '../../data/specialtyDashboard';
+import { SPECIALTY_OPTIONS, specialtyDisplayLabel } from '../../data/specialtyDashboard';
 import { cn } from '../../lib/cn';
 import { CredentialsPanel } from '../../components/admin/CredentialsPanel';
 
@@ -403,7 +403,7 @@ export default function AdminDoctors() {
                   <td className="px-5 py-3 text-stone-600">
                     <span className="block max-w-[460px] truncate" title={d.email ?? ''}>{d.email}</span>
                   </td>
-                  <td className="px-5 py-3 text-stone-600">{d.specialization}</td>
+                  <td className="px-5 py-3 text-stone-600">{specialtyDisplayLabel(d.specialization)}</td>
                   <td className="px-5 py-3 text-stone-600">{d.clinicName ?? <span className="text-stone-400">Independent</span>}</td>
                   <td className="px-5 py-3 text-stone-600">₹{d.consultationFee}</td>
                   <td className="px-5 py-3">

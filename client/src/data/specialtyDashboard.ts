@@ -108,6 +108,35 @@ export function getSpecialtyConfig(specialization?: string | null): SpecialtyCon
   return SPECIALTY_CONFIGS[key] ?? SPECIALTY_CONFIGS[ALIASES[key]] ?? DEFAULT_CONFIG;
 }
 
+// The professional/designation label to DISPLAY for a stored specialization,
+// wherever a parent (or admin) sees a doctor's speciality. Legacy/spelling
+// variants normalise to the designation ("Gynaecology" → "Gynaecologist",
+// "Pediatrics" → "Paediatrician"); anything we don't recognise is shown as-is
+// (trimmed) — never coerced to the paediatric default, or a "Dermatologist"
+// would read as "Paediatrician". This is deliberately different from
+// getSpecialtyConfig(), which falls back to the paediatric module set.
+const DISPLAY_LABELS: Record<string, string> = {
+  paediatrician: 'Paediatrician',
+  pediatrician: 'Paediatrician',
+  paediatrics: 'Paediatrician',
+  pediatrics: 'Paediatrician',
+  neonatologist: 'Neonatologist',
+  neonatology: 'Neonatologist',
+  gynaecologist: 'Gynaecologist',
+  gynaecology: 'Gynaecologist',
+  gynecologist: 'Gynaecologist',
+  gynecology: 'Gynaecologist',
+  physician: 'Physician',
+  'general physician': 'Physician',
+  'general medicine': 'Physician',
+};
+
+export function specialtyDisplayLabel(specialization?: string | null): string {
+  const raw = (specialization ?? '').trim();
+  if (!raw) return '';
+  return DISPLAY_LABELS[raw.toLowerCase()] ?? raw;
+}
+
 /**
  * Maps a doctor's speciality to the `specialization` key of the global
  * SpecialtyTemplate that should drive their patient records. Paediatrician →

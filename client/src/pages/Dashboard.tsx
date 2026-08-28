@@ -32,6 +32,7 @@ import type { LucideIcon } from 'lucide-react';
 import { useAuth } from '../auth/context';
 import { useT } from '../i18n/context';
 import { useSubscribed } from '../lib/subscription';
+import { getActiveBabyId, rememberActiveBaby } from '../lib/activeBaby';
 import { LockedOverlay } from '../components/subscription/bits';
 import { BabyJourneyCard } from '../components/journey/BabyJourneyCard';
 import { getOverview } from '../api/overview';
@@ -346,7 +347,7 @@ export default function Dashboard() {
       .then((d) => {
         if (cancelled) return;
         setData(d);
-        const saved = localStorage.getItem('mateo:activeBaby');
+        const saved = getActiveBabyId();
         setActiveBabyId(d.babies.find((b) => b.id === saved)?.id ?? d.babies[0]?.id ?? null);
       })
       .catch((err: unknown) => {
@@ -388,7 +389,8 @@ export default function Dashboard() {
   // Switching babies clears the old snapshots (skeletons) and remembers the choice.
   function selectBaby(id: string) {
     if (id === activeBabyId) return;
-    localStorage.setItem('mateo:activeBaby', id);
+    rememberActiveBaby(id); // persists + re-points the Sidebar's tracker links
+
     setGrowth(null);
     setSkin(null);
     setFood(null);

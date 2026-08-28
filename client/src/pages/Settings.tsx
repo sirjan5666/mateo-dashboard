@@ -321,7 +321,7 @@ export default function Settings() {
           <Phone className="h-4 w-4 text-stone-500" />
           <h2 className="font-bold text-stone-800">Emergency contacts</h2>
         </div>
-        <p className="mt-1 text-sm text-stone-500">Pediatrician, nearest hospital, family — one tap to call when it matters.</p>
+        <p className="mt-1 text-sm text-stone-500">Paediatrician, nearest hospital, family — one tap to call when it matters.</p>
 
         <div className="mt-3">
           {contacts === null ? (
@@ -358,7 +358,7 @@ export default function Settings() {
           </label>
           <label className="flex w-28 flex-col text-xs font-medium text-stone-600">
             Relation
-            <input type="text" maxLength={60} placeholder="Pediatrician" value={cRelation} onChange={(e) => setCRelation(e.target.value)} className={cn(inputCls, 'mt-1')} />
+            <input type="text" maxLength={60} placeholder="Paediatrician" value={cRelation} onChange={(e) => setCRelation(e.target.value)} className={cn(inputCls, 'mt-1')} />
           </label>
           <label className="flex w-40 flex-col text-xs font-medium text-stone-600">
             Phone
