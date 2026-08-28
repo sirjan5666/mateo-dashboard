@@ -37,6 +37,7 @@ import {
 import { PrescriptionDocument } from '../models/PrescriptionDocument.js';
 import { ClinicLocation } from '../models/ClinicLocation.js';
 import { StaffMember } from '../models/StaffMember.js';
+import { StaffAttendance } from '../models/StaffAttendance.js';
 import { StaffSession } from '../models/StaffSession.js';
 import { StaffLoginEvent } from '../models/StaffLoginEvent.js';
 import { StaffToken } from '../models/StaffToken.js';
@@ -131,6 +132,7 @@ export async function eraseUserData(userId: string): Promise<void> {
     StaffSession.deleteMany({ doctorUserId: userId }),
     StaffToken.deleteMany({ doctorUserId: userId }),
     StaffLoginEvent.deleteMany({ doctorUserId: userId }),
+    StaffAttendance.deleteMany({ doctorUserId: userId }),
     StaffRole.deleteMany({ doctorUserId: userId }),
     Distributor.deleteMany({ doctorUserId: userId }),
     Medicine.deleteMany({ doctorUserId: userId }),
