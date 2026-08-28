@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { Types } from 'mongoose';
 import { guardRoutes } from '../middleware/permissions.js';
 import { uploadDocument, uploadsDir } from '../middleware/upload.js';
+import { logAction } from '../middleware/audit.js';
 import { LAB_ANALYTES, LAB_DATA_STATUS, flagValue, labById } from '../labs/reference.js';
 import { searchLabTests } from '../labs/testCatalog.js';
 import { LabOrder, LAB_ORDER_STATUSES } from '../models/LabOrder.js';
@@ -206,6 +207,12 @@ router.patch('/labs/orders/:id/payment', async (req, res) => {
   if (!order) return res.status(404).json({ error: 'Order not found' });
   order.amountPaid = order.amount > 0 ? Math.min(amountPaid, order.amount) : amountPaid;
   await order.save();
+  logAction(req, {
+    action: 'laborder.paid',
+    description: `Recorded lab payment for order ${order.orderNumber}`,
+    target: { patient: order.patientId, entity: { type: 'laborder', id: order._id, humanId: order.orderNumber } },
+    meta: { amount: order.amount, amountPaid: order.amountPaid },
+  });
   return res.json({ amount: order.amount, amountPaid: order.amountPaid });
 });
 
@@ -222,6 +229,12 @@ router.post('/labs/orders/:id/report', uploadDocument, async (req, res) => {
   order.reportFile = file.filename;
   order.reportUploadedAt = new Date();
   await order.save();
+  logAction(req, {
+    action: 'laborder.report_uploaded',
+    description: `Uploaded lab report for order ${order.orderNumber}`,
+    target: { patient: order.patientId, entity: { type: 'laborder', id: order._id, humanId: order.orderNumber } },
+    meta: { mimetype: file.mimetype, sizeBytes: file.size },
+  });
   return res.status(201).json({ hasReport: true, reportUploadedAt: order.reportUploadedAt.toISOString() });
 });
 

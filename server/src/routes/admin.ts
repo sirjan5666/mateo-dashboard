@@ -19,6 +19,7 @@ import { Appointment } from '../models/Appointment.js';
 import { ChatSession } from '../models/ChatSession.js';
 import { ChatMessage } from '../models/ChatMessage.js';
 import { requireAuth, requireRole, setAuthCookie } from '../middleware/auth.js';
+import { logAction } from '../middleware/audit.js';
 import { generatePassword } from '../lib/password.js';
 import { eraseUserData } from '../lib/eraseUser.js';
 import { REWARD_PER_REFERRAL } from '../lib/referral.js';
@@ -136,6 +137,12 @@ router.post('/parents', async (req, res) => {
       dedupeKey: `earn:refee:${user.id}`,
     }).catch((e) => console.error('sitare referee award failed:', e));
   }
+  logAction(req, {
+    action: 'parent.created',
+    description: `Created parent account: ${user.name}`,
+    target: { user: user.id },
+    doctorUserId: user.id,
+  });
   res.status(201).json({ user: { id: user.id, name: user.name, email: user.email, role: user.role }, tempPassword });
 });
 
@@ -270,6 +277,13 @@ router.post('/doctors', async (req, res) => {
     availability: body.availability,
     status: 'approved',
   });
+  logAction(req, {
+    action: 'doctor.created',
+    description: `Created doctor account: ${user.name} (${body.specialization})`,
+    target: { user: user.id, entity: { type: 'doctor', id: user._id } },
+    doctorUserId: user.id,
+    meta: { specialization: body.specialization, clinicId: clinic.clinicId?.toString() },
+  });
   res.status(201).json({ user: { id: user.id, name: user.name, email: user.email, role: user.role }, tempPassword });
 });
 
@@ -394,6 +408,13 @@ router.post('/impersonate/:userId', async (req, res) => {
     return;
   }
   setAuthCookie(res, target.id, req.userId);
+  logAction(req, {
+    action: 'auth.impersonate.start',
+    description: `Started acting as ${target.name}`,
+    target: { user: target.id },
+    doctorUserId: target.id, // surfaces in the impersonated account's own trail
+    meta: { targetRole: target.role },
+  });
   res.json({ user: { id: target.id, name: target.name, email: target.email, role: target.role, impersonating: true } });
 });
 
@@ -409,7 +430,15 @@ router.delete('/users/:userId', async (req, res) => {
     res.status(400).json({ error: 'Cannot delete an admin account' });
     return;
   }
+  const erased = { id: target.id, name: target.name, role: target.role };
   await eraseUserData(target.id);
+  logAction(req, {
+    action: 'account.deleted',
+    description: `Deleted ${erased.role} account: ${erased.name}`,
+    target: { user: erased.id },
+    doctorUserId: erased.id,
+    meta: { role: erased.role },
+  });
   res.json({ ok: true });
 });
 

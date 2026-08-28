@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { isValidObjectId } from 'mongoose';
 import { guardRoutes } from '../middleware/permissions.js';
 import { scopeToDoctor } from '../middleware/loadOwnedPatient.js';
+import { logAction } from '../middleware/audit.js';
 import { StaffMember } from '../models/StaffMember.js';
 import { StaffAttendance, ATTENDANCE_STATUSES } from '../models/StaffAttendance.js';
 import { istDateString } from '../lib/ist.js';
@@ -60,6 +61,12 @@ router.put('/attendance', async (req, res) => {
     { $set: { status: body.status, checkIn: body.checkIn || undefined, checkOut: body.checkOut || undefined, note: body.note || undefined } },
     { upsert: true, new: true, setDefaultsOnInsert: true },
   );
+  logAction(req, {
+    action: 'attendance.marked',
+    description: `Marked ${member.name} ${body.status.replace('_', ' ')} on ${body.date}`,
+    target: { user: body.staffId, entity: { type: 'attendance', humanId: body.date } },
+    meta: { status: body.status },
+  });
   return res.json({
     staffId: body.staffId,
     date: mark.date,
