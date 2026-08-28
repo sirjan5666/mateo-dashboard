@@ -27,6 +27,7 @@ import {
   Settings,
   ShieldPlus,
   ShoppingCart,
+  UserRound,
   Users,
   X,
 } from 'lucide-react';
@@ -304,14 +305,14 @@ function SidebarNav({
       style={{ background: 'linear-gradient(180deg, #0A1B4D 0%, #12309A 55%, #1B49D4 100%)' }}
     >
       {/* Logo */}
-      <div className={cn('flex items-center justify-center', collapsed ? 'px-2 py-4' : 'px-3 py-4')}>
+      <div className={cn('flex items-center justify-center', collapsed ? 'px-2 py-4' : 'px-3 py-5')}>
         {collapsed ? (
-          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-[10px] bg-white p-1">
+          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-[10px] bg-white p-1.5">
             <img src="/mateo-logo.png" alt="MateoCare" className="h-full w-full object-contain" draggable={false} />
           </div>
         ) : (
-          <div className="w-full rounded-[10px] bg-white px-2 py-1.5">
-            <img src="/mateo-logo.png" alt="MateoCare" className="h-9 w-full object-contain" draggable={false} />
+          <div className="flex w-full justify-center rounded-[12px] bg-white px-4 py-3.5 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.3)]">
+            <img src="/mateo-logo.png" alt="MateoCare" className="h-14 w-auto object-contain" draggable={false} />
           </div>
         )}
       </div>
@@ -528,10 +529,79 @@ function NotificationBell() {
   );
 }
 
+/**
+ * Top-right profile menu. Was a dead button; now opens a dropdown with the
+ * account, quick links to Profile & Settings, and Sign out (staff sign-out
+ * routes through the staff session, mirroring the sidebar).
+ */
+function ProfileMenu({ displayName, initials, roleLabel }: { displayName: string; initials: string; roleLabel: string }) {
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
+  const { staff } = useStaffSession();
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onDown = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey); };
+  }, [open]);
+
+  const go = (to: string) => { setOpen(false); navigate(to); };
+  const item = 'flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[13.5px] font-medium text-[#334155] transition-colors hover:bg-[#F7F8FC]';
+
+  return (
+    <div ref={ref} className="relative">
+      <button type="button" onClick={() => setOpen((o) => !o)} aria-haspopup="menu" aria-expanded={open}
+        className="flex items-center gap-2.5 rounded-[10px] py-1 pl-1 pr-2 transition-colors hover:bg-[#F1F3F9]">
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#EEF2FF] text-sm font-bold text-[#3B4FE0] ring-2 ring-white">
+          {initials}
+        </span>
+        <span className="hidden text-left lg:block">
+          <span className="block text-sm font-bold leading-tight text-[#0F172A]">{displayName}</span>
+          <span className="block text-xs font-medium capitalize text-[#3B4FE0]">{roleLabel}</span>
+        </span>
+        <ChevronDown className={cn('hidden h-[18px] w-[18px] text-[#94A3B8] transition-transform lg:block', open && 'rotate-180')} />
+      </button>
+
+      {open && (
+        <div role="menu" className="absolute right-0 top-[calc(100%+8px)] z-50 w-60 overflow-hidden rounded-[14px] border border-[#ECEEF4] bg-white shadow-[0_12px_40px_-12px_rgba(16,24,40,.28)]">
+          <div className="border-b border-[#F1F3F9] px-3.5 py-3">
+            <p className="truncate text-[13.5px] font-bold text-[#0F172A]">{displayName || 'Account'}</p>
+            {user?.email && <p className="truncate text-[12px] text-[#64748B]">{user.email}</p>}
+            <p className="mt-0.5 text-[11px] font-semibold capitalize text-[#3B4FE0]">{roleLabel}</p>
+          </div>
+          <div className="py-1">
+            {!staff && (
+              <button type="button" role="menuitem" onClick={() => go('/doctor/profile')} className={item}>
+                <UserRound className="h-[17px] w-[17px] text-[#64748B]" />My Profile
+              </button>
+            )}
+            <button type="button" role="menuitem" onClick={() => go('/doctor/settings')} className={item}>
+              <Settings className="h-[17px] w-[17px] text-[#64748B]" />Settings
+            </button>
+          </div>
+          <div className="border-t border-[#F1F3F9] py-1">
+            <button type="button" role="menuitem"
+              onClick={() => { setOpen(false); void (staff ? staffLogout().finally(() => window.location.assign('/staff/login')) : logout()); }}
+              className={cn(item, 'text-[#DC2626] hover:bg-[#FEF2F2]')}>
+              <LogOut className="h-[17px] w-[17px]" />Sign out
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function TopBar({ unread, onOpenNav, railCollapsed }: { unread: number; onOpenNav: () => void; railCollapsed: boolean }) {
   const { user } = useAuth();
   const { staff, roleName } = useStaffSession();
   const displayName = staff?.name ?? user?.name ?? '';
+  const roleLabel = staff ? roleName ?? 'Staff' : (user?.specialization || 'Doctor');
   const initials = (displayName || 'Doctor')
     .trim()
     .split(/\s+/)
@@ -573,16 +643,7 @@ function TopBar({ unread, onOpenNav, railCollapsed }: { unread: number; onOpenNa
           <IconButton icon={Mail} badge={unread || undefined} badgeColor="#3B4FE0" label="Messages" />
         </span>
         <span aria-hidden="true" className="hidden h-7 w-px bg-[#E5E8F0] sm:block" />
-        <button type="button" className="flex items-center gap-2.5 rounded-[10px] py-1 pl-1 pr-2 transition-colors hover:bg-[#F1F3F9]">
-          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#EEF2FF] text-sm font-bold text-[#3B4FE0] ring-2 ring-white">
-            {initials}
-          </span>
-          <span className="hidden text-left lg:block">
-            <span className="block text-sm font-bold leading-tight text-[#0F172A]">{displayName}</span>
-            <span className="block text-xs font-medium capitalize text-[#3B4FE0]">{staff ? roleName ?? 'Staff' : (user?.specialization || 'Doctor')}</span>
-          </span>
-          <ChevronDown className="hidden h-[18px] w-[18px] text-[#94A3B8] lg:block" />
-        </button>
+        <ProfileMenu displayName={displayName} initials={initials} roleLabel={roleLabel} />
       </div>
     </header>
   );
