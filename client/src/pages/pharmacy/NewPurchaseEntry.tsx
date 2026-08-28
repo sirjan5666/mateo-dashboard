@@ -18,6 +18,8 @@ import { cn } from '../../lib/cn';
 
 const amt = (n: number) => n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const round2 = (n: number) => Math.round(n * 100) / 100;
+// GSTIN: 2-digit state code + 10-char PAN + entity digit + 'Z' + checksum char.
+const GSTIN_RE = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
 
 const MODES: { id: PaymentMode; label: string; icon: string; color: string }[] = [
   { id: 'cash', label: 'Cash', icon: 'Banknote', color: '#12A150' },
@@ -138,13 +140,15 @@ export default function NewPurchaseEntry() {
     const phone = newDistPhone.trim();
     const gstin = newDistGstin.trim();
     const addressLine = newDistAddress.trim();
+    const gstUpper = gstin.toUpperCase();
+    const phoneDigits = phone.replace(/\D/g, '');
     if (name.length < 2) { setError('Distributor name is required (min 2 chars).'); return; }
-    if (!phone) { setError('Distributor phone number is required.'); return; }
-    if (!gstin) { setError('Distributor GST number is required.'); return; }
+    if (!/^[6-9]\d{9}$/.test(phoneDigits)) { setError('Enter a valid 10-digit Indian mobile number (starts 6–9).'); return; }
+    if (!GSTIN_RE.test(gstUpper)) { setError('Enter a valid 15-character GSTIN, e.g. 27ABCDE1234F1Z5.'); return; }
     if (!addressLine) { setError('Distributor address is required.'); return; }
     setError(null);
     try {
-      const { distributor } = await createDistributor({ name, phone, gstin, addressLine });
+      const { distributor } = await createDistributor({ name, phone: phoneDigits, gstin: gstUpper, addressLine });
       const fresh = await listDistributors();
       setDistributors(fresh.distributors);
       setDistributorId(distributor.id);
@@ -315,24 +319,43 @@ export default function NewPurchaseEntry() {
                 </select>
               )}
               {addingDist ? (
-                <div className="mt-2 space-y-2">
-                  <input value={newDistName} onChange={(e) => setNewDistName(e.target.value)}
-                    placeholder="Distributor name *" aria-label="New distributor name"
-                    className="h-9 w-full rounded-[8px] border border-[#E4E8F1] px-3 text-[12.5px] focus:border-[#3B4FE0] focus:outline-none" />
-                  <input value={newDistPhone} onChange={(e) => setNewDistPhone(e.target.value)}
-                    placeholder="Phone number *" aria-label="Distributor phone number"
-                    className="h-9 w-full rounded-[8px] border border-[#E4E8F1] px-3 text-[12.5px] focus:border-[#3B4FE0] focus:outline-none" />
-                  <input value={newDistGstin} onChange={(e) => setNewDistGstin(e.target.value)}
-                    placeholder="GST number *" aria-label="Distributor GST number"
-                    className="h-9 w-full rounded-[8px] border border-[#E4E8F1] px-3 text-[12.5px] uppercase focus:border-[#3B4FE0] focus:outline-none" />
-                  <input value={newDistAddress} onChange={(e) => setNewDistAddress(e.target.value)}
-                    placeholder="Address *" aria-label="Distributor address"
-                    className="h-9 w-full rounded-[8px] border border-[#E4E8F1] px-3 text-[12.5px] focus:border-[#3B4FE0] focus:outline-none" />
-                  <div className="flex gap-2">
+                <div className="mt-2.5 rounded-[10px] border border-[#E4E8F1] bg-[#FAFBFD] p-3.5">
+                  <p className="mb-2.5 text-[12px] font-bold text-[#334155]">New distributor</p>
+                  <div className="space-y-2.5">
+                    <div>
+                      <label htmlFor="nd-name" className="mb-1 block text-[11px] font-semibold text-[#64748B]">Name <span className="text-[#EF4444]">*</span></label>
+                      <input id="nd-name" value={newDistName} onChange={(e) => setNewDistName(e.target.value)}
+                        placeholder="e.g. MedSupply Distributors" autoComplete="off"
+                        className="h-10 w-full rounded-[8px] border border-[#E4E8F1] bg-white px-3 text-[13px] focus:border-[#3B4FE0] focus:outline-none" />
+                    </div>
+                    <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                      <div>
+                        <label htmlFor="nd-phone" className="mb-1 block text-[11px] font-semibold text-[#64748B]">Phone <span className="text-[#EF4444]">*</span></label>
+                        <input id="nd-phone" value={newDistPhone} inputMode="numeric" maxLength={10} autoComplete="off"
+                          onChange={(e) => setNewDistPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                          placeholder="10-digit mobile"
+                          className="h-10 w-full rounded-[8px] border border-[#E4E8F1] bg-white px-3 text-[13px] tabular-nums focus:border-[#3B4FE0] focus:outline-none" />
+                      </div>
+                      <div>
+                        <label htmlFor="nd-gst" className="mb-1 block text-[11px] font-semibold text-[#64748B]">GSTIN <span className="text-[#EF4444]">*</span></label>
+                        <input id="nd-gst" value={newDistGstin} maxLength={15} autoComplete="off"
+                          onChange={(e) => setNewDistGstin(e.target.value.toUpperCase().replace(/[^0-9A-Z]/g, '').slice(0, 15))}
+                          placeholder="27ABCDE1234F1Z5"
+                          className="h-10 w-full rounded-[8px] border border-[#E4E8F1] bg-white px-3 font-mono text-[13px] uppercase tracking-wide focus:border-[#3B4FE0] focus:outline-none" />
+                      </div>
+                    </div>
+                    <div>
+                      <label htmlFor="nd-addr" className="mb-1 block text-[11px] font-semibold text-[#64748B]">Address <span className="text-[#EF4444]">*</span></label>
+                      <input id="nd-addr" value={newDistAddress} onChange={(e) => setNewDistAddress(e.target.value)}
+                        placeholder="Street, area, city" autoComplete="off"
+                        className="h-10 w-full rounded-[8px] border border-[#E4E8F1] bg-white px-3 text-[13px] focus:border-[#3B4FE0] focus:outline-none" />
+                    </div>
+                  </div>
+                  <div className="mt-3 flex gap-2">
                     <button type="button" onClick={() => void addDistributor()}
-                      className="h-9 shrink-0 rounded-[8px] bg-[#3B4FE0] px-3 text-[12px] font-bold text-white">Add</button>
-                    <button type="button" onClick={() => setAddingDist(false)}
-                      className="h-9 shrink-0 rounded-[8px] border border-[#E2E6F0] px-3 text-[12px] font-bold text-[#334155]">Cancel</button>
+                      className="h-9 shrink-0 rounded-[8px] bg-[#3B4FE0] px-4 text-[12.5px] font-bold text-white hover:brightness-105">Save distributor</button>
+                    <button type="button" onClick={() => { setAddingDist(false); setError(null); }}
+                      className="h-9 shrink-0 rounded-[8px] border border-[#E2E6F0] bg-white px-4 text-[12.5px] font-bold text-[#334155] hover:bg-[#F7F8FC]">Cancel</button>
                   </div>
                 </div>
               ) : (
