@@ -1,6 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Loader2, Plus, Trash2, X } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Loader2, Plus, Search, Trash2, X } from 'lucide-react';
 import { issuePrescription } from '../../../api/doctorPrescriptionDocs';
+import { searchLabTestCatalog } from '../../../api/doctorLabs';
+import type { LabCatalogTest } from '../../../api/doctorLabs';
 import { listEncounters } from '../../../api/doctorEncounters';
 import { getDosingCatalog } from '../../../api/dosing';
 import { useActiveLocation } from '../../../lib/doctorLocation';
@@ -33,6 +35,85 @@ const BLANK: Line = { drug: '', strength: '', dose: '', frequency: '', duration:
 const splitLines = (text: string) => text.split('\n').map((l) => l.trim()).filter(Boolean);
 
 /**
+ * "Investigations advised" with type-ahead over the real lab-test catalog
+ * (~1,787 tests/packages) — the doctor searches by the first characters and
+ * picks a test instead of typing the full name (spec #19). Free text is still
+ * allowed (type and press Enter) for anything not in the catalog. Selected tests
+ * render as removable chips.
+ */
+function InvestigationField({ value, onChange }: { value: string[]; onChange: (v: string[]) => void }) {
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<LabCatalogTest[]>([]);
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const q = query.trim();
+    // All state updates are deferred into the timeout so none run synchronously
+    // in the effect body (react-hooks/set-state-in-effect is an error here).
+    const t = setTimeout(() => {
+      if (q.length < 2) { setResults([]); setLoading(false); return; }
+      setLoading(true);
+      searchLabTestCatalog(q)
+        .then((r) => setResults(r.tests.slice(0, 8)))
+        .catch(() => setResults([]))
+        .finally(() => setLoading(false));
+    }, 220);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onDown = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [open]);
+
+  const add = (name: string) => {
+    const n = name.trim();
+    if (n && !value.some((v) => v.toLowerCase() === n.toLowerCase())) onChange([...value, n]);
+    setQuery(''); setResults([]); setOpen(false);
+  };
+
+  return (
+    <div ref={ref} className="relative mt-1.5">
+      {value.length > 0 && (
+        <div className="mb-2 flex flex-wrap gap-1.5">
+          {value.map((v) => (
+            <span key={v} className="inline-flex items-center gap-1.5 rounded-full bg-[#EEF2FF] px-2.5 py-1 text-[12px] font-semibold text-[#3B4FE0]">
+              {v}
+              <button type="button" aria-label={`Remove ${v}`} onClick={() => onChange(value.filter((x) => x !== v))} className="opacity-70 hover:opacity-100">
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94A3B8]" />
+        <input value={query} onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
+          onKeyDown={(e) => { if (e.key === 'Enter' && query.trim()) { e.preventDefault(); add(query); } }}
+          placeholder="Search tests (CBC, LFT, Thyroid…) or type &amp; press Enter"
+          className="w-full rounded-[10px] border border-[#E2E6F0] bg-white py-2.5 pl-9 pr-3.5 text-[13px] text-[#0F172A] focus:border-[#3B4FE0] focus:outline-none" />
+      </div>
+      {open && (results.length > 0 || loading) && (
+        <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-30 max-h-64 overflow-y-auto rounded-[10px] border border-[#ECEEF4] bg-white py-1 shadow-[0_12px_32px_-12px_rgba(16,24,40,.28)]">
+          {loading && results.length === 0 && <p className="px-3 py-2 text-[12px] text-[#94A3B8]">Searching…</p>}
+          {results.map((t) => (
+            <button key={t.code} type="button" onClick={() => add(t.name)}
+              className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-[#F7F8FC]">
+              <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-[#0F172A]">{t.name}</span>
+              <span className="shrink-0 text-[11px] font-medium text-[#94A3B8]">{t.kind === 'package' ? 'Package' : t.category}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
  * Issue a prescription — the header (diagnosis, review, investigations, advice)
  * plus its medication lines, written together.
  *
@@ -50,7 +131,7 @@ export function IssuePrescriptionModal({ patientId, patientName, onClose, onIssu
   const { clinics, active } = useActiveLocation();
   const [diagnosis, setDiagnosis] = useState('');
   const [reviewAfter, setReviewAfter] = useState('');
-  const [investigations, setInvestigations] = useState('');
+  const [investigations, setInvestigations] = useState<string[]>([]);
   const [advice, setAdvice] = useState('');
   const [lines, setLines] = useState<Line[]>([{ ...BLANK }]);
   const [encounterId, setEncounterId] = useState('');
@@ -126,7 +207,7 @@ export function IssuePrescriptionModal({ patientId, patientName, onClose, onIssu
       const { document: doc } = await issuePrescription(patientId, {
         diagnosis: diagnosis.trim() || undefined,
         reviewAfterDays: reviewAfter.trim() ? Number(reviewAfter) : undefined,
-        investigations: splitLines(investigations),
+        investigations,
         advice: splitLines(advice),
         locationId: locationId || undefined,
         encounterId: encounterId || undefined,
@@ -246,10 +327,8 @@ export function IssuePrescriptionModal({ patientId, patientName, onClose, onIssu
 
         <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
           <div>
-            <label htmlFor="rx-inv" className={LABEL}>Investigations advised <span className="font-normal text-[#94A3B8]">(one per line)</span></label>
-            <textarea id="rx-inv" value={investigations} onChange={(e) => setInvestigations(e.target.value)} rows={4}
-              placeholder={'CBC (Complete Blood Count)\nCRP (C-Reactive Protein)'}
-              className="mt-1.5 w-full rounded-[10px] border border-[#E2E6F0] bg-white px-3.5 py-3 text-[13px] text-[#0F172A] focus:border-[#3B4FE0] focus:outline-none" />
+            <label htmlFor="rx-inv" className={LABEL}>Investigations advised <span className="font-normal text-[#94A3B8]">(search &amp; pick)</span></label>
+            <InvestigationField value={investigations} onChange={setInvestigations} />
           </div>
           <div>
             <label htmlFor="rx-advice" className={LABEL}>Advice <span className="font-normal text-[#94A3B8]">(one per line)</span></label>
