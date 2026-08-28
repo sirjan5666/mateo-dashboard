@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Check, ChevronDown, ExternalLink, Loader2, Settings as Gear, ShieldCheck } from 'lucide-react';
+import { Link } from 'react-router';
+import { ArrowRight, Check, ChevronDown, ExternalLink, Loader2, Settings as Gear, ShieldCheck } from 'lucide-react';
 import { PhoneNumberInput } from '../../components/doctor/v2/subuser/fields';
 import { getSettings, saveSettings } from '../../api/doctorSettings';
 import type { ClinicPreferences, ClinicSettings } from '../../api/doctorSettings';
@@ -12,6 +13,51 @@ const INPUT = 'h-[46px] w-full rounded-[10px] border border-[#E4E8F1] bg-white p
 const LABEL = 'mb-2 block text-[12.5px] font-bold text-[#334155]';
 
 const TABS = ['General', 'Clinic Profile', 'Users & Permissions', 'Appointment Settings', 'Billing & Payments', 'Notifications', 'Integrations', 'Security'];
+
+/**
+ * Most settings sections are surfaces onto features that already exist elsewhere
+ * in the app — so instead of a dead "coming soon", each tab explains what it
+ * covers and links straight to the real screen. Only genuinely-unbuilt areas
+ * (Integrations, and deeper Security) are marked as planned.
+ */
+const SECTION_LINKS: Record<string, { desc: string; items: string[]; to?: string; linkLabel?: string; planned?: string }> = {
+  'Clinic Profile': {
+    desc: 'Your professional profile and clinic details.',
+    items: ['Speciality, qualifications & registration', 'Clinic name, address & city', 'Working hours', 'Bank details for payouts'],
+    to: '/doctor/profile', linkLabel: 'Open clinic profile',
+  },
+  'Users & Permissions': {
+    desc: 'Your team and what each member can access.',
+    items: ['Add / invite staff members', 'Roles with per-module permissions', 'Per-person permission exceptions'],
+    to: '/doctor/team', linkLabel: 'Manage team & roles',
+  },
+  'Appointment Settings': {
+    desc: 'How patients can book time with you.',
+    items: ['Available days & booking window', 'Slot length', 'Working hours per day'],
+    to: '/doctor/profile', linkLabel: 'Edit availability',
+  },
+  'Billing & Payments': {
+    desc: 'Invoices, collections and outstanding balances.',
+    items: ['All invoices & their status', 'Revenue over time', 'Record payments'],
+    to: '/doctor/revenue', linkLabel: 'Open revenue',
+  },
+  'Notifications': {
+    desc: 'Which alerts you receive, and how.',
+    items: ['Email notifications', 'WhatsApp / SMS notifications', 'Appointment reminders'],
+    to: '/doctor/profile', linkLabel: 'Notification preferences',
+  },
+  Integrations: {
+    desc: 'Connect external services.',
+    items: ['Lab & diagnostics partners', 'Pharmacy / distributor feeds', 'Messaging (WhatsApp Business)'],
+    planned: 'Integrations are on the roadmap — tell us which service you need first.',
+  },
+  Security: {
+    desc: 'Account protection.',
+    items: ['Change password', 'Active sessions', 'Audit log of account activity'],
+    to: '/doctor/audit', linkLabel: 'View audit logs',
+    planned: 'Password & session controls are being built; for now, account activity is in Audit Logs.',
+  },
+};
 
 /** Dark mode is a per-device display choice, kept client-side — never sent to the server. */
 const DARK_KEY = 'mateo:doctor-dark';
@@ -185,12 +231,33 @@ export default function SettingsPage() {
           {loadError ?? 'Could not load settings.'}
         </p>
       ) : tab !== 'General' ? (
-        <div className={`${CARD} grid place-items-center px-6 py-20 text-center`}>
-          <div>
-            <h2 className="font-display text-lg font-bold text-[#0F172A]">{tab}</h2>
-            <p className="mt-2 text-sm text-[#64748B]">This settings panel is coming soon.</p>
-          </div>
-        </div>
+        (() => {
+          const s = SECTION_LINKS[tab];
+          return (
+            <div className={`${CARD} max-w-2xl px-6 py-7`}>
+              <h2 className="font-display text-lg font-bold text-[#0F172A]">{tab}</h2>
+              {s && <p className="mt-1.5 text-sm text-[#64748B]">{s.desc}</p>}
+              {s && (
+                <ul className="mt-4 flex flex-col gap-2.5">
+                  {s.items.map((it) => (
+                    <li key={it} className="flex items-center gap-2.5 text-[13.5px] text-[#334155]">
+                      <Check className="h-4 w-4 shrink-0 text-[#12A150]" />{it}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {s?.planned && (
+                <p className="mt-4 rounded-[10px] border border-[#F8E3B8] bg-[#FEF8EC] px-4 py-2.5 text-[12.5px] text-[#8A5A0B]">{s.planned}</p>
+              )}
+              {s?.to && (
+                <Link to={s.to} className="mt-5 inline-flex h-11 items-center gap-2 rounded-[10px] px-5 text-[13.5px] font-bold text-white shadow-[0_8px_18px_-8px_rgba(59,79,224,.65)] hover:brightness-105"
+                  style={{ background: 'linear-gradient(135deg, #5B5BF0 0%, #3B3FD8 100%)' }}>
+                  {s.linkLabel ?? 'Open'}<ArrowRight className="h-4 w-4" />
+                </Link>
+              )}
+            </div>
+          );
+        })()
       ) : (
         <div role="tabpanel" className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[1fr_372px]">
           <div className="min-w-0">
