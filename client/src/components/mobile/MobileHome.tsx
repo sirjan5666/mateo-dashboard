@@ -13,7 +13,7 @@ import { Avatar } from '../ui/Avatar';
 import { BottomSheet } from '../ui/BottomSheet';
 import { AssistantMark } from '../assistant/AssistantMark';
 import { SitareCoin } from '../sitare/SitareBits';
-import { BabyJourneyCard } from '../journey/BabyJourneyCard';
+import { daysSinceDob, JOURNEY_TOTAL } from '../../lib/journey';
 import { cn } from '../../lib/cn';
 
 const STATUS = {
@@ -42,17 +42,20 @@ function GlanceChip({ tone, icon: Icon, label, value, sub }: { tone: keyof typeo
 function RecoRow({ icon: Icon, tint, tintFg, eyebrow, eyebrowColor, title, sub, cta, to }: { icon: LucideIcon; tint: string; tintFg: string; eyebrow: string; eyebrowColor: string; title: string; sub: string; cta: string; to: string }) {
   return (
     <div className="flex items-center gap-3 py-3">
-      <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl" style={{ backgroundColor: tint, color: tintFg }}>
-        <Icon className="h-6 w-6" />
+      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl" style={{ backgroundColor: tint, color: tintFg }}>
+        <Icon className="h-5 w-5" />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block text-[11px] font-bold uppercase tracking-wide" style={{ color: eyebrowColor }}>
+        <span className="block text-[10px] font-bold uppercase tracking-wide" style={{ color: eyebrowColor }}>
           {eyebrow}
         </span>
-        <span className="block truncate font-display text-[15px] font-semibold text-[var(--foreground)]">{title}</span>
+        <span className="block truncate font-display text-[15px] font-semibold leading-tight text-[var(--foreground)]">{title}</span>
         <span className="block truncate text-xs text-[var(--muted-foreground)]">{sub}</span>
       </span>
-      <Link to={to} className="shrink-0 rounded-full bg-[var(--brand-purple-deep)] px-4 py-2 text-xs font-bold text-white">
+      <Link
+        to={to}
+        className="grid h-9 min-w-[72px] shrink-0 place-items-center rounded-full bg-[var(--brand-purple-deep)] px-3 text-xs font-bold text-white"
+      >
         {cta}
       </Link>
     </div>
@@ -100,6 +103,10 @@ export function MobileHome({
   const weightKg = weightLog ? Number((weightLog.weightG! / 1000).toFixed(1)) : null;
   const others = data.babies.filter((b) => b.id !== baby.id);
   const overdue = v.overdue;
+
+  const journeyDays = daysSinceDob(baby.dob);
+  const journeyPct = Math.min(100, Math.round((journeyDays / JOURNEY_TOTAL) * 100));
+  const markerLeft = Math.min(97, Math.max(3, (journeyDays / JOURNEY_TOTAL) * 100));
 
   const nd = baby.nextDue;
   const ndStatus = nd?.status === 'overdue' ? 'overdue' : nd?.status === 'due' ? 'due soon' : 'upcoming';
@@ -195,8 +202,27 @@ export function MobileHome({
         </div>
       </section>
 
-      {/* First 2000 Days journey (existing card) */}
-      <BabyJourneyCard baby={baby} />
+      {/* First 2000 Days journey — mobile-fit (gradient bar + day markers) */}
+      <section className="rounded-[26px] bg-[var(--surface-card)] p-5 shadow-soft ring-1 ring-stone-200/60">
+        <div className="flex items-center justify-between gap-2">
+          <span className="eyebrow">The first 2,000 days</span>
+          <span className="rounded-full bg-[var(--brand-purple-tint)] px-2.5 py-1 text-xs font-bold text-[var(--brand-purple-deep)]">{journeyPct}%</span>
+        </div>
+        <h2 className="mt-1.5 font-display text-lg font-bold text-[var(--foreground)]">
+          {baby.name} is {journeyDays.toLocaleString()} days old
+        </h2>
+        <p className="text-sm text-[var(--muted-foreground)]">You’re doing amazing! Keep going 💜</p>
+        <div className="relative mt-4 h-3 rounded-full" style={{ background: 'var(--journey-gradient)' }}>
+          <span
+            className="absolute top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-[3px] border-white bg-[var(--brand-purple-deep)] shadow-[0_2px_6px_-1px_rgba(58,46,99,0.4)]"
+            style={{ left: `${markerLeft}%` }}
+          />
+        </div>
+        <div className="mt-2.5 flex items-center justify-between text-xs text-[var(--muted-foreground)]">
+          <span>Day 0 · Birth</span>
+          <span>Day 2,000 · ~5.5 yrs</span>
+        </div>
+      </section>
 
       {/* Recommended for you */}
       <section className="rounded-[26px] bg-[var(--surface-card)] px-4 py-2 shadow-soft ring-1 ring-stone-200/60">
