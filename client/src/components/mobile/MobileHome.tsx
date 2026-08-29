@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { AlertCircle, Bell, Check, CheckCircle2, ChevronDown, ChevronRight, Clock, Info, Plus, Send, ShieldCheck, TrendingUp } from 'lucide-react';
+import { AlertCircle, Bell, BellOff, Check, CheckCircle2, ChevronDown, ChevronRight, Clock, Info, Plus, Send, ShieldCheck, Syringe, TrendingUp } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { Overview, OverviewBaby } from '../../api/overview';
 import type { Growth } from '../../api/growth';
@@ -85,6 +85,7 @@ export function MobileHome({
 }) {
   const navigate = useNavigate();
   const [switcherOpen, setSwitcherOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
   const [q, setQ] = useState('');
   const [sitare, setSitare] = useState<number | null>(null);
 
@@ -112,6 +113,14 @@ export function MobileHome({
   const ndStatus = nd?.status === 'overdue' ? 'overdue' : nd?.status === 'due' ? 'due soon' : 'upcoming';
   const ndColor = nd?.status === 'overdue' ? STATUS.overdue.fg : nd?.status === 'due' ? STATUS.duesoon.fg : STATUS.info.fg;
 
+  // Notifications are derived from real data (there's no parent notification feed
+  // to invent one from): overdue / due-soon vaccines and the next due dose.
+  const plural = (n: number) => (n === 1 ? '' : 's');
+  const notifs: { tone: keyof typeof STATUS; icon: LucideIcon; title: string; sub: string; to: string }[] = [];
+  if (v.overdue > 0) notifs.push({ tone: 'overdue', icon: AlertCircle, title: `${v.overdue} vaccine${plural(v.overdue)} overdue`, sub: 'Catch up to keep protection on track', to: `/babies/${baby.id}/vaccines` });
+  if (v.due > 0) notifs.push({ tone: 'duesoon', icon: Clock, title: `${v.due} vaccine${plural(v.due)} due soon`, sub: 'Plan a clinic visit this week', to: `/babies/${baby.id}/vaccines` });
+  if (nd) notifs.push({ tone: 'info', icon: Syringe, title: `Next: ${nd.vaccineName}`, sub: `Due ${formatDateIST(nd.dueDate)}`, to: `/babies/${baby.id}/vaccines` });
+
   const ask = () => {
     navigate(q.trim() ? askAssistantLink(baby.id, q) : `/babies/${baby.id}/chat`);
   };
@@ -123,7 +132,7 @@ export function MobileHome({
         <img src="/mateo-logo.png" alt="MateoCare" className="h-8 object-contain" draggable={false} />
         <button
           type="button"
-          onClick={() => navigate(`/babies/${baby.id}/vaccines`)}
+          onClick={() => setNotifOpen(true)}
           aria-label={overdue > 0 ? `${overdue} items need attention` : 'Notifications'}
           className="relative grid h-10 w-10 place-items-center rounded-full bg-[var(--surface-card)] shadow-soft ring-1 ring-stone-200/60"
         >
@@ -302,6 +311,47 @@ export function MobileHome({
         </span>
         <ChevronRight className="h-5 w-5 shrink-0 text-[var(--sitare-deep)]" />
       </Link>
+
+      {/* Notifications sheet — real, actionable items */}
+      <BottomSheet open={notifOpen} onClose={() => setNotifOpen(false)} title="Notifications" description={`What needs a look for ${baby.name}`}>
+        {notifs.length === 0 ? (
+          <div className="flex flex-col items-center px-6 py-8 text-center">
+            <span className="mb-3 grid h-14 w-14 place-items-center rounded-full bg-[var(--status-ontrack-bg)] text-[var(--status-ontrack-text)]">
+              <BellOff className="h-6 w-6" />
+            </span>
+            <p className="font-display text-base font-semibold text-[var(--foreground)]">You’re all caught up 🎉</p>
+            <p className="mt-1 text-sm text-[var(--muted-foreground)]">Nothing needs your attention right now.</p>
+          </div>
+        ) : (
+          <ul className="space-y-2">
+            {notifs.map((n, i) => {
+              const c = STATUS[n.tone];
+              const Icon = n.icon;
+              return (
+                <li key={i}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNotifOpen(false);
+                      navigate(n.to);
+                    }}
+                    className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition-colors hover:bg-[var(--surface-sunken)]"
+                  >
+                    <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl" style={{ backgroundColor: c.bg, color: c.fg }}>
+                      <Icon className="h-5 w-5" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-display text-[15px] font-semibold text-[var(--foreground)]">{n.title}</span>
+                      <span className="block truncate text-xs text-[var(--muted-foreground)]">{n.sub}</span>
+                    </span>
+                    <ChevronRight className="h-4 w-4 shrink-0 text-stone-400" />
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </BottomSheet>
 
       {/* Baby switcher sheet */}
       <BottomSheet open={switcherOpen} onClose={() => setSwitcherOpen(false)} title="Your babies" description="Switch who you're tracking">
