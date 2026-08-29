@@ -19,6 +19,8 @@ import { TrackerInsight } from '../components/TrackerInsight';
 import { MascotHero } from '../components/ui/MascotHero';
 import { cn } from '../lib/cn';
 import { useScrollReveal } from '../lib/gsap';
+import { useIsMobile } from '../lib/useIsMobile';
+import { MobileFood } from '../components/mobile/MobileFood';
 
 const MEAL_TYPES: { value: MealType; label: string }[] = [
   { value: 'breakfast', label: 'Breakfast' },
@@ -353,6 +355,7 @@ function Segmented<T extends string>({
 
 export default function Food() {
   const { id } = useParams();
+  const isMobile = useIsMobile();
   const [data, setData] = useState<FoodResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   // Baby's name + feeding baseline (solidsStartedOn), for the solids-start milestone.
@@ -502,6 +505,10 @@ export default function Food() {
   }, [data]);
 
   const pageRef = useScrollReveal<HTMLDivElement>([logs]);
+
+  // Mobile gets the purpose-built Food screen (design spec); desktop keeps this page.
+  // Keyed by baby id so switching baby remounts with a fresh loading state.
+  if (isMobile) return <MobileFood key={id} />;
 
   return (
     <div ref={pageRef}>

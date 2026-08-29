@@ -74,8 +74,10 @@ export function AppShell() {
   // Maa chat composer, and the add/edit-baby, checkout and subscribe CTAs.
   const path = location.pathname;
   // Home renders its own header (wordmark + notifications + baby switcher), so the
-  // shared mobile app bar steps aside there.
+  // shared mobile app bar steps aside there. Redesigned tracker screens (e.g. Food)
+  // carry their own back/switcher header too.
   const isHome = path === '/';
+  const ownsMobileHeader = isHome || /^\/babies\/[^/]+\/food$/.test(path);
   const focusedFlow =
     /\/chat$/.test(path) ||
     path === '/babies/new' ||
@@ -193,8 +195,8 @@ export function AppShell() {
       <div className={cn(collapsed ? 'lg:pl-16' : 'lg:pl-64')}>
         {isParent ? (
           <>
-            {/* Parent mobile app bar (Home has its own header); desktop Topbar from lg up. */}
-            {!isHome && <MobileTopBar />}
+            {/* Parent mobile app bar (some screens carry their own header); desktop Topbar from lg up. */}
+            {!ownsMobileHeader && <MobileTopBar />}
             <div className="hidden lg:block">
               <Topbar onOpenSidebar={() => setOpen(true)} />
             </div>
