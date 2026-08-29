@@ -2,6 +2,8 @@ import { Suspense, useEffect, useRef, useState } from 'react';
 import { Outlet, useLocation } from 'react-router';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
+import { BottomTabBar } from '../mobile/BottomTabBar';
+import { MobileTopBar } from '../mobile/MobileTopBar';
 import { AssistantLauncher } from '../assistant/AssistantLauncher';
 import { ConsentScreen } from '../ConsentScreen';
 import { useAuth } from '../../auth/context';
@@ -24,6 +26,9 @@ export function AppShell() {
   // theme — the [data-theme="pro"] scope only re-skins this subtree.
   const { user } = useAuth();
   const pro = user?.role === 'admin';
+  // Parents get the mobile bottom-nav app chrome (below lg); admin keeps the
+  // desktop sidebar/drawer on its pro theme.
+  const isParent = user?.role === 'parent';
   const mode = usePanelMode();
   const subscribed = useSubscribed();
   const [open, setOpen] = useState(false);
@@ -63,6 +68,18 @@ export function AppShell() {
     location.pathname === '/chats' ||
     location.pathname === '/shop/admin/orders' ||
     location.pathname.startsWith('/find-doctor');
+
+  // Focused flows read as full-screen on mobile — the tab bar (and its spacer)
+  // step aside so each flow's own primary action owns the bottom edge: the Dai
+  // Maa chat composer, and the add/edit-baby, checkout and subscribe CTAs.
+  const path = location.pathname;
+  const focusedFlow =
+    /\/chat$/.test(path) ||
+    path === '/babies/new' ||
+    /^\/babies\/[^/]+\/edit$/.test(path) ||
+    path === '/shop/checkout' ||
+    path === '/subscribe';
+  const showBottomNav = isParent && !focusedFlow;
 
   // Gentle page-transition: fade + rise the main content on every route change.
   // The cleanup clears props so the next navigation always starts from a clean
@@ -171,19 +188,42 @@ export function AppShell() {
       </div>
 
       <div className={cn(collapsed ? 'lg:pl-16' : 'lg:pl-64')}>
-        <Topbar onOpenSidebar={() => setOpen(true)} />
+        {isParent ? (
+          <>
+            {/* Parent mobile app bar; the desktop Topbar returns from lg up. */}
+            <MobileTopBar />
+            <div className="hidden lg:block">
+              <Topbar onOpenSidebar={() => setOpen(true)} />
+            </div>
+          </>
+        ) : (
+          <Topbar onOpenSidebar={() => setOpen(true)} />
+        )}
         {/* Admin list pages (data tables) span the full width like a back-office
             console; reading-oriented pages stay centered for comfortable line length. */}
         <main ref={mainRef} className={cn('mx-auto px-4 py-8 lg:px-8', wideContent ? 'max-w-none' : 'max-w-6xl')}>
           <Suspense fallback={<p className="text-sm text-stone-500">Loading…</p>}>
             <Outlet />
           </Suspense>
+          {/* Clears the fixed bottom tab bar so it never overlaps content (mobile only). */}
+          {showBottomNav && <div aria-hidden className="h-[var(--app-bottom-gap)] lg:hidden" />}
         </main>
       </div>
 
-      {/* Dai Maa — the floating AI assistant. Part of the plan: hidden for
-          unsubscribed parents (the chat/insight APIs 402 for them anyway). */}
-      {subscribed && <AssistantLauncher />}
+      {/* Fixed bottom navigation — parent mobile app (lg:hidden itself). */}
+      {showBottomNav && <BottomTabBar />}
+
+      {/* Dai Maa — the floating AI assistant. Hidden for unsubscribed parents (the
+          chat/insight APIs 402 anyway). On parent mobile the centre tab replaces
+          the FAB, so it shows only from lg up; admin keeps it at all sizes. */}
+      {subscribed &&
+        (isParent ? (
+          <div className="hidden lg:block">
+            <AssistantLauncher />
+          </div>
+        ) : (
+          <AssistantLauncher />
+        ))}
     </div>
   );
 }

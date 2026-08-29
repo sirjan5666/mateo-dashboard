@@ -50,6 +50,18 @@ export function forgetActiveBaby(): void {
 }
 
 /**
+ * Subscribe to active-baby changes made in this tab (via rememberActiveBaby/
+ * forgetActiveBaby). Returns an unsubscribe. For consumers that need to react
+ * with a side effect (e.g. clearing per-baby snapshots) rather than just re-read.
+ */
+export function subscribeActiveBaby(listener: Listener): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+/**
  * Reactive read of the active baby id. Re-renders when any component in this tab
  * calls rememberActiveBaby/forgetActiveBaby, or when another tab changes it.
  */

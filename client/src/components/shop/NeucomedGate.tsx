@@ -54,8 +54,13 @@ export function NeucomedGate({
   if (!open) return null;
 
   return createPortal(
-    <div onClick={onDecline} className="fixed inset-0 z-[80] grid place-items-center bg-stone-900/50 p-5" role="dialog" aria-modal="true" aria-label={t('shop.gateTitle')}>
-      <div ref={panelRef} onClick={(e) => e.stopPropagation()} className="animate-popin w-full max-w-[460px] rounded-[26px] bg-white p-7 shadow-lift">
+    <div onClick={onDecline} className="fixed inset-0 z-[80] flex items-end justify-center bg-stone-900/50 lg:items-center lg:p-5" role="dialog" aria-modal="true" aria-label={t('shop.gateTitle')}>
+      <div
+        ref={panelRef}
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-[460px] rounded-t-[26px] bg-white p-7 shadow-lift animate-[bsSlideUp_0.26s_cubic-bezier(0.22,1,0.36,1)] lg:rounded-[26px] lg:animate-popin"
+        style={{ paddingBottom: 'calc(1.75rem + var(--safe-bottom))' }}
+      >
         <div className="mb-3 flex items-center gap-2.5">
           <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-amber-50">
             <ShieldAlert className="h-[22px] w-[22px] text-amber-700" />

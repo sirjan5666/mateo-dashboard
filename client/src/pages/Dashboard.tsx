@@ -32,7 +32,7 @@ import type { LucideIcon } from 'lucide-react';
 import { useAuth } from '../auth/context';
 import { useT } from '../i18n/context';
 import { useSubscribed } from '../lib/subscription';
-import { getActiveBabyId, rememberActiveBaby } from '../lib/activeBaby';
+import { getActiveBabyId, rememberActiveBaby, subscribeActiveBaby } from '../lib/activeBaby';
 import { LockedOverlay } from '../components/subscription/bits';
 import { BabyJourneyCard } from '../components/journey/BabyJourneyCard';
 import { getOverview } from '../api/overview';
@@ -382,6 +382,26 @@ export default function Dashboard() {
     };
   }, [activeBabyId, subscribed]);
 
+  // The mobile app bar's baby switcher writes the shared active-baby store; keep
+  // the dashboard in step with it (desktop uses the in-page pill switcher, which
+  // calls selectBaby directly). Reacting inside the store subscription clears the
+  // old snapshots to skeletons exactly like selectBaby, without re-writing the
+  // store we're reacting to.
+  useEffect(() => {
+    return subscribeActiveBaby((id) => {
+      if (!id || id === activeBabyId) return;
+      if (!data?.babies.some((b) => b.id === id)) return;
+      setGrowth(null);
+      setSkin(null);
+      setFood(null);
+      setFoodUnderSix(null);
+      setSleep(null);
+      setMilestones(null);
+      setAppts([]);
+      setActiveBabyId(id);
+    });
+  }, [activeBabyId, data]);
+
   // Orchestrated GSAP entrance — runs once the overview has loaded and the real
   // content (not the skeleton) is mounted. Reduced-motion safe.
   const scope = useEntrance<HTMLDivElement>([data !== null]);
@@ -413,7 +433,13 @@ export default function Dashboard() {
 
   return (
     <div ref={scope} className="flex flex-col gap-4">
-      {data.babies.length > 1 && <BabySwitcher babies={data.babies} activeId={baby.id} onSelect={selectBaby} />}
+      {/* Desktop uses the in-page pill switcher; on mobile the app-bar switcher
+          (with a bottom sheet) provides baby context instead. */}
+      {data.babies.length > 1 && (
+        <div className="hidden lg:block">
+          <BabySwitcher babies={data.babies} activeId={baby.id} onSelect={selectBaby} />
+        </div>
+      )}
       <GreetingHero greeting={greeting} firstName={firstName} baby={baby} appts={appts} />
       {/* The emotional headline under the hero: where this child is on the
           first-2000-days arc. Pure props — works for locked accounts too. */}

@@ -29,6 +29,9 @@ import ConsultationDetail from './pages/ConsultationDetail';
 import ReferEarn from './pages/ReferEarn';
 import Community from './pages/Community';
 import Report from './pages/Report';
+import TrackersHub from './pages/TrackersHub';
+import Care from './pages/Care';
+import More from './pages/More';
 import DoctorDashboard from './pages/doctor/Dashboard';
 import LocationsManagement from './pages/doctor/LocationsManagement';
 import TeamAndRoles from './pages/doctor/TeamAndRoles';
@@ -203,6 +206,10 @@ function AppRoutes() {
         <Route path="/" element={isAdmin ? <AdminHome /> : <Dashboard />} />
         <Route path="/babies/new" element={<BabyOnboarding />} />
         <Route path="/babies/:id/edit" element={<BabyForm />} />
+        {/* Mobile bottom-nav landings (parent app). Free, like the dashboard. */}
+        {!isAdmin && <Route path="/trackers" element={<TrackersHub />} />}
+        {!isAdmin && <Route path="/care" element={<Care />} />}
+        {!isAdmin && <Route path="/more" element={<More />} />}
         {/* Paid features — trackers, Dai Maa chat and the report sit behind the plan.
             Unsubscribed parents land on /subscribe; the server 402s the APIs too. */}
         <Route element={<RequireSubscribed />}>

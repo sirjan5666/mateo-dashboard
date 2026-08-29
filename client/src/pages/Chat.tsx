@@ -389,7 +389,7 @@ export default function Chat() {
             </p>
           )}
 
-          <form onSubmit={handleSubmit} className="sticky bottom-0 mt-4 bg-stone-50 pb-2 pt-2">
+          <form onSubmit={handleSubmit} className="sticky bottom-0 mt-4 bg-stone-50 pt-2" style={{ paddingBottom: 'calc(0.5rem + var(--safe-bottom))' }}>
             <div className="flex items-end gap-2 rounded-2xl border border-stone-200 bg-white p-2 shadow-soft focus-within:border-emerald-400">
               <textarea
                 ref={inputRef}

@@ -110,11 +110,39 @@
   /* Height of the admin "viewing as" top bar. 0 normally; the shells reserve
      this much space at the top, so the bar never overlaps the sidebar/topbar. */
   --imp-bar-h: 0px;
+
+  /* Mobile app chrome (parent app, below lg). The bottom tab bar's height plus
+     the device home-indicator inset; screens reserve this at the bottom so the
+     fixed nav never overlaps content or a sticky CTA. env() needs the
+     viewport-fit=cover meta (see index.html); the 0px fallback keeps desktop
+     and non-notched browsers correct. */
+  --bottom-nav-h: 62px;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-top: env(safe-area-inset-top, 0px);
+  --app-bottom-gap: calc(var(--bottom-nav-h) + var(--safe-bottom));
 }
 
 /* Toggled on <body> by <ImpersonationBanner> only while an admin is impersonating. */
 body.is-impersonating {
   --imp-bar-h: 44px;
+}
+
+/* Mobile bottom-sheet enter animations (see components/ui/BottomSheet). */
+@keyframes bsSlideUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+@keyframes bsFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @theme {
