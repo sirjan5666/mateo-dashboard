@@ -69,10 +69,17 @@ export function AppShell() {
     location.pathname === '/shop/admin/orders' ||
     location.pathname.startsWith('/find-doctor');
 
-  // Dai Maa chat is a full-screen conversation on mobile: its sticky composer
-  // owns the bottom edge, so the tab bar (and its spacer) step aside there.
-  const fullScreenChat = /\/chat$/.test(location.pathname);
-  const showBottomNav = isParent && !fullScreenChat;
+  // Focused flows read as full-screen on mobile — the tab bar (and its spacer)
+  // step aside so each flow's own primary action owns the bottom edge: the Dai
+  // Maa chat composer, and the add/edit-baby, checkout and subscribe CTAs.
+  const path = location.pathname;
+  const focusedFlow =
+    /\/chat$/.test(path) ||
+    path === '/babies/new' ||
+    /^\/babies\/[^/]+\/edit$/.test(path) ||
+    path === '/shop/checkout' ||
+    path === '/subscribe';
+  const showBottomNav = isParent && !focusedFlow;
 
   // Gentle page-transition: fade + rise the main content on every route change.
   // The cleanup clears props so the next navigation always starts from a clean
