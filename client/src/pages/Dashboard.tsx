@@ -57,6 +57,8 @@ import { ageInMonths, correctedAgeLabel, formatAge, formatDateIST, greetingIST, 
 import { upToDatePct } from '../lib/vaccineStats';
 import { avatarUrl } from '../lib/avatars';
 import { useEntrance, useHeroParallax, prefersReducedMotion, celebrate } from '../lib/gsap';
+import { useIsMobile } from '../lib/useIsMobile';
+import { MobileHome } from '../components/mobile/MobileHome';
 import { Skeleton } from '../components/ui/Skeleton';
 import { CountUp } from '../components/ui/CountUp';
 import { AssistantMark } from '../components/assistant/AssistantMark';
@@ -328,6 +330,7 @@ function EmptyTile({ icon: Icon, bg, color, text }: { icon: LucideIcon; bg: stri
 export default function Dashboard() {
   const { user } = useAuth();
   const subscribed = useSubscribed();
+  const isMobile = useIsMobile();
   const [data, setData] = useState<Overview | null>(null);
   const [activeBabyId, setActiveBabyId] = useState<string | null>(null);
   const [growth, setGrowth] = useState<Growth | null>(null);
@@ -430,6 +433,12 @@ export default function Dashboard() {
   }
   if (data === null) return <DashboardSkeleton />;
   if (!baby) return <EmptyState />;
+
+  // Mobile Home is a purpose-built, curated screen (design spec); desktop keeps
+  // the bento below. Same loaded data, no invented metrics.
+  if (isMobile) {
+    return <MobileHome data={data} baby={baby} growth={growth} subscribed={subscribed} firstName={firstName} onSelectBaby={selectBaby} />;
+  }
 
   return (
     <div ref={scope} className="flex flex-col gap-4">

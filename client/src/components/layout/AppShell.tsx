@@ -73,6 +73,9 @@ export function AppShell() {
   // step aside so each flow's own primary action owns the bottom edge: the Dai
   // Maa chat composer, and the add/edit-baby, checkout and subscribe CTAs.
   const path = location.pathname;
+  // Home renders its own header (wordmark + notifications + baby switcher), so the
+  // shared mobile app bar steps aside there.
+  const isHome = path === '/';
   const focusedFlow =
     /\/chat$/.test(path) ||
     path === '/babies/new' ||
@@ -190,8 +193,8 @@ export function AppShell() {
       <div className={cn(collapsed ? 'lg:pl-16' : 'lg:pl-64')}>
         {isParent ? (
           <>
-            {/* Parent mobile app bar; the desktop Topbar returns from lg up. */}
-            <MobileTopBar />
+            {/* Parent mobile app bar (Home has its own header); desktop Topbar from lg up. */}
+            {!isHome && <MobileTopBar />}
             <div className="hidden lg:block">
               <Topbar onOpenSidebar={() => setOpen(true)} />
             </div>

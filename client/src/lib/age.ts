@@ -27,6 +27,28 @@ export function formatAge(dobIso: string): string {
   return `${plural(years, 'year')} ${plural(remMonths, 'month')} old`;
 }
 
+// Compact age for tight spaces (baby switcher / chips): "12d", "8m 12d", "2y 3m".
+export function formatAgeCompact(dobIso: string): string {
+  const dob = new Date(dobIso);
+  const now = new Date();
+  const days = Math.floor((now.getTime() - dob.getTime()) / MS_PER_DAY);
+  if (days <= 0) return 'Newborn';
+
+  let months = (now.getFullYear() - dob.getFullYear()) * 12 + (now.getMonth() - dob.getMonth());
+  if (now.getDate() < dob.getDate()) months -= 1;
+
+  if (months < 1) return `${days}d`;
+  if (months < 12) {
+    const anchor = new Date(dob);
+    anchor.setMonth(anchor.getMonth() + months);
+    const remDays = Math.floor((now.getTime() - anchor.getTime()) / MS_PER_DAY);
+    return remDays > 0 ? `${months}m ${remDays}d` : `${months}m`;
+  }
+  const years = Math.floor(months / 12);
+  const remMonths = months % 12;
+  return remMonths > 0 ? `${years}y ${remMonths}m` : `${years}y`;
+}
+
 // Corrected (adjusted) age for premature babies — mirrors server lib/correctedAge.ts.
 // Display-only: growth + milestone MATH is corrected server-side.
 const TERM_WEEKS = 40;
