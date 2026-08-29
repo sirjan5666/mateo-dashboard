@@ -26,6 +26,8 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import { askAssistantLink } from '../lib/assistant';
 import { gsap, useScrollReveal, celebrate, prefersReducedMotion } from '../lib/gsap';
+import { useIsMobile } from '../lib/useIsMobile';
+import { MobileVaccines } from '../components/mobile/MobileVaccines';
 import { getBaby } from '../api/babies';
 import type { Baby } from '../api/babies';
 import { listVaccines, setVaccineAdministered, addCustomVaccine } from '../api/vaccines';
@@ -76,6 +78,7 @@ const FILTERS: { key: FilterKey; label: string }[] = [
 
 export default function Vaccines() {
   const { id } = useParams();
+  const isMobile = useIsMobile();
   const [baby, setBaby] = useState<Baby | null>(null);
   const [doses, setDoses] = useState<VaccineDose[] | null>(null);
   const [summary, setSummary] = useState<VaccineSummary | null>(null);
@@ -151,6 +154,9 @@ export default function Vaccines() {
   const pct = summary && summary.total > 0 ? Math.round((summary.done / summary.total) * 100) : 0;
 
   const filtered = filter === 'all' ? doses ?? [] : (doses ?? []).filter((d) => d.status === filter);
+
+  // Mobile gets the purpose-built Vaccines screen (design spec); desktop keeps this page.
+  if (isMobile) return <MobileVaccines key={id} />;
 
   return (
     <div ref={pageRef}>
