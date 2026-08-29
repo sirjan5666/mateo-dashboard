@@ -26,13 +26,17 @@ export function Topbar({ onOpenSidebar }: { onOpenSidebar: () => void }) {
   }, []);
   return (
     <header ref={ref} className="sticky top-[var(--imp-bar-h)] z-30 flex h-16 items-center gap-3 border-b border-stone-200/70 bg-stone-50/80 px-4 backdrop-blur-md lg:px-8">
-      <button
-        onClick={onOpenSidebar}
-        aria-label="Open menu"
-        className="grid h-9 w-9 place-items-center rounded-xl border border-stone-200 bg-white text-stone-600 hover:bg-stone-100 lg:hidden"
-      >
-        <Menu className="h-5 w-5" />
-      </button>
+      {/* Parents navigate via the bottom tab bar on mobile, so the hamburger is
+          only for the admin sidebar drawer. */}
+      {user?.role !== 'parent' && (
+        <button
+          onClick={onOpenSidebar}
+          aria-label="Open menu"
+          className="grid h-9 w-9 place-items-center rounded-xl border border-stone-200 bg-white text-stone-600 hover:bg-stone-100 lg:hidden"
+        >
+          <Menu className="h-5 w-5" />
+        </button>
+      )}
 
       <div className="lg:hidden">
         <Brand compact />
