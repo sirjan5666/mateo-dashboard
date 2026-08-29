@@ -77,7 +77,7 @@ export function AppShell() {
   // shared mobile app bar steps aside there. Redesigned tracker screens (e.g. Food)
   // carry their own back/switcher header too.
   const isHome = path === '/';
-  const ownsMobileHeader = isHome || /^\/babies\/[^/]+\/food$/.test(path);
+  const ownsMobileHeader = isHome || /^\/babies\/[^/]+\/(food|vaccines)$/.test(path);
   const focusedFlow =
     /\/chat$/.test(path) ||
     path === '/babies/new' ||
