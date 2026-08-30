@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import type { ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { AlertCircle, Bell, BellOff, Check, CheckCircle2, ChevronDown, ChevronRight, Clock, Info, Plus, Send, ShieldCheck, Syringe, TrendingUp } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -75,6 +76,7 @@ export function MobileHome({
   subscribed,
   firstName,
   onSelectBaby,
+  snapshots,
 }: {
   data: Overview;
   baby: OverviewBaby;
@@ -82,6 +84,7 @@ export function MobileHome({
   subscribed: boolean;
   firstName: string;
   onSelectBaby: (id: string) => void;
+  snapshots?: ReactNode;
 }) {
   const navigate = useNavigate();
   const [switcherOpen, setSwitcherOpen] = useState(false);
@@ -266,6 +269,14 @@ export function MobileHome({
           />
         </div>
       </section>
+
+      {/* Today's tracker snapshots (Growth · Skin · Food · Sleep) */}
+      {snapshots && (
+        <section>
+          <h2 className="mb-2 px-1 font-display text-lg font-semibold text-[var(--foreground)]">Today’s trackers</h2>
+          {snapshots}
+        </section>
+      )}
 
       {/* Ask Dai Maa */}
       <section className="rounded-[26px] p-5 shadow-soft ring-1 ring-stone-200/60" style={{ background: 'linear-gradient(135deg,#f1e8ff,#faf1ff)' }}>
