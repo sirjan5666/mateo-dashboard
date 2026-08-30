@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { ComponentType } from 'react';
 import { useNavigate, useParams } from 'react-router';
-import { Apple, ArrowLeft, ChevronDown, Leaf, MoreHorizontal, Plus, RefreshCw, Sparkles, Trash2, UtensilsCrossed } from 'lucide-react';
+import { Apple, ArrowLeft, ChevronDown, Leaf, Lightbulb, MoreHorizontal, Plus, RefreshCw, Sparkles, Trash2, UtensilsCrossed } from 'lucide-react';
 import { addFood, deleteFood, listFood } from '../../api/food';
 import type { FoodAmount, FoodLog, FoodResponse, MealType } from '../../api/food';
 import { formatTimeIST, todayInputValueIST, toDateInputValueIST } from '../../lib/age';
@@ -12,6 +13,7 @@ import { BottomSheet } from '../ui/BottomSheet';
 import { EmptyState } from '../ui/EmptyState';
 import { ErrorState } from '../ui/ErrorState';
 import { AssistantMark } from '../assistant/AssistantMark';
+import { FiMeals, FiSnacks, FiNewFood, FiDiversity, GROUP_ICON } from './foodIcons';
 import { cn } from '../../lib/cn';
 
 const MEAL_TYPES: { value: MealType; label: string }[] = [
@@ -36,10 +38,10 @@ const REACTION = {
   concerning: { label: 'Watch', bg: 'var(--status-overdue-bg)', fg: 'var(--status-overdue-text)' },
 };
 
-function SummaryPill({ icon: Icon, tint, tintFg, value, label }: { icon: typeof Leaf; tint: string; tintFg: string; value: string; label: string }) {
+function SummaryPill({ icon: Icon, tint, tintFg, value, label }: { icon: ComponentType<{ size?: number }>; tint: string; tintFg: string; value: string; label: string }) {
   return (
     <div className="flex flex-1 flex-col rounded-2xl px-2.5 py-2.5" style={{ backgroundColor: tint }}>
-      <Icon className="h-4 w-4" style={{ color: tintFg }} />
+      <Icon size={24} />
       <span className="mt-1.5 font-display text-lg font-bold leading-none" style={{ color: tintFg }}>
         {value}
       </span>
@@ -101,6 +103,7 @@ export function MobileFood() {
   const shown = filter === 'all' ? base : filter === 'meals' ? base.filter((l) => l.mealType !== 'snack') : base.filter((l) => l.mealType === 'snack');
 
   const underSix = resp?.guidance.underSix ?? false;
+  const tip = resp?.guidance.stage?.tips?.[0] ?? resp?.guidance.safety?.[0] ?? resp?.guidance.principles?.[0] ?? null;
 
   async function remove(logId: string) {
     await deleteFood(id, logId).catch(() => {});
@@ -126,15 +129,17 @@ export function MobileFood() {
         </button>
       </header>
 
-      {/* Hero */}
-      <div className="relative overflow-hidden rounded-[26px] p-5 shadow-soft ring-1 ring-stone-200/60" style={{ backgroundColor: FOOD.bg }}>
-        <div className="max-w-[70%]">
+      {/* Hero — mascot framed in a clean white medallion (no white-box seam) */}
+      <div className="flex items-center gap-3 rounded-[26px] p-5 shadow-soft ring-1 ring-stone-200/60" style={{ backgroundColor: FOOD.bg }}>
+        <div className="min-w-0 flex-1">
           <h1 className="font-display text-2xl font-bold" style={{ color: FOOD.text }}>
             Food
           </h1>
           <p className="mt-1 text-sm text-[var(--muted-foreground)]">Good food today, stronger tomorrow.</p>
         </div>
-        <img src="/tiger-food.png" alt="" className="pointer-events-none absolute -bottom-1 right-0 h-28 w-28 object-contain" draggable={false} />
+        <span className="grid h-24 w-24 shrink-0 place-items-center overflow-hidden rounded-full bg-white shadow-soft ring-2 ring-white">
+          <img src="/tiger-food.png" alt="" className="h-24 w-24 object-cover" draggable={false} />
+        </span>
       </div>
 
       {error ? (
@@ -150,10 +155,10 @@ export function MobileFood() {
           <section className="rounded-[26px] bg-[var(--surface-card)] p-4 shadow-soft ring-1 ring-stone-200/60">
             <h2 className="mb-3 font-display text-base font-semibold text-[var(--foreground)]">Today’s summary</h2>
             <div className="flex gap-2">
-              <SummaryPill icon={UtensilsCrossed} tint="var(--status-ontrack-bg)" tintFg="var(--status-ontrack-text)" value={String(meals)} label="Meals today" />
-              <SummaryPill icon={Apple} tint={FOOD.bg} tintFg={FOOD.text} value={String(snacks)} label="Snacks today" />
-              <SummaryPill icon={Sparkles} tint="var(--cat-assistant-bg)" tintFg="var(--cat-assistant-text)" value={String(newFoods)} label="New foods" />
-              <SummaryPill icon={Leaf} tint="var(--cat-record-bg)" tintFg="var(--cat-record-text)" value={`${diversity}/6`} label="Food groups" />
+              <SummaryPill icon={FiMeals} tint="var(--status-ontrack-bg)" tintFg="var(--status-ontrack-text)" value={String(meals)} label="Meals today" />
+              <SummaryPill icon={FiSnacks} tint={FOOD.bg} tintFg={FOOD.text} value={String(snacks)} label="Snacks today" />
+              <SummaryPill icon={FiNewFood} tint="var(--cat-assistant-bg)" tintFg="var(--cat-assistant-text)" value={String(newFoods)} label="New foods" />
+              <SummaryPill icon={FiDiversity} tint="var(--cat-record-bg)" tintFg="var(--cat-record-text)" value={`${diversity}/6`} label="Food groups" />
             </div>
           </section>
 
@@ -195,9 +200,11 @@ export function MobileFood() {
                 </div>
 
                 {shown.length === 0 ? (
-                  <EmptyState icon={UtensilsCrossed} title="No food logged yet" description="Start by adding today’s first meal or snack." />
+                  <EmptyState mascot="/tiger-food.png" title="No food logged yet" description="Start by adding today’s first meal or snack." />
                 ) : (
-                  <ul className="space-y-1">
+                  <ul className="relative space-y-1">
+                    {/* Timeline rail — the opaque icon medallions sit over it like dots */}
+                    <span aria-hidden className="pointer-events-none absolute bottom-5 left-[22px] top-5 w-0.5 -translate-x-1/2 bg-stone-200" />
                     {shown.map((l) => (
                       <FoodRow key={l.id} log={l} onDelete={() => void remove(l.id)} />
                     ))}
@@ -214,6 +221,19 @@ export function MobileFood() {
                 <Plus className="h-5 w-5" /> Add food / drink
               </button>
             </>
+          )}
+
+          {/* Food tip — from the real age-stage feeding guidance */}
+          {tip && (
+            <section className="flex items-start gap-3 rounded-[26px] bg-[var(--surface-card)] p-4 shadow-soft ring-1 ring-stone-200/60">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl" style={{ backgroundColor: FOOD.bg, color: FOOD.text }}>
+                <Lightbulb className="h-5 w-5" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-[11px] font-bold uppercase tracking-wide" style={{ color: FOOD.text }}>Food tip</p>
+                <p className="mt-0.5 text-sm leading-snug text-[var(--foreground)]">{tip}</p>
+              </div>
+            </section>
           )}
 
           {/* Dai Maa card */}
@@ -261,10 +281,11 @@ function FoodRow({ log, onDelete }: { log: FoodLog; onDelete: () => void }) {
   const [menu, setMenu] = useState(false);
   const r = REACTION[log.reaction];
   const Icon = log.mealType === 'snack' ? Apple : UtensilsCrossed;
+  const groupIcon = log.foodGroups.map((g) => GROUP_ICON[g]).find(Boolean);
   return (
     <li className="flex items-center gap-3 py-2">
       <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl" style={{ backgroundColor: FOOD.bg, color: FOOD.text }}>
-        <Icon className="h-5 w-5" />
+        {groupIcon ? groupIcon({ size: 26 }) : <Icon className="h-5 w-5" />}
       </span>
       <span className="min-w-0 flex-1">
         <span className="block text-[11px] text-[var(--muted-foreground)]">{formatTimeIST(log.loggedAt)}</span>
@@ -362,16 +383,20 @@ function AddFoodSheet({ open, onClose, babyId, babyName, onSaved }: { open: bool
         <div>
           <label className="mb-1 block text-sm font-semibold text-[var(--foreground)]">Food groups</label>
           <div className="flex flex-wrap gap-2">
-            {FOOD_GROUPS.map((g) => (
-              <button
-                key={g}
-                type="button"
-                onClick={() => toggleGroup(g)}
-                className={cn('rounded-full border px-3 py-1.5 text-sm font-semibold', groups.includes(g) ? 'border-emerald-500 bg-emerald-50 text-emerald-800' : 'border-stone-200 text-[var(--muted-foreground)]')}
-              >
-                {g}
-              </button>
-            ))}
+            {FOOD_GROUPS.map((g) => {
+              const groupIcon = GROUP_ICON[g];
+              return (
+                <button
+                  key={g}
+                  type="button"
+                  onClick={() => toggleGroup(g)}
+                  className={cn('inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-semibold', groups.includes(g) ? 'border-emerald-500 bg-emerald-50 text-emerald-800' : 'border-stone-200 text-[var(--muted-foreground)]')}
+                >
+                  {groupIcon && groupIcon({ size: 18 })}
+                  {g}
+                </button>
+              );
+            })}
           </div>
         </div>
         <label className="flex items-center gap-2.5">
