@@ -1,4 +1,4 @@
-import { CartesianGrid, Line, LineChart, ReferenceArea, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Area, CartesianGrid, ComposedChart, Line, ReferenceArea, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import type { BandPoint, GrowthLogPoint, Indicator, MidParentalHeight } from '../../api/growth';
 
 const UNIT: Record<Indicator, string> = { weight: 'kg', length: 'cm', head: 'cm' };
@@ -73,14 +73,18 @@ export function GrowthChart({
   midParentalHeight?: MidParentalHeight | null;
 }) {
   const rows = buildRows(bands, logs, indicator);
-  const band = (key: keyof Row, width: number, color: string) => (
-    <Line type="monotone" dataKey={key} stroke={color} strokeWidth={width} dot={false} connectNulls isAnimationActive={false} />
+  // Nested shaded "healthy zones" — the p15–p85 range reads as the strong band,
+  // p3–p97 as the lighter outer band. Drawn outer→inner, each masking below it
+  // (the last mask uses the white card surface), so the zones stay crisp even
+  // when the baby's line has few points. Far clearer than faint band lines.
+  const area = (key: keyof Row, fill: string) => (
+    <Area type="monotone" dataKey={key} stroke="none" fill={fill} fillOpacity={1} connectNulls isAnimationActive={false} />
   );
 
   return (
     <ResponsiveContainer width="100%" height={320}>
-      <LineChart data={rows} margin={{ top: 8, right: 12, bottom: 4, left: -8 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#ece6dc" />
+      <ComposedChart data={rows} margin={{ top: 8, right: 14, bottom: 4, left: 4 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="#ece6dc" vertical={false} />
         <XAxis
           dataKey="month"
           type="number"
@@ -94,47 +98,44 @@ export function GrowthChart({
           tick={{ fontSize: 12, fill: '#767b82' }}
           tickLine={false}
           axisLine={false}
-          width={44}
+          width={54}
           domain={['auto', 'auto']}
           unit={` ${UNIT[indicator]}`}
         />
         <Tooltip content={<GrowthTooltip unit={UNIT[indicator]} />} />
-        {band('p97', 1, '#d6e6df')}
-        {band('p85', 1, '#d6e6df')}
-        {band('p50', 1.5, '#a9c1b6')}
-        {band('p15', 1, '#d6e6df')}
-        {band('p3', 1, '#d6e6df')}
-        {/* Mid-parental height target band — only shown for the length indicator */}
+        {/* Shaded percentile zones (outer → inner, last one masks with card white). */}
+        {area('p97', '#e5f1ea')}
+        {area('p85', '#cbe1d5')}
+        {area('p15', '#e5f1ea')}
+        {area('p3', '#ffffff')}
+        {/* Median (p50) reference line */}
+        <Line type="monotone" dataKey="p50" stroke="#8fb3a5" strokeWidth={1.5} strokeDasharray="5 4" dot={false} connectNulls isAnimationActive={false} />
+        {/* Mid-parental height target — length only. `hidden` so an adult-height
+            target can't blow up the 0–24m domain and squash the curves. */}
         {indicator === 'length' && midParentalHeight && (
           <>
-            <ReferenceArea
-              y1={midParentalHeight.low}
-              y2={midParentalHeight.high}
-              fill="#8b5cf6"
-              fillOpacity={0.08}
-              ifOverflow="extendDomain"
-            />
+            <ReferenceArea y1={midParentalHeight.low} y2={midParentalHeight.high} fill="#8b5cf6" fillOpacity={0.08} ifOverflow="hidden" />
             <ReferenceLine
               y={midParentalHeight.target}
               stroke="#8b5cf6"
               strokeDasharray="6 4"
               strokeWidth={1.5}
-              ifOverflow="extendDomain"
-              label={{ value: `MPH ${midParentalHeight.target} cm`, position: 'right', fill: '#7c3aed', fontSize: 11, fontWeight: 600 }}
+              ifOverflow="hidden"
+              label={{ value: `MPH ${midParentalHeight.target} cm`, position: 'insideRight', fill: '#7c3aed', fontSize: 11, fontWeight: 600 }}
             />
           </>
         )}
         <Line
           type="monotone"
           dataKey="baby"
-          stroke="#4f8a7b"
-          strokeWidth={2.5}
+          stroke="#2f7d6b"
+          strokeWidth={3}
           connectNulls
           isAnimationActive={false}
-          dot={{ r: 4, fill: '#4f8a7b', strokeWidth: 0 }}
+          dot={{ r: 4, fill: '#2f7d6b', strokeWidth: 0 }}
           activeDot={{ r: 5 }}
         />
-      </LineChart>
+      </ComposedChart>
     </ResponsiveContainer>
   );
 }
