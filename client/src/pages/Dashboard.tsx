@@ -435,9 +435,36 @@ export default function Dashboard() {
   if (!baby) return <EmptyState />;
 
   // Mobile Home is a purpose-built, curated screen (design spec); desktop keeps
-  // the bento below. Same loaded data, no invented metrics.
+  // the bento below. Same loaded data, no invented metrics. The tracker snapshot
+  // cards are rendered here (Dashboard has the data + card components) and handed
+  // to MobileHome to place in its "Today's trackers" section.
   if (isMobile) {
-    return <MobileHome data={data} baby={baby} growth={growth} subscribed={subscribed} firstName={firstName} onSelectBaby={selectBaby} />;
+    return (
+      <MobileHome
+        data={data}
+        baby={baby}
+        growth={growth}
+        subscribed={subscribed}
+        firstName={firstName}
+        onSelectBaby={selectBaby}
+        snapshots={
+          <div className="flex flex-col gap-4">
+            <Lockable locked={!subscribed}>
+              <GrowthSnapshotCard babyId={baby.id} growth={growth} />
+            </Lockable>
+            <Lockable locked={!subscribed}>
+              <SkinSnapshotCard babyId={baby.id} skin={skin} />
+            </Lockable>
+            <Lockable locked={!subscribed}>
+              <FoodSnapshotCard babyId={baby.id} baby={baby} food={food} underSix={foodUnderSix ?? ageInMonths(baby.dob) < 6} />
+            </Lockable>
+            <Lockable locked={!subscribed}>
+              <SleepSnapshotCard babyId={baby.id} sleep={sleep} />
+            </Lockable>
+          </div>
+        }
+      />
+    );
   }
 
   return (
