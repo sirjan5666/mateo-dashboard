@@ -14,11 +14,20 @@ export interface ILabTestResult {
   refHigh: number | null;
 }
 
+/** An ordered test with its (editable) charge. Custom names are allowed (spec #9). */
+export interface ILabLineItem {
+  name: string;
+  price: number;
+}
+
 export interface ILabOrder {
   doctorUserId: Types.ObjectId;
   patientId: Types.ObjectId;
   orderNumber: string;
+  /** Test names (kept for backward compatibility + quick display). */
   tests: string[];
+  /** Per-test names + editable prices (spec #9). Empty on pre-#9 orders. */
+  lineItems: ILabLineItem[];
   status: LabOrderStatus;
   priority: 'routine' | 'urgent';
   results: ILabTestResult[];
@@ -55,6 +64,10 @@ const labOrderSchema = new Schema<ILabOrder>(
     patientId: { type: Schema.Types.ObjectId, ref: 'Patient', required: true, index: true },
     orderNumber: { type: String, required: true },
     tests: [{ type: String }],
+    lineItems: {
+      type: [new Schema<ILabLineItem>({ name: { type: String, required: true }, price: { type: Number, default: 0, min: 0 } }, { _id: false })],
+      default: [],
+    },
     status: { type: String, enum: LAB_ORDER_STATUSES, default: 'ordered' },
     priority: { type: String, enum: ['routine', 'urgent'], default: 'routine' },
     results: [labTestResultSchema],

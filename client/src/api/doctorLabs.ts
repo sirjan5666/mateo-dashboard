@@ -78,12 +78,19 @@ export interface LabOrderTestResult {
   refHigh: number | null;
 }
 
+export interface LabLineItem {
+  name: string;
+  price: number;
+}
+
 export interface LabOrderDto {
   id: string;
   patientId: string;
   patientName: string;
   orderNumber: string;
   tests: string[];
+  /** Per-test names + prices (spec #9); derived from `tests` at ₹0 for legacy orders. */
+  lineItems: LabLineItem[];
   status: LabOrderStatus;
   priority: 'routine' | 'urgent';
   results: LabOrderTestResult[];
@@ -105,7 +112,14 @@ export function getLabOrders(params?: { status?: LabOrderStatus; patientId?: str
   return api<{ orders: LabOrderDto[] }>(`/doctor/labs/orders${qs ? `?${qs}` : ''}`);
 }
 
-export function createLabOrder(body: { patientId: string; tests: string[]; priority?: 'routine' | 'urgent'; notes?: string; amount?: number }) {
+export function createLabOrder(body: {
+  patientId: string;
+  tests?: string[];
+  lineItems?: LabLineItem[];
+  priority?: 'routine' | 'urgent';
+  notes?: string;
+  amount?: number;
+}) {
   return api<{ id: string; orderNumber: string; status: LabOrderStatus }>('/doctor/labs/orders', { method: 'POST', body: JSON.stringify(body) });
 }
 
