@@ -13,7 +13,7 @@ import { cn } from '../../lib/cn';
 
 /** Common paediatric booking reasons; "Other" reveals a free-text field. */
 const REASONS = ['Fever', 'Cough & Cold', 'Vaccination', 'Well-baby checkup', 'Follow-up', 'Growth review', 'Rash / skin', 'Other'];
-const DURATIONS = [15, 30, 45, 60];
+const DURATIONS = [5, 10, 15, 20, 25, 30];
 
 /**
  * A number field with a fixed trailing unit chip (kg / cm / weeks …). The unit

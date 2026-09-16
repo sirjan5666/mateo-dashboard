@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router';
-import { Loader2, Stethoscope, Sun } from 'lucide-react';
+import { Link, useNavigate } from 'react-router';
+import { Loader2, Stethoscope, Sun, UserPlus } from 'lucide-react';
 import { useAuth } from '../../auth/context';
 import { useActiveLocation } from '../../lib/doctorLocation';
 import { subtitleFor } from '../../data/doctorDashboard';
@@ -220,6 +220,12 @@ export default function Dashboard() {
         </div>
 
         <div className="flex w-full flex-wrap items-start justify-end gap-3 sm:w-auto sm:shrink-0">
+          <Link
+            to="/doctor/patients/new"
+            className="inline-flex h-10 shrink-0 items-center gap-2 rounded-[10px] bg-[#3B4FE0] px-4 text-sm font-semibold text-white transition-colors hover:bg-[#3343c9]"
+          >
+            <UserPlus className="h-4 w-4" /> Quick Add Patient
+          </Link>
           <NewPrescriptionButton />
           <InOutToggle presence={presence} busy={presenceBusy} onToggle={togglePresence} />
           <div className="flex min-w-0 flex-col items-end gap-1.5">

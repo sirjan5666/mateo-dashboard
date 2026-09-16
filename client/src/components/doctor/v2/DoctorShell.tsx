@@ -54,7 +54,6 @@ import { getDashboardAlerts } from '../../../api/doctorDashboard';
 import type { AlertRow } from './panels';
 import { LocationSwitcher } from './LocationSwitcher';
 
-const META = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/i.test(navigator.userAgent) ? '⌘' : 'Ctrl';
 const COLLAPSE_KEY = 'mateo:doctor-rail-collapsed';
 
 interface NavItem {
@@ -633,9 +632,6 @@ function TopBar({ unread, onOpenNav, railCollapsed }: { unread: number; onOpenNa
       >
         <Search className="h-4 w-4 shrink-0 text-[#94A3B8]" />
         <span className="flex-1 truncate text-sm text-[#64748B]">Search patients, appointments, invoices…</span>
-        <kbd className="shrink-0 rounded-[6px] border border-[#E2E6F0] bg-white px-2 py-[3px] font-mono-ds text-[11px] font-semibold text-[#64748B]">
-          {META} + K
-        </kbd>
       </button>
 
       <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-3.5">

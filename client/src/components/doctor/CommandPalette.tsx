@@ -17,7 +17,7 @@ import type { LucideIcon } from 'lucide-react';
 import { useT } from '../../i18n/context';
 import { cn } from '../../lib/cn';
 import { usePanelMode } from '../../lib/panelTheme';
-import { closeCommand, openCommand, useCommandOpen } from '../../lib/commandPalette';
+import { closeCommand, useCommandOpen } from '../../lib/commandPalette';
 import { listPatients } from '../../api/doctorPatients';
 import type { Patient } from '../../api/doctorPatients';
 import { Avatar } from '../ui/Avatar';
@@ -35,7 +35,7 @@ interface Cmd {
 }
 
 const ACTIONS: { label: string; to: string; icon: LucideIcon }[] = [
-  { label: 'doctor.quickAdd.patient', to: '/doctor/patients', icon: Users },
+  { label: 'doctor.quickAdd.patient', to: '/doctor/patients/new', icon: Users },
   { label: 'doctor.quickAdd.invoice', to: '/doctor/billing', icon: CreditCard },
 ];
 
@@ -52,7 +52,7 @@ const PAGES: { label: string; to: string; icon: LucideIcon }[] = [
   { label: 'doctor.nav.profile', to: '/doctor/profile', icon: UserCog },
 ];
 
-/** ⌘K / Ctrl-K command palette: jump to any patient, page or action. */
+/** Command palette (opened from the top-bar search): jump to any patient, page or action. */
 export function CommandPalette() {
   const open = useCommandOpen();
   const t = useT();
@@ -63,18 +63,6 @@ export function CommandPalette() {
   const [patients, setPatients] = useState<Patient[] | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const activeRef = useRef<HTMLButtonElement>(null);
-
-  // Global keyboard shortcut.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
-        e.preventDefault();
-        openCommand();
-      }
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, []);
 
   // Lazy-load patients the first time the palette opens. (Query/selection reset
   // happens on dismiss/select — see `dismiss` — to avoid set-state-in-effect.)

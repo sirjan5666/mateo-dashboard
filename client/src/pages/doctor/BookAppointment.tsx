@@ -32,7 +32,7 @@ const MODES: { value: AppointmentMode; label: string }[] = [
 ];
 const MODE_LABEL = Object.fromEntries(MODES.map((m) => [m.value, m.label])) as Record<AppointmentMode, string>;
 
-const DURATIONS = [15, 20, 30, 45, 60];
+const DURATIONS = [5, 10, 15, 20, 25, 30];
 
 /** Common paediatric booking reasons; "Other" reveals a free-text field. */
 const REASONS = ['Fever', 'Cough & Cold', 'Vaccination', 'Well-baby checkup', 'Follow-up', 'Growth review', 'Rash / skin', 'Other'];
