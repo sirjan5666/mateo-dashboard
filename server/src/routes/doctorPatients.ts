@@ -156,11 +156,13 @@ const demographicSchema = {
   bloodGroup: z.string().max(8).optional(),
   guardianName: z.string().max(200).optional(),
   guardianRelationship: z.string().max(40).optional(),
-  guardianPhone: z.string().max(40).optional(),
+  // Phone fields accept digits only (spaces allowed for the client's "XXXXX XXXXX"
+  // grouping) — no alphabets. The client already strips non-digits at input.
+  guardianPhone: z.string().max(40).regex(/^[\d\s]*$/, 'Guardian number must contain digits only').optional(),
   guardianEmail: z.string().max(160).optional(),
   emergencyName: z.string().max(200).optional(),
   emergencyRelationship: z.string().max(40).optional(),
-  emergencyPhone: z.string().max(40).optional(),
+  emergencyPhone: z.string().max(40).regex(/^[\d\s]*$/, 'Emergency number must contain digits only').optional(),
   birthWeightKg: z.number().min(0).max(12).optional(),
   birthHeightCm: z.number().min(0).max(80).optional(),
   birthHeadCircumferenceCm: z.number().min(0).max(60).optional(),

@@ -8,7 +8,6 @@ import { DoctorReview } from '../models/DoctorReview.js';
 import { User } from '../models/User.js';
 import type { Types } from 'mongoose';
 import { requireAuth, requireRole } from '../middleware/auth.js';
-import { logAction } from '../middleware/audit.js';
 import { generateSlots } from '../doctors/slots.js';
 import { decryptOptional } from '../lib/crypto/fieldCipher.js';
 
@@ -137,6 +136,11 @@ router.put('/doctors/me', requireAuth, requireRole('doctor'), async (req, res) =
   // No admin approval step right now — profiles go live on save. When the admin
   // panel returns, gate visibility behind 'pending' → admin approval again.
   if (existing) {
+    // Specialization + medical registration number are FIXED after creation
+    // (the doctor form disables them; enforce here too so a raw API call can't
+    // change them). registrationNo locks only once it has actually been set.
+    rest.specialization = existing.specialization;
+    if (existing.registrationNo) rest.registrationNo = existing.registrationNo;
     existing.set(rest);
     if (bankDetails) existing.bankDetailsEnc = JSON.stringify(bankDetails); // encrypted on save
     existing.status = 'approved';
@@ -158,20 +162,14 @@ router.put('/doctors/me', requireAuth, requireRole('doctor'), async (req, res) =
 // re-submitting the full profile form. New patient records follow this speciality.
 const specSchema = z.object({ specialization: z.string().trim().min(1).max(100) });
 router.patch('/doctors/me/specialization', requireAuth, requireRole('doctor'), async (req, res) => {
-  const { specialization } = specSchema.parse(req.body);
+  specSchema.parse(req.body); // validate shape, but changes are no longer allowed
   const existing = await DoctorProfile.findOne({ userId: req.userId });
   if (!existing) {
     res.status(400).json({ error: 'Complete your doctor profile before setting a speciality.' });
     return;
   }
-  existing.specialization = specialization;
-  await existing.save();
-  logAction(req, {
-    action: 'doctor.specialty_changed',
-    description: `Changed speciality to ${specialization}`,
-    meta: { specialization },
-  });
-  res.json({ specialization: existing.specialization });
+  // Specialization is fixed after the profile is created — this switch is disabled.
+  res.status(403).json({ error: 'Specialization cannot be changed after your profile is created. Contact Mateo support if this needs correcting.' });
 });
 
 // ── Parent-facing directory ────────────────────────────────────────────

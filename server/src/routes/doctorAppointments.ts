@@ -92,7 +92,12 @@ async function withPatients(req: Parameters<typeof scopeToDoctor>[0], appts: Hyd
 
 const apptShape = {
   start: z.string().min(1),
-  durationMin: z.number().int().min(5).max(480).optional(),
+  // Appointment duration is a fixed set of 5-minute steps up to 30 min.
+  durationMin: z
+    .number()
+    .int()
+    .refine((v) => [5, 10, 15, 20, 25, 30].includes(v), { message: 'Duration must be 5, 10, 15, 20, 25 or 30 minutes' })
+    .optional(),
   mode: z.enum(APPOINTMENT_MODES).optional(),
   reason: z.string().max(500).optional(),
   // Booking-time clinical context. PHI, encrypted at rest like `reason`.

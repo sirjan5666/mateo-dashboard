@@ -168,7 +168,7 @@ export default function DoctorProfileForm() {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label htmlFor="spec" className="block text-sm font-medium text-stone-700">{t('doctor.profile.specialization')}</label>
-                <select id="spec" value={specialization} onChange={(e) => setSpecialization(e.target.value)} className={inputCls}>
+                <select id="spec" value={specialization} onChange={(e) => setSpecialization(e.target.value)} disabled={!isNew} className={cn(inputCls, !isNew && 'cursor-not-allowed bg-stone-100 text-stone-500')}>
                   <option value="" disabled>{t('doctor.profile.specPlaceholder')}</option>
                   {/* Preserve a legacy/custom specialization that isn't one of the four options. */}
                   {specialization && !SPECIALTY_OPTIONS.some((o) => o.value.toLowerCase() === specialization.toLowerCase()) && (
@@ -178,7 +178,7 @@ export default function DoctorProfileForm() {
                     <option key={o.value} value={o.value}>{o.label}</option>
                   ))}
                 </select>
-                <p className="mt-1 text-xs text-stone-500">Your dashboard adapts to the speciality you choose.</p>
+                <p className="mt-1 text-xs text-stone-500">{isNew ? 'Your dashboard adapts to the speciality you choose.' : 'Specialization can’t be changed after your profile is set up.'}</p>
               </div>
               <div>
                 <label htmlFor="fee" className="block text-sm font-medium text-stone-700">{t('doctor.profile.fee')}</label>
@@ -194,7 +194,9 @@ export default function DoctorProfileForm() {
               </div>
               <div>
                 <label htmlFor="reg" className="block text-sm font-medium text-stone-700">{t('doctor.profile.registration')}</label>
-                <input id="reg" value={registrationNo} onChange={(e) => setRegistrationNo(e.target.value)} className={inputCls} />
+                {/* Medical registration number is fixed once it has been set. */}
+                <input id="reg" value={registrationNo} onChange={(e) => setRegistrationNo(e.target.value)} disabled={!isNew && registrationNo.trim() !== ''} className={cn(inputCls, !isNew && registrationNo.trim() !== '' && 'cursor-not-allowed bg-stone-100 text-stone-500')} />
+                {!isNew && registrationNo.trim() !== '' && <p className="mt-1 text-xs text-stone-500">Cannot be changed after setup.</p>}
               </div>
               <div>
                 <label htmlFor="langs" className="block text-sm font-medium text-stone-700">{t('doctor.profile.languages')}</label>
