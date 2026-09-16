@@ -9,10 +9,14 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import { STATUS_STYLE, billingKpisFrom, invoiceFromApi, money } from '../../data/invoices';
 import { getBillingSummary, listInvoices, updateInvoice } from '../../api/doctorBilling';
+import type { InvoicePaymentMethod } from '../../api/doctorBilling';
 import { InvoiceFormModal } from '../../components/doctor/v2/InvoiceFormModal';
+import { CollectPaymentModal } from '../../components/doctor/v2/CollectPaymentModal';
 import type { BillingSummary } from '../../api/doctorBilling';
 import type { Invoice, PaymentMode } from '../../data/invoices';
 import { RowMenu } from '../../components/doctor/v2/RowMenu';
+import { useActiveLocation } from '../../lib/doctorLocation';
+import { getMyDoctorProfile, paymentQrUrl } from '../../api/doctors';
 import { cn } from '../../lib/cn';
 
 const CARD = 'rounded-[14px] border border-[#ECEEF4] bg-white shadow-[0_1px_2px_rgba(16,24,40,.04),0_8px_24px_-12px_rgba(16,24,40,.10)]';
@@ -54,7 +58,20 @@ export default function BillingInvoices() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Invoice | null>(null);
   const [creating, setCreating] = useState(false);
+  const [paying, setPaying] = useState<Invoice | null>(null);
   const [busy, setBusy] = useState(false);
+  // The clinic whose UPI ID + name back the QR — the active one, else the primary.
+  const { active, clinics } = useActiveLocation();
+  const clinic = active && active.id !== 'overall' ? active : clinics.find((c) => c.primary) ?? clinics[0] ?? null;
+  // Whether the doctor has uploaded a payment QR (spec #8) — preferred over a generated one.
+  const [hasPaymentQr, setHasPaymentQr] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    void getMyDoctorProfile()
+      .then((r) => { if (!cancelled) setHasPaymentQr(!!r.profile?.hasPaymentQr); })
+      .catch(() => undefined);
+    return () => { cancelled = true; };
+  }, []);
 
   /** Re-reads the table AND the KPI summary, so the two can never disagree. */
   const reload = useCallback(async () => {
@@ -66,15 +83,20 @@ export default function BillingInvoices() {
   }, []);
 
   /** Every status write goes through here. */
-  async function mutate(ids: string[], status: 'paid' | 'unpaid' | 'cancelled') {
+  async function mutate(
+    ids: string[],
+    status: 'paid' | 'unpaid' | 'cancelled',
+    opts?: { paymentMethod?: InvoicePaymentMethod; paymentReference?: string },
+  ) {
     const real = ids.filter(Boolean);
     if (!real.length) return;
     setBusy(true);
     setLoadError(null);
     try {
-      await Promise.all(real.map((id) => updateInvoice(id, status)));
+      await Promise.all(real.map((id) => updateInvoice(id, status, opts)));
       await reload();
       setChecked([]);
+      setPaying(null);
     } catch (e: unknown) {
       setLoadError(e instanceof Error ? e.message : 'Could not update the invoice');
     } finally {
@@ -397,8 +419,9 @@ export default function BillingInvoices() {
             <div className="border-b border-[#ECEEF4] px-[18px] pb-[18px] pt-4">
               <h3 className="text-[13.5px] font-bold text-[#0F172A]">Payment Information</h3>
               <dl className="mt-3 flex flex-col gap-3">
-                {/* An invoice stores no payment mode or reference yet, so those read as em dashes. */}
                 {[
+                  { label: 'Payment Mode', value: selected.mode ?? '—' },
+                  ...(selected.reference ? [{ label: 'Reference', value: selected.reference }] : []),
                   { label: 'Amount Paid', value: money(selected.paid) },
                   { label: 'Balance Due', value: money(selected.due) },
                   { label: 'Status', value: selected.status },
@@ -417,11 +440,11 @@ export default function BillingInvoices() {
                 <Download className="h-4 w-4" />
                 Print / PDF
               </button>
-              <button type="button" aria-label="Mark invoice as paid" disabled={busy || selected.status === 'Paid'}
-                onClick={() => void mutate([selected.id], 'paid')}
+              <button type="button" aria-label="Record payment for this invoice" disabled={busy || selected.status === 'Paid' || selected.status === 'Cancelled'}
+                onClick={() => setPaying(selected)}
                 className="flex h-11 items-center justify-center gap-2 rounded-[10px] border border-[#DDE3F5] bg-white text-[12.5px] font-bold text-[#3B4FE0] hover:bg-[#F5F7FF] disabled:opacity-50">
                 <Send className="h-4 w-4" />
-                Mark Paid
+                Record Payment
               </button>
             </div>
           </aside>
@@ -433,6 +456,20 @@ export default function BillingInvoices() {
           presetPatientId={search.get('patient') ?? undefined}
           onClose={() => setCreating(false)}
           onSaved={reload}
+        />
+      )}
+
+      {paying && (
+        <CollectPaymentModal
+          invoiceNo={paying.no}
+          patientName={paying.patient}
+          amount={paying.due > 0 ? paying.due : paying.amount}
+          clinicName={clinic?.name ?? ''}
+          clinicUpiVpa={clinic?.upiVpa ?? ''}
+          qrImageUrl={hasPaymentQr ? paymentQrUrl() : null}
+          busy={busy}
+          onClose={() => setPaying(null)}
+          onConfirm={(paymentMethod, paymentReference) => void mutate([paying.id], 'paid', { paymentMethod, paymentReference: paymentReference || undefined })}
         />
       )}
     </div>

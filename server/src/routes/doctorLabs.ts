@@ -94,6 +94,8 @@ router.get('/labs/orders', async (req, res) => {
       patientName: pMap.get(o.patientId.toString()) ?? 'Unknown',
       orderNumber: o.orderNumber,
       tests: o.tests,
+      // Legacy orders (pre-#9) have no lineItems — derive them from names at ₹0.
+      lineItems: o.lineItems?.length ? o.lineItems.map((i) => ({ name: i.name, price: i.price })) : o.tests.map((t) => ({ name: t, price: 0 })),
       status: o.status,
       priority: o.priority,
       results: o.results,
@@ -109,12 +111,19 @@ router.get('/labs/orders', async (req, res) => {
   });
 });
 
+const labLineItemSchema = z.object({ name: z.string().min(1).max(200), price: z.number().min(0).max(10_000_000) });
 const createOrderSchema = z.object({
   patientId: z.string().min(1),
-  tests: z.array(z.string().min(1)).min(1).max(40),
+  // Either bare test names (legacy) or {name, price} line items (spec #9). At
+  // least one test is required; custom names are allowed.
+  tests: z.array(z.string().min(1)).min(1).max(40).optional(),
+  lineItems: z.array(labLineItemSchema).min(1).max(40).optional(),
   priority: z.enum(['routine', 'urgent']).optional(),
   notes: z.string().max(2000).optional(),
   amount: z.number().min(0).max(10_000_000).optional(),
+}).refine((b) => (b.lineItems && b.lineItems.length) || (b.tests && b.tests.length), {
+  message: 'Add at least one test',
+  path: ['tests'],
 });
 
 router.post('/labs/orders', async (req, res) => {
@@ -124,14 +133,22 @@ router.post('/labs/orders', async (req, res) => {
   const patient = await Patient.findOne({ _id: body.patientId, doctorUserId });
   if (!patient) return res.status(404).json({ error: 'Patient not found' });
 
+  // Prefer explicit {name, price} line items; fall back to bare names at ₹0.
+  const lineItems = body.lineItems?.length
+    ? body.lineItems.map((i) => ({ name: i.name.trim(), price: i.price }))
+    : (body.tests ?? []).map((t) => ({ name: t.trim(), price: 0 }));
+  const testNames = lineItems.map((i) => i.name);
+  const computedTotal = lineItems.reduce((s, i) => s + i.price, 0);
+
   const order = await LabOrder.create({
     doctorUserId,
     patientId: body.patientId,
     orderNumber: nextOrderNumber(),
-    tests: body.tests,
+    tests: testNames,
+    lineItems,
     priority: body.priority ?? 'routine',
     notes: body.notes,
-    amount: body.amount ?? 0,
+    amount: body.amount ?? computedTotal,
     orderedAt: new Date(),
   });
 

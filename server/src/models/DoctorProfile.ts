@@ -114,6 +114,10 @@ export interface IDoctorProfile {
   // encrypted JSON string {accountHolder,accountNumber,ifsc,bankName}; decrypted only
   // in the owner's self shaper, never sent to anyone else.
   bankDetailsEnc?: string;
+  // Uploaded UPI/payment QR image (spec #8) — a server-generated filename under
+  // uploadsDir, streamed back through an authenticated route. Shown to the doctor
+  // in the collect-payment flow for the patient to scan.
+  paymentQrFile?: string;
   status: DoctorStatus;
   createdAt: Date;
   updatedAt: Date;
@@ -200,6 +204,7 @@ const doctorProfileSchema = new Schema<IDoctorProfile>(
       ),
     },
     bankDetailsEnc: { type: String },
+    paymentQrFile: { type: String },
     // Admin-gated visibility: parents only ever see 'approved' doctors.
     status: { type: String, enum: DOCTOR_STATUSES, default: 'pending', index: true },
   },

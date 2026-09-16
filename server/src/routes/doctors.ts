@@ -1,4 +1,6 @@
 import { Router } from 'express';
+import path from 'node:path';
+import { unlink } from 'node:fs/promises';
 import { isValidObjectId } from 'mongoose';
 import { z } from 'zod';
 import { DoctorProfile } from '../models/DoctorProfile.js';
@@ -8,6 +10,7 @@ import { DoctorReview } from '../models/DoctorReview.js';
 import { User } from '../models/User.js';
 import type { Types } from 'mongoose';
 import { requireAuth, requireRole } from '../middleware/auth.js';
+import { uploadPhoto, uploadsDir } from '../middleware/upload.js';
 import { generateSlots } from '../doctors/slots.js';
 import { decryptOptional } from '../lib/crypto/fieldCipher.js';
 
@@ -98,6 +101,7 @@ function publicSelf(p: IDoctorProfile & { id: string }, name: string) {
     workingHours: p.workingHours ?? null,
     notifications: p.notifications ?? { email: true, sms: false, reminders: true },
     bankDetails: decryptBank(p.bankDetailsEnc),
+    hasPaymentQr: !!p.paymentQrFile,
     status: p.status,
     createdAt: p.createdAt,
     updatedAt: p.updatedAt,
@@ -170,6 +174,61 @@ router.patch('/doctors/me/specialization', requireAuth, requireRole('doctor'), a
   }
   // Specialization is fixed after the profile is created — this switch is disabled.
   res.status(403).json({ error: 'Specialization cannot be changed after your profile is created. Contact Mateo support if this needs correcting.' });
+});
+
+// ── Payment QR (spec #8) ───────────────────────────────────────────────
+// The doctor uploads their own UPI/payment QR (a GPay/PhonePe/Paytm image) in
+// Settings; it is shown in the collect-payment flow for the patient to scan.
+// Stored like other uploads (server-generated filename under uploadsDir) and
+// streamed back only to the authenticated owner.
+router.post('/doctors/me/payment-qr', requireAuth, requireRole('doctor'), uploadPhoto, async (req, res) => {
+  if (!req.file) {
+    res.status(400).json({ error: 'No image uploaded' });
+    return;
+  }
+  const profile = await DoctorProfile.findOne({ userId: req.userId });
+  if (!profile) {
+    // Don't leave an orphaned file if there's no profile to attach it to.
+    await unlink(path.resolve(uploadsDir, req.file.filename)).catch(() => {});
+    res.status(400).json({ error: 'Complete your doctor profile before adding a payment QR.' });
+    return;
+  }
+  const previous = profile.paymentQrFile;
+  profile.paymentQrFile = req.file.filename;
+  await profile.save();
+  // Best-effort cleanup of the replaced image.
+  if (previous && previous !== req.file.filename) {
+    await unlink(path.resolve(uploadsDir, previous)).catch(() => {});
+  }
+  res.status(201).json({ hasPaymentQr: true });
+});
+
+router.get('/doctors/me/payment-qr', requireAuth, requireRole('doctor'), async (req, res) => {
+  const profile = await DoctorProfile.findOne({ userId: req.userId });
+  if (!profile?.paymentQrFile) {
+    res.status(404).json({ error: 'No payment QR uploaded' });
+    return;
+  }
+  // Filenames are server-generated UUIDs; resolve + prefix-check to be certain
+  // the path stays inside uploadsDir.
+  const full = path.resolve(uploadsDir, profile.paymentQrFile);
+  if (!full.startsWith(path.resolve(uploadsDir))) {
+    res.status(400).json({ error: 'Bad path' });
+    return;
+  }
+  res.setHeader('Cache-Control', 'private, no-cache');
+  res.sendFile(full);
+});
+
+router.delete('/doctors/me/payment-qr', requireAuth, requireRole('doctor'), async (req, res) => {
+  const profile = await DoctorProfile.findOne({ userId: req.userId });
+  if (profile?.paymentQrFile) {
+    const file = profile.paymentQrFile;
+    profile.paymentQrFile = undefined;
+    await profile.save();
+    await unlink(path.resolve(uploadsDir, file)).catch(() => {});
+  }
+  res.json({ hasPaymentQr: false });
 });
 
 // ── Parent-facing directory ────────────────────────────────────────────

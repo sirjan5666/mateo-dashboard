@@ -4,6 +4,7 @@ import { ArrowRight, Check, ChevronDown, ExternalLink, Loader2, Settings as Gear
 import { PhoneNumberInput } from '../../components/doctor/v2/subuser/fields';
 import { getSettings, saveSettings } from '../../api/doctorSettings';
 import type { ClinicPreferences, ClinicSettings } from '../../api/doctorSettings';
+import { PaymentQrSettings } from '../../components/doctor/v2/PaymentQrSettings';
 import { WEEK_DAYS } from '../../api/doctors';
 import type { DayHours, WeekDay } from '../../api/doctors';
 import { cn } from '../../lib/cn';
@@ -234,6 +235,9 @@ export default function SettingsPage() {
         (() => {
           const s = SECTION_LINKS[tab];
           return (
+            <div className="flex flex-col gap-5">
+            {/* Payment QR upload lives in Billing & Payments (spec #8). */}
+            {tab === 'Billing & Payments' && <PaymentQrSettings />}
             <div className={`${CARD} max-w-2xl px-6 py-7`}>
               <h2 className="font-display text-lg font-bold text-[#0F172A]">{tab}</h2>
               {s && <p className="mt-1.5 text-sm text-[#64748B]">{s.desc}</p>}
@@ -255,6 +259,7 @@ export default function SettingsPage() {
                   {s.linkLabel ?? 'Open'}<ArrowRight className="h-4 w-4" />
                 </Link>
               )}
+            </div>
             </div>
           );
         })()

@@ -1,6 +1,7 @@
 import { api } from './client';
 
 export type InvoiceStatus = 'unpaid' | 'partial' | 'paid' | 'cancelled';
+export type InvoicePaymentMethod = 'cash' | 'upi' | 'card' | 'bank' | 'other';
 
 export interface InvoiceItem {
   description: string;
@@ -17,6 +18,8 @@ export interface InvoiceListItem {
   amountPaid: number;
   status: InvoiceStatus;
   paidAt: string | null;
+  paymentMethod: InvoicePaymentMethod | null;
+  paymentReference: string | null;
 }
 
 export interface InvoiceFull extends InvoiceListItem {
@@ -72,8 +75,15 @@ export function createInvoice(body: CreateInvoiceInput) {
   return api<{ invoice: InvoiceFull }>('/doctor/billing/invoices', { method: 'POST', body: JSON.stringify(body) });
 }
 
-export function updateInvoice(id: string, status: 'paid' | 'unpaid' | 'cancelled') {
-  return api<{ invoice: InvoiceFull }>(`/doctor/billing/invoices/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) });
+export function updateInvoice(
+  id: string,
+  status: 'paid' | 'unpaid' | 'cancelled',
+  opts?: { paymentMethod?: InvoicePaymentMethod; paymentReference?: string },
+) {
+  return api<{ invoice: InvoiceFull }>(`/doctor/billing/invoices/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status, ...opts }),
+  });
 }
 
 export function getBillingSummary() {

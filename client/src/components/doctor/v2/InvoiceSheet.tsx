@@ -112,6 +112,8 @@ export function InvoiceSheet({
   const paid = invoice.amountPaid;
   const balance = Math.max(0, invoice.total - paid);
   const statusLabel = invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1);
+  const MODE_LABELS: Record<string, string> = { upi: 'UPI / QR', cash: 'Cash', card: 'Card', bank: 'Net Banking', other: 'Other' };
+  const modeLabel = invoice.paymentMethod ? MODE_LABELS[invoice.paymentMethod] ?? invoice.paymentMethod : null;
   const age = ageLabel(patient?.dob ?? null);
   const sex = patient ? SEX_LABEL[patient.sex] ?? '' : '';
   const ageGender = [age, sex].filter(Boolean).join(' / ');
@@ -216,6 +218,8 @@ export function InvoiceSheet({
           <p className="mb-2.5 text-[11px] font-extrabold uppercase tracking-[0.06em]" style={{ color: NAVY }}>Payment Information</p>
           <div className="space-y-[5px]">
             <Field label="Status" value={statusLabel} />
+            {modeLabel && <Field label="Payment Mode" value={modeLabel} />}
+            {invoice.paymentReference && <Field label="Reference" value={invoice.paymentReference} />}
             {invoice.paidAt && <Field label="Payment Date" value={longDate(invoice.paidAt)} />}
           </div>
           {invoice.status === 'paid' && (

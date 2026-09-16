@@ -27,6 +27,8 @@ function when(iso: string): string {
 }
 
 type PatientOption = { id: string; name: string };
+/** A test picked for an order, with its editable charge (spec #9). */
+type OrderTest = { code: string; name: string; price: number; custom: boolean };
 
 const rupee = (n: number) => `₹${n.toLocaleString('en-IN')}`;
 // Fasting values in the dataset are messy — treat only clearly-required ones as such.
@@ -42,7 +44,9 @@ function NewOrderModal({
   onCreated: () => void;
 }) {
   const [patientId, setPatientId] = useState('');
-  const [selected, setSelected] = useState<LabCatalogTest[]>([]);
+  const [selected, setSelected] = useState<OrderTest[]>([]);
+  const [customName, setCustomName] = useState('');
+  const [customPrice, setCustomPrice] = useState('');
   const [priority, setPriority] = useState<'routine' | 'urgent'>('routine');
   const [notes, setNotes] = useState('');
   const [search, setSearch] = useState('');
@@ -76,14 +80,27 @@ function NewOrderModal({
   const selectedCodes = new Set(selected.map((t) => t.code));
   const total = selected.reduce((s, t) => s + (t.price || 0), 0);
   const toggle = (t: LabCatalogTest) =>
-    setSelected((prev) => (prev.some((x) => x.code === t.code) ? prev.filter((x) => x.code !== t.code) : [...prev, t]));
+    setSelected((prev) => (prev.some((x) => x.code === t.code)
+      ? prev.filter((x) => x.code !== t.code)
+      : [...prev, { code: t.code, name: t.name, price: t.price || 0, custom: false }]));
+  const setPrice = (code: string, price: number) =>
+    setSelected((prev) => prev.map((x) => (x.code === code ? { ...x, price: Math.max(0, price) } : x)));
+  const removeTest = (code: string) => setSelected((prev) => prev.filter((x) => x.code !== code));
+  const addCustom = () => {
+    const name = customName.trim();
+    if (!name) return;
+    setSelected((prev) => [...prev, { code: `custom:${Date.now()}`, name, price: Math.max(0, Number(customPrice) || 0), custom: true }]);
+    setCustomName('');
+    setCustomPrice('');
+  };
 
   async function submit() {
     if (!patientId || selected.length === 0) return;
     setSaving(true);
     setError(null);
     try {
-      await createLabOrder({ patientId, tests: selected.map((t) => t.name), priority, notes: notes.trim() || undefined, amount: total });
+      // Send editable per-test prices as line items (spec #9).
+      await createLabOrder({ patientId, lineItems: selected.map((t) => ({ name: t.name, price: t.price })), priority, notes: notes.trim() || undefined });
       onCreated();
       onClose();
     } catch (e) {
@@ -173,23 +190,53 @@ function NewOrderModal({
 
             {selected.length > 0 && (
               <div className="mt-2.5 rounded-[10px] border border-[#E4E8F1] bg-[#FAFBFD] p-2.5">
-                <div className="flex flex-wrap gap-1.5">
+                <ul className="flex flex-col gap-1.5">
                   {selected.map((t) => (
-                    <span key={t.code} className="inline-flex items-center gap-1.5 rounded-full border border-[#DDE3F5] bg-white py-1 pl-2.5 pr-1.5 text-[11.5px] font-semibold text-[#334155]">
-                      <span className="max-w-[180px] truncate">{t.name}</span>
-                      <span className="text-[#94A3B8]">{rupee(t.price)}</span>
-                      <button type="button" onClick={() => toggle(t)} aria-label={`Remove ${t.name}`} className="grid h-4 w-4 place-items-center rounded-full text-[#94A3B8] hover:bg-[#F1F3F9] hover:text-[#EF4444]">
-                        <X className="h-3 w-3" />
+                    <li key={t.code} className="flex items-center gap-2 rounded-[8px] border border-[#DDE3F5] bg-white py-1.5 pl-2.5 pr-1.5">
+                      <span className="min-w-0 flex-1 truncate text-[12px] font-semibold text-[#334155]">
+                        {t.name}
+                        {t.custom && <span className="ml-1.5 rounded-full bg-[#EDE9FE] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[#6D28D9]">Custom</span>}
+                      </span>
+                      <span className="flex shrink-0 items-center gap-1 rounded-[7px] border border-[#E4E8F1] bg-white pl-2 pr-1">
+                        <span className="text-[12px] font-semibold text-[#94A3B8]">₹</span>
+                        <label className="sr-only" htmlFor={`price-${t.code}`}>Price for {t.name}</label>
+                        <input id={`price-${t.code}`} type="number" min={0} inputMode="numeric" value={t.price === 0 ? '' : t.price}
+                          onChange={(e) => setPrice(t.code, Math.round(Number(e.target.value) || 0))} placeholder="0"
+                          className="w-[72px] bg-transparent py-1 text-right text-[12.5px] font-bold text-[#0F172A] tabular-nums outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none" />
+                      </span>
+                      <button type="button" onClick={() => removeTest(t.code)} aria-label={`Remove ${t.name}`} className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-[#94A3B8] hover:bg-[#F1F3F9] hover:text-[#EF4444]">
+                        <X className="h-3.5 w-3.5" />
                       </button>
-                    </span>
+                    </li>
                   ))}
-                </div>
+                </ul>
                 <div className="mt-2 flex items-center justify-between border-t border-[#E4E8F1] pt-2 text-[12.5px]">
-                  <span className="font-medium text-[#64748B]">{selected.length} test{selected.length !== 1 ? 's' : ''} selected</span>
+                  <span className="font-medium text-[#64748B]">{selected.length} test{selected.length !== 1 ? 's' : ''} · prices editable</span>
                   <span className="font-bold text-[#0F172A] tabular-nums">Total: {rupee(total)}</span>
                 </div>
               </div>
             )}
+
+            {/* Add a custom test not in the catalog (spec #9). */}
+            <div className="mt-2.5 flex items-end gap-2">
+              <div className="min-w-0 flex-1">
+                <label htmlFor="lo-custom-name" className="mb-1 block text-[11.5px] font-semibold text-[#64748B]">Custom test name</label>
+                <input id="lo-custom-name" value={customName} onChange={(e) => setCustomName(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCustom(); } }}
+                  placeholder="e.g. In-house dengue card test" maxLength={200}
+                  className="h-10 w-full rounded-[9px] border border-[#E4E8F1] bg-white px-3 text-[13px] font-medium text-[#0F172A] placeholder:text-[#94A3B8] focus:border-[#3B4FE0] focus:outline-none" />
+              </div>
+              <div className="w-[92px] shrink-0">
+                <label htmlFor="lo-custom-price" className="mb-1 block text-[11.5px] font-semibold text-[#64748B]">Price ₹</label>
+                <input id="lo-custom-price" type="number" min={0} inputMode="numeric" value={customPrice} onChange={(e) => setCustomPrice(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCustom(); } }} placeholder="0"
+                  className="h-10 w-full rounded-[9px] border border-[#E4E8F1] bg-white px-3 text-[13px] font-medium text-[#0F172A] placeholder:text-[#94A3B8] focus:border-[#3B4FE0] focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none" />
+              </div>
+              <button type="button" onClick={addCustom} disabled={!customName.trim()}
+                className="grid h-10 shrink-0 place-items-center rounded-[9px] border border-[#DDE3F5] bg-white px-3 text-[12.5px] font-bold text-[#3B4FE0] hover:bg-[#F5F7FF] disabled:opacity-40">
+                <Plus className="h-4 w-4" />
+              </button>
+            </div>
           </div>
 
           <div>
