@@ -11,6 +11,11 @@ import { encryptedFields } from '../lib/crypto/mongooseEncryption.js';
 export type InvoiceStatus = 'unpaid' | 'partial' | 'paid' | 'cancelled';
 export const INVOICE_STATUSES: InvoiceStatus[] = ['unpaid', 'partial', 'paid', 'cancelled'];
 
+// How a paid invoice was collected. 'upi' covers UPI / QR-scan payments (spec #8);
+// no money moves through the app — this is a record for reconciliation.
+export type InvoicePaymentMethod = 'cash' | 'upi' | 'card' | 'bank' | 'other';
+export const INVOICE_PAYMENT_METHODS: InvoicePaymentMethod[] = ['cash', 'upi', 'card', 'bank', 'other'];
+
 export interface IInvoice {
   doctorUserId: Types.ObjectId; // TENANT
   patientId: Types.ObjectId;
@@ -21,6 +26,8 @@ export interface IInvoice {
   amountPaid: number; // plain
   status: InvoiceStatus;
   paidAt?: Date;
+  paymentMethod?: InvoicePaymentMethod; // recorded when marked paid; plain (not PHI)
+  paymentReference?: string; // optional UPI/txn ref; plain
   notes?: string; // PHI — encrypted
   createdAt: Date;
   updatedAt: Date;
@@ -37,6 +44,8 @@ const invoiceSchema = new Schema<IInvoice>(
     amountPaid: { type: Number, required: true, default: 0, min: 0 },
     status: { type: String, enum: INVOICE_STATUSES, default: 'unpaid' },
     paidAt: { type: Date },
+    paymentMethod: { type: String, enum: INVOICE_PAYMENT_METHODS },
+    paymentReference: { type: String, trim: true, maxlength: 120 },
     notes: { type: String },
   },
   { timestamps: true },

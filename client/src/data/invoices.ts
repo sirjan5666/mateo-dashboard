@@ -23,22 +23,14 @@ export interface Invoice {
   due: number;
   status: InvoiceStatus;
   mode: PaymentMode;
+  /** Payment reference / txn id when recorded, else ''. */
+  reference: string;
   tint: string;
   fg: string;
 }
 
-export const INVOICES: Invoice[] = [
-  { id: '', no: 'INV-2025-1248', patient: 'Aarav Mehta', patientId: 'PT-0002486', age: '4y 2m', phone: '+91 98765 43210', date: '12 May 2025', amount: 2450, paid: 2450, due: 0, status: 'Paid', mode: 'UPI', tint: '#EEF2FF', fg: '#3B4FE0' },
-  { id: '', no: 'INV-2025-1247', patient: 'Myra Kapoor', patientId: 'PT-0002485', age: '2y 11m', phone: '+91 91234 56789', date: '12 May 2025', amount: 1850, paid: 1850, due: 0, status: 'Paid', mode: 'Card', tint: '#F5F0FF', fg: '#8B5CF6' },
-  { id: '', no: 'INV-2025-1246', patient: 'Kabir Singh', patientId: 'PT-0002484', age: '6y 5m', phone: '+91 99887 77665', date: '12 May 2025', amount: 1200, paid: 0, due: 1200, status: 'Pending', mode: null, tint: '#ECFDF5', fg: '#16A34A' },
-  { id: '', no: 'INV-2025-1245', patient: 'Siya Verma', patientId: 'PT-0002483', age: '3y 4m', phone: '+91 90123 44556', date: '12 May 2025', amount: 950, paid: 950, due: 0, status: 'Paid', mode: 'Cash', tint: '#FFF7ED', fg: '#B45309' },
-  { id: '', no: 'INV-2025-1244', patient: 'Ishaan Gupta', patientId: 'PT-0002482', age: '5y 0m', phone: '+91 98712 33445', date: '11 May 2025', amount: 2300, paid: 1800, due: 500, status: 'Partially Paid', mode: 'UPI', tint: '#EFF6FF', fg: '#2563EB' },
-  { id: '', no: 'INV-2025-1243', patient: 'Anaya Reddy', patientId: 'PT-0002481', age: '1y 8m', phone: '+91 88990 11223', date: '11 May 2025', amount: 1600, paid: 0, due: 1600, status: 'Overdue', mode: null, tint: '#FCDCE4', fg: '#BE123C' },
-  { id: '', no: 'INV-2025-1242', patient: 'Vivaan Patel', patientId: 'PT-0002480', age: '7y 3m', phone: '+91 93211 55667', date: '10 May 2025', amount: 2750, paid: 2750, due: 0, status: 'Paid', mode: 'Card', tint: '#D7F5EE', fg: '#0E9F8F' },
-  { id: '', no: 'INV-2025-1241', patient: 'Avni Sharma', patientId: 'PT-0002479', age: '4y 3m', phone: '+91 98123 77889', date: '10 May 2025', amount: 1050, paid: 0, due: 1050, status: 'Pending', mode: 'Net Banking', tint: '#EDE9FE', fg: '#6D5AE0' },
-  { id: '', no: 'INV-2025-1240', patient: 'Rohan Malhotra', patientId: 'PT-0002478', age: '3y 1m', phone: '+91 97654 32101', date: '09 May 2025', amount: 850, paid: 850, due: 0, status: 'Paid', mode: 'UPI', tint: '#E0F5EA', fg: '#12A150' },
-  { id: '', no: 'INV-2025-1239', patient: 'Meera Iyer', patientId: 'PT-0002477', age: '6y 6m', phone: '+91 96543 21098', date: '09 May 2025', amount: 1400, paid: 0, due: 1400, status: 'Overdue', mode: null, tint: '#FDE8CF', fg: '#F59E0B' },
-];
+// (Removed the unused INVOICES placeholder fixture — the screen renders the real
+// roster via invoiceFromApi; the fixture was dead layout-only sample data.)
 
 export const BILLING_KPIS = [
   { id: 'total', tint: '#E4EBFD', fg: '#2B6FF0', icon: 'FileText', label: 'Total Invoices', value: '1,248', delta: '18%', deltaFg: '#12A150' },
@@ -96,6 +88,14 @@ const INV_TINTS = [
 
 const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
+/** Server payment-method code → the label this screen renders (spec #8). */
+const MODE_LABEL: Record<string, PaymentMode> = {
+  upi: 'UPI', card: 'Card', cash: 'Cash', bank: 'Net Banking',
+};
+function modeFromApi(m: string | null | undefined): PaymentMode {
+  return m ? MODE_LABEL[m] ?? null : null;
+}
+
 /**
  * Server invoice → the shape this screen already renders.
  *
@@ -129,7 +129,8 @@ export function invoiceFromApi(i: InvoiceListItem, idx = 0): Invoice {
     paid: i.amountPaid,
     due,
     status,
-    mode: null,
+    mode: modeFromApi(i.paymentMethod),
+    reference: i.paymentReference ?? '',
     tint: c.tint,
     fg: c.fg,
   };

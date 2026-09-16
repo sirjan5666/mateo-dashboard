@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { guardRoutes } from '../middleware/permissions.js';
 import { auditAccess, recordAudit } from '../middleware/audit.js';
 import { scopeToDoctor } from '../middleware/loadOwnedPatient.js';
-import { Invoice, INVOICE_STATUSES } from '../models/Invoice.js';
+import { Invoice, INVOICE_STATUSES, INVOICE_PAYMENT_METHODS } from '../models/Invoice.js';
 import type { IInvoice, InvoiceStatus } from '../models/Invoice.js';
 import { Transaction } from '../models/Transaction.js';
 import { Patient } from '../models/Patient.js';
@@ -56,6 +56,8 @@ function listShape(inv: HydratedDocument<IInvoice>, patientName: string) {
     amountPaid: inv.amountPaid,
     status: inv.status,
     paidAt: inv.paidAt ?? null,
+    paymentMethod: inv.paymentMethod ?? null,
+    paymentReference: inv.paymentReference ?? null,
   };
 }
 
@@ -106,7 +108,13 @@ const createSchema = z.object({
   date: z.string().max(40).optional(),
   notes: z.string().max(2000).optional(),
 });
-const patchSchema = z.object({ status: z.enum(['paid', 'unpaid', 'cancelled']) });
+const patchSchema = z.object({
+  status: z.enum(['paid', 'unpaid', 'cancelled']),
+  // Optional record of how the payment was collected (spec #8) — stored only when
+  // marking paid. 'upi' is used for UPI / QR-scan payments.
+  paymentMethod: z.enum(INVOICE_PAYMENT_METHODS as [string, ...string[]]).optional(),
+  paymentReference: z.string().trim().max(120).optional(),
+});
 
 // GET /api/doctor/billing/invoices?status=&patientId= — the doctor's invoices.
 //
@@ -217,22 +225,29 @@ router.patch('/billing/invoices/:id', auditAccess('invoice'), async (req, res) =
     res.status(404).json({ error: 'Invoice not found' });
     return;
   }
-  const { status } = patchSchema.parse(req.body);
+  const { status, paymentMethod, paymentReference } = patchSchema.parse(req.body);
   const prevPaid = inv.amountPaid;
   if (status === 'paid') {
     inv.amountPaid = inv.total;
     inv.paidAt = new Date();
     inv.status = 'paid';
+    // Record how it was collected (cash / UPI-QR / card / …) when provided.
+    if (paymentMethod) inv.paymentMethod = paymentMethod as IInvoice['paymentMethod'];
+    inv.paymentReference = paymentReference || undefined;
   } else if (status === 'unpaid') {
     inv.amountPaid = 0;
     inv.paidAt = undefined;
     inv.status = 'unpaid';
+    inv.paymentMethod = undefined;
+    inv.paymentReference = undefined;
   } else {
     // Cancelling clears any recorded payment so a cancelled invoice never counts
     // toward collections and carries no stale money on its record.
     inv.status = 'cancelled';
     inv.amountPaid = 0;
     inv.paidAt = undefined;
+    inv.paymentMethod = undefined;
+    inv.paymentReference = undefined;
   }
   await inv.save();
 
