@@ -132,7 +132,7 @@ router.get('/analytics/report', auditAccess('analytics'), async (req, res) => {
   const tz = 'Asia/Kolkata';
   const doctorId = new Types.ObjectId(req.userId);
 
-  const [revByDayAgg, paidInvoices, billTotals, newPatients, genderAgg, statusAgg, sourceAgg, dobDocs, apptStatusAgg, apptModeAgg, apptDurAgg, encKindAgg] =
+  const [revByDayAgg, paidInvoices, billTotals, newPatients, activeNewPatients, genderAgg, statusAgg, sourceAgg, dobDocs, apptStatusAgg, apptModeAgg, apptDurAgg, encKindAgg] =
     await Promise.all([
       Invoice.aggregate<{ _id: string; amount: number }>([
         { $match: { doctorUserId: doctorId, status: { $ne: 'cancelled' }, paidAt: { $gte: start, $lte: end } } },
@@ -144,6 +144,9 @@ router.get('/analytics/report', auditAccess('analytics'), async (req, res) => {
         { $group: { _id: null, invoiced: { $sum: '$total' }, collected: { $sum: '$amountPaid' } } },
       ]),
       Patient.countDocuments({ doctorUserId: doctorId, createdAt: { $gte: start, $lte: end } }),
+      // Same window but roster-only (archived excluded) — feeds the Total Patients
+      // period filter (spec #1), which must stay consistent with the active count.
+      Patient.countDocuments({ doctorUserId: doctorId, archivedAt: { $exists: false }, createdAt: { $gte: start, $lte: end } }),
       Patient.aggregate<{ _id: string; count: number }>([
         { $match: { doctorUserId: doctorId, createdAt: { $gte: start, $lte: end } } },
         { $group: { _id: '$sex', count: { $sum: 1 } } },
@@ -218,6 +221,7 @@ router.get('/analytics/report', auditAccess('analytics'), async (req, res) => {
     },
     patients: {
       newCount: newPatients,
+      activeNewCount: activeNewPatients,
       byGender: label(SEX_LABEL, genderAgg),
       byAge: Object.entries(buckets).filter(([, v]) => v > 0).map(([lbl, count]) => ({ label: lbl, count })),
       byStatus: statusAgg.map((s) => ({ label: s._id, count: s.count })),

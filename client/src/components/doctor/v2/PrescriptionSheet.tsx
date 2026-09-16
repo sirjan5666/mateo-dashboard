@@ -174,13 +174,14 @@ export function PrescriptionSheet({ data }: { data: PrescriptionSheetData }) {
         <section className="mt-5 border-t border-[#E2EBF6] pt-5">
           <SectionTitle icon={Pill}>Medications</SectionTitle>
           <div className="mt-3.5 overflow-x-auto">
-            <table className="w-full min-w-[660px] border-collapse">
+            <table className="w-full min-w-[560px] border-collapse">
               <caption className="sr-only">Prescribed medications</caption>
               <thead>
                 <tr style={{ background: NAVY }}>
                   <th scope="col" className={`${TH} w-[54px] text-center`}>S. No.</th>
                   <th scope="col" className={`${TH} text-left`}>Medicine</th>
-                  <th scope="col" className={`${TH} text-center`}>Composition / Strength</th>
+                  {/* Composition / strength is intentionally omitted from the generated
+                      prescription (spec #13); the doctor still records it in the editor. */}
                   <th scope="col" className={`${TH} text-center`}>Dose</th>
                   <th scope="col" className={`${TH} text-center`}>Frequency</th>
                   <th scope="col" className={`${TH} text-center`}>Duration</th>
@@ -194,7 +195,6 @@ export function PrescriptionSheet({ data }: { data: PrescriptionSheetData }) {
                     <th scope="row" className="border border-[#DCE6F4] px-3 py-3 text-left text-[12px] font-bold" style={{ color: LINK }}>
                       {m.drug}
                     </th>
-                    <td className="border border-[#DCE6F4] px-3 py-3 text-center text-[11.5px] text-[#334155]">{m.strength ?? '—'}</td>
                     <td className="border border-[#DCE6F4] px-3 py-3 text-center text-[11.5px] text-[#334155]">{m.dose ?? '—'}</td>
                     <td className="border border-[#DCE6F4] px-3 py-3 text-center text-[11.5px] text-[#334155]">{m.frequency ?? '—'}</td>
                     <td className="border border-[#DCE6F4] px-3 py-3 text-center text-[11.5px] text-[#334155]">{m.duration ?? '—'}</td>

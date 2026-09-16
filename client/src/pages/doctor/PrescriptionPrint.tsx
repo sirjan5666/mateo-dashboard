@@ -61,8 +61,9 @@ export default function PrescriptionPrint() {
       data.document.issuedAt ? `Date: ${new Date(data.document.issuedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}` : '',
       '',
       '*Medicines:*',
+      // Composition / strength is intentionally omitted from the shared prescription (spec #13).
       ...data.items.map((m, i) =>
-        `${i + 1}. ${m.drug}${m.strength ? ` ${m.strength}` : ''}${m.dose ? ` — ${m.dose}` : ''}${m.frequency ? `, ${m.frequency}` : ''}${m.duration ? ` for ${m.duration}` : ''}`,
+        `${i + 1}. ${m.drug}${m.dose ? ` — ${m.dose}` : ''}${m.frequency ? `, ${m.frequency}` : ''}${m.duration ? ` for ${m.duration}` : ''}`,
       ),
       '',
       '_Please follow the prescribed dosage. Consult your doctor for any concerns._',

@@ -49,6 +49,15 @@ function buildRangeKpis(report: DoctorReport | null, totalPatients: number | nul
   ];
 }
 
+// Period options for the Total Patients card's own filter (spec #1). Reuses the
+// shared RangePreset ids so it can drive getReport directly.
+const PATIENT_PERIODS: { id: RangePreset; label: string; note: string }[] = [
+  { id: 'all', label: 'All time', note: 'All time' },
+  { id: 'today', label: 'Today', note: 'Registered today' },
+  { id: '7d', label: 'Last 7 days', note: 'Registered · last 7 days' },
+  { id: '30d', label: 'Last 30 days', note: 'Registered · last 30 days' },
+];
+
 /**
  * The doctor's live In/Out status. Reception flips it when the doctor arrives or
  * leaves; it is separate from the working-hours schedule and from any single
@@ -172,6 +181,29 @@ export default function Dashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rangeKey]);
 
+  // #1 Total Patients gets its own period filter, independent of the KPI range
+  // above. 'all' shows the full roster; a period shows how many patients were
+  // registered within it (a roster does not otherwise shrink with a window).
+  const [patientsPreset, setPatientsPreset] = useState<RangePreset>('all');
+  const [patientsPeriodCount, setPatientsPeriodCount] = useState<number | null>(null);
+  const [patientsPeriodLoading, setPatientsPeriodLoading] = useState(false);
+  // Loading is flipped in the change handler (not the effect) so no state is set
+  // synchronously during render — matches the range-report pattern above.
+  const changePatientsPreset = (p: RangePreset) => {
+    setPatientsPreset(p);
+    if (p !== 'all') setPatientsPeriodLoading(true);
+  };
+  useEffect(() => {
+    if (patientsPreset === 'all') return; // roster count is shown directly; nothing to fetch
+    let cancelled = false;
+    void getReport(rangeForPreset(patientsPreset) ?? undefined)
+      // Roster-only count so the period stays consistent with the all-time roster.
+      .then((r) => { if (!cancelled) setPatientsPeriodCount(r.patients.activeNewCount); })
+      .catch(() => { if (!cancelled) setPatientsPeriodCount(null); })
+      .finally(() => { if (!cancelled) setPatientsPeriodLoading(false); });
+    return () => { cancelled = true; };
+  }, [patientsPreset]);
+
   // The clock, not a date frozen in the mockup.
   const today = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
@@ -254,11 +286,42 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* KPI row — figures for the selected range (Total Patients is all-time). */}
+      {/* KPI row — figures for the selected range. Total Patients carries its own
+          period filter (spec #1); the other cards follow the range selector. */}
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
-        {rangeKpis.map((kpi) => (
-          <KpiCard key={kpi.id} kpi={kpi} overallNote={overall} />
-        ))}
+        {rangeKpis.map((kpi) => {
+          if (kpi.id === 'patients') {
+            const period = PATIENT_PERIODS.find((p) => p.id === patientsPreset) ?? PATIENT_PERIODS[0];
+            const value =
+              patientsPreset === 'all'
+                ? kpi.value
+                : patientsPeriodLoading
+                  ? '…'
+                  : patientsPeriodCount == null
+                    ? '—'
+                    : patientsPeriodCount.toLocaleString('en-IN');
+            return (
+              <KpiCard
+                key={kpi.id}
+                kpi={{ ...kpi, value, statusNote: period.note }}
+                overallNote={overall}
+                control={
+                  <select
+                    aria-label="Total patients period"
+                    value={patientsPreset}
+                    onChange={(e) => changePatientsPreset(e.target.value as RangePreset)}
+                    className="-mt-0.5 shrink-0 cursor-pointer rounded-[7px] border border-[#E2E6F0] bg-white py-1 pl-2 pr-1.5 text-[11px] font-semibold text-[#475569] outline-none transition-colors hover:border-[#C7CEDE] focus:border-[#4F63F5]"
+                  >
+                    {PATIENT_PERIODS.map((p) => (
+                      <option key={p.id} value={p.id}>{p.label}</option>
+                    ))}
+                  </select>
+                }
+              />
+            );
+          }
+          return <KpiCard key={kpi.id} kpi={kpi} overallNote={overall} />;
+        })}
       </div>
 
       {/* Middle row */}

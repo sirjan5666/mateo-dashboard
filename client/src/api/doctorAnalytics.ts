@@ -38,6 +38,8 @@ export interface DoctorReport {
   };
   patients: {
     newCount: number;
+    /** Same window as newCount but roster-only (archived excluded). */
+    activeNewCount: number;
     byGender: LabelCount[];
     byAge: LabelCount[];
     byStatus: LabelCount[];
