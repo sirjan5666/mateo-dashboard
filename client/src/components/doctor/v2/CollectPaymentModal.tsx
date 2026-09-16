@@ -35,20 +35,25 @@ interface Props {
   /** Amount to collect (the balance due, or the total for a fresh invoice). */
   amount: number;
   clinicName: string;
-  /** The clinic's UPI VPA; when empty the QR is replaced with a set-up hint. */
+  /** The clinic's UPI VPA; used to generate a QR when no image is uploaded. */
   clinicUpiVpa: string;
+  /** The doctor's uploaded payment-QR image URL (spec #8); shown in preference to a generated one. */
+  qrImageUrl?: string | null;
   busy?: boolean;
   onClose: () => void;
   onConfirm: (method: InvoicePaymentMethod, reference: string) => void;
 }
 
 /** Records how an invoice was paid and, for UPI, shows a scannable QR. */
-export function CollectPaymentModal({ invoiceNo, patientName, amount, clinicName, clinicUpiVpa, busy, onClose, onConfirm }: Props) {
-  const [method, setMethod] = useState<InvoicePaymentMethod>(clinicUpiVpa ? 'upi' : 'cash');
+export function CollectPaymentModal({ invoiceNo, patientName, amount, clinicName, clinicUpiVpa, qrImageUrl, busy, onClose, onConfirm }: Props) {
+  const hasUpi = !!qrImageUrl || !!clinicUpiVpa;
+  const [method, setMethod] = useState<InvoicePaymentMethod>(hasUpi ? 'upi' : 'cash');
   const [reference, setReference] = useState('');
 
-  const showQr = method === 'upi' && !!clinicUpiVpa;
-  const uri = showQr ? upiUri(clinicUpiVpa, clinicName || 'Clinic', amount, invoiceNo) : '';
+  // Prefer the doctor's uploaded QR; fall back to one generated from the UPI VPA.
+  const showUploadedQr = method === 'upi' && !!qrImageUrl;
+  const showGeneratedQr = method === 'upi' && !qrImageUrl && !!clinicUpiVpa;
+  const uri = showGeneratedQr ? upiUri(clinicUpiVpa, clinicName || 'Clinic', amount, invoiceNo) : '';
 
   return createPortal(
     <div className="fixed inset-0 z-[90] flex items-end justify-center sm:items-center" role="dialog" aria-modal="true" aria-labelledby="collect-title">
@@ -90,18 +95,26 @@ export function CollectPaymentModal({ invoiceNo, patientName, amount, clinicName
           </fieldset>
 
           {method === 'upi' && (
-            showQr ? (
+            showUploadedQr ? (
+              <div className="mt-4 flex flex-col items-center rounded-[12px] border border-[#E2E6F0] bg-white px-4 py-5">
+                <p className="mb-3 text-[12.5px] font-semibold text-[#475569]">Scan to pay by any UPI app</p>
+                <div className="rounded-[12px] border border-[#ECEEF4] bg-white p-3">
+                  <img src={qrImageUrl ?? ''} alt="Payment QR code" width={188} height={188} className="h-[188px] w-[188px] object-contain" />
+                </div>
+                <p className="mt-3 text-center text-[11.5px] font-medium text-[#94A3B8]">Confirm the payment in your UPI app, then mark it received below.</p>
+              </div>
+            ) : showGeneratedQr ? (
               <div className="mt-4 flex flex-col items-center rounded-[12px] border border-[#E2E6F0] bg-white px-4 py-5">
                 <p className="mb-3 text-[12.5px] font-semibold text-[#475569]">Scan to pay by any UPI app</p>
                 <div className="rounded-[12px] border border-[#ECEEF4] bg-white p-3">
                   <QRCodeSVG value={uri} size={188} level="M" marginSize={0} />
                 </div>
                 <p className="mt-3 text-center text-[12px] font-bold text-[#0F172A]">{clinicUpiVpa}</p>
-                <p className="mt-0.5 text-center text-[11.5px] font-medium text-[#94A3B8]">Confirm the payment in your UPI app, then mark it received below.</p>
+                <p className="mt-0.5 text-center text-[11.5px] font-medium text-[#94A3B8]">Tip: upload your own GPay/PhonePe QR under Settings → Billing &amp; Payments.</p>
               </div>
             ) : (
               <p className="mt-4 rounded-[10px] border border-[#F8E3C2] bg-[#FEF9EF] px-4 py-3 text-[12.5px] font-medium text-[#92610A]">
-                Add your clinic's UPI ID under Locations to show a scannable QR here. You can still record a UPI payment.
+                Upload your payment QR under Settings → Billing &amp; Payments to show a scannable code here. You can still record a UPI payment.
               </p>
             )
           )}

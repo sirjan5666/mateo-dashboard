@@ -1,4 +1,4 @@
-import { api } from './client';
+import { api, apiForm } from './client';
 
 export type DoctorStatus = 'pending' | 'approved' | 'rejected';
 
@@ -49,6 +49,8 @@ export interface DoctorProfile {
   workingHours: WorkingHours | null;
   notifications: DoctorNotifications;
   bankDetails: BankDetails | null;
+  /** Whether a payment QR image has been uploaded (spec #8). */
+  hasPaymentQr: boolean;
   status: DoctorStatus;
   createdAt: string;
   updatedAt: string;
@@ -77,6 +79,23 @@ export function getMyDoctorProfile() {
 
 export function saveMyDoctorProfile(input: DoctorProfileInput) {
   return api<{ profile: DoctorProfile }>('/doctors/me', { method: 'PUT', body: JSON.stringify(input) });
+}
+
+// ── Payment QR (spec #8) ──
+/** Upload / replace the doctor's UPI/payment QR image. */
+export function uploadPaymentQr(file: File) {
+  const form = new FormData();
+  form.append('photo', file);
+  return apiForm<{ hasPaymentQr: true }>('/doctors/me/payment-qr', form);
+}
+
+export function deletePaymentQr() {
+  return api<{ hasPaymentQr: false }>('/doctors/me/payment-qr', { method: 'DELETE' });
+}
+
+/** Same-origin URL for the uploaded QR image; pass a version to bust the cache after a replace. */
+export function paymentQrUrl(version?: string | number) {
+  return `/api/doctors/me/payment-qr${version ? `?v=${encodeURIComponent(String(version))}` : ''}`;
 }
 
 /** Quick speciality switch from the dashboard — updates only the specialization. */

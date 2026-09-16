@@ -16,6 +16,7 @@ import type { BillingSummary } from '../../api/doctorBilling';
 import type { Invoice, PaymentMode } from '../../data/invoices';
 import { RowMenu } from '../../components/doctor/v2/RowMenu';
 import { useActiveLocation } from '../../lib/doctorLocation';
+import { getMyDoctorProfile, paymentQrUrl } from '../../api/doctors';
 import { cn } from '../../lib/cn';
 
 const CARD = 'rounded-[14px] border border-[#ECEEF4] bg-white shadow-[0_1px_2px_rgba(16,24,40,.04),0_8px_24px_-12px_rgba(16,24,40,.10)]';
@@ -62,6 +63,15 @@ export default function BillingInvoices() {
   // The clinic whose UPI ID + name back the QR — the active one, else the primary.
   const { active, clinics } = useActiveLocation();
   const clinic = active && active.id !== 'overall' ? active : clinics.find((c) => c.primary) ?? clinics[0] ?? null;
+  // Whether the doctor has uploaded a payment QR (spec #8) — preferred over a generated one.
+  const [hasPaymentQr, setHasPaymentQr] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    void getMyDoctorProfile()
+      .then((r) => { if (!cancelled) setHasPaymentQr(!!r.profile?.hasPaymentQr); })
+      .catch(() => undefined);
+    return () => { cancelled = true; };
+  }, []);
 
   /** Re-reads the table AND the KPI summary, so the two can never disagree. */
   const reload = useCallback(async () => {
@@ -456,6 +466,7 @@ export default function BillingInvoices() {
           amount={paying.due > 0 ? paying.due : paying.amount}
           clinicName={clinic?.name ?? ''}
           clinicUpiVpa={clinic?.upiVpa ?? ''}
+          qrImageUrl={hasPaymentQr ? paymentQrUrl() : null}
           busy={busy}
           onClose={() => setPaying(null)}
           onConfirm={(paymentMethod, paymentReference) => void mutate([paying.id], 'paid', { paymentMethod, paymentReference: paymentReference || undefined })}
