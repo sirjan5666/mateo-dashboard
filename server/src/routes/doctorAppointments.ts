@@ -17,6 +17,35 @@ import { decryptField, decryptOptional } from '../lib/crypto/fieldCipher.js';
 // Doctor's own scheduling for their patients. Tenant-scoped; `reason` decrypted only
 // in the shaper. Schedule responses attach the (decrypted) patient name.
 const router = Router();
+
+/**
+ * Words for the audit-trail descriptions that feed the Reports page's Recent
+ * Activity feed. Those descriptions MUST be PHI-free (same rule as
+ * `changedFields`), so they carry a slot, a mode and a status — never the
+ * child's name, the reason or the symptoms, all of which are encrypted PHI.
+ */
+const APPT_MODE_WORD: Record<IDoctorAppointment['mode'], string> = {
+  in_person: 'in-person',
+  phone: 'phone',
+  video: 'video',
+};
+const APPT_STATUS_WORD: Record<IDoctorAppointment['status'], string> = {
+  scheduled: 'scheduled',
+  completed: 'completed',
+  cancelled: 'cancelled',
+  no_show: 'a no-show',
+};
+/** "18 Sep 2026, 10:30 AM" in IST — a slot, which is not PHI on its own. */
+function istSlotLabel(d: Date): string {
+  return d.toLocaleString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
 // RBAC: a staff session is narrowed to what its role allows. The doctor who
 // owns the practice passes every check — see middleware/permissions.ts.
 guardRoutes(router, 'appointments');
@@ -241,6 +270,10 @@ router.post('/patients/:id/appointments', loadOwnedPatient, requireConsent('trea
   }
   await recordAudit(req, {
     action: 'create',
+    // actionKey + description are what put this on the Reports page's Recent
+    // Activity feed, which reads only the audit rows that carry both.
+    actionKey: 'appointment.booked',
+    description: `Booked a ${durationMin}-minute ${APPT_MODE_WORD[appt.mode]} appointment for ${istSlotLabel(start)}`,
     resourceType: 'appointment',
     resourceId: appt._id,
     patientId: patient._id,
@@ -333,6 +366,13 @@ router.patch('/appointments/:appointmentId', async (req, res) => {
   }
   await recordAudit(req, {
     action: 'update',
+    // A status change and a reschedule read very differently on the activity
+    // feed, so they get their own keys. PHI-free, as above.
+    actionKey: body.status !== undefined ? `appointment.${body.status}` : 'appointment.rescheduled',
+    description:
+      body.status !== undefined
+        ? `Appointment for ${istSlotLabel(appt.start)} marked ${APPT_STATUS_WORD[appt.status]}`
+        : `Appointment moved to ${istSlotLabel(appt.start)}`,
     resourceType: 'appointment',
     resourceId: appt._id,
     patientId: appt.patientId,
