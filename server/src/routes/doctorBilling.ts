@@ -10,6 +10,8 @@ import type { IInvoice, InvoiceStatus } from '../models/Invoice.js';
 import { Transaction } from '../models/Transaction.js';
 import { Patient } from '../models/Patient.js';
 import { decryptField, decryptOptional } from '../lib/crypto/fieldCipher.js';
+import { parseInvoiceItems } from '../lib/invoiceItems.js';
+import type { LineItem } from '../lib/invoiceItems.js';
 import { istDateString } from '../lib/ist.js';
 
 // Practice billing (invoices / receipts / collections). Doctor-role-gated and
@@ -27,22 +29,6 @@ guardRoutes(router, 'billing', [
 const DAY_MS = 86_400_000;
 function istDayStartUTC(d: Date): Date {
   return new Date(`${istDateString(d)}T00:00:00+05:30`);
-}
-
-interface LineItem {
-  description: string;
-  amount: number;
-}
-
-function parseItems(enc: string): LineItem[] {
-  const json = decryptOptional(enc || undefined);
-  if (!json) return [];
-  try {
-    const arr: unknown = JSON.parse(json);
-    return Array.isArray(arr) ? (arr as LineItem[]) : [];
-  } catch {
-    return [];
-  }
 }
 
 function listShape(inv: HydratedDocument<IInvoice>, patientName: string) {
@@ -64,7 +50,7 @@ function listShape(inv: HydratedDocument<IInvoice>, patientName: string) {
 function fullShape(inv: HydratedDocument<IInvoice>, patientName: string) {
   return {
     ...listShape(inv, patientName),
-    items: parseItems(inv.itemsEnc),
+    items: parseInvoiceItems(inv.itemsEnc),
     notes: decryptOptional(inv.notes || undefined) ?? null,
     createdAt: inv.createdAt,
     updatedAt: inv.updatedAt,
@@ -142,7 +128,7 @@ router.get('/billing/invoices', auditAccess('invoice'), async (req, res) => {
   res.json({
     invoices: invoices.map((i) => {
       const base = listShape(i, names.get(i.patientId.toString()) ?? 'Patient');
-      return perPatient ? { ...base, summary: parseItems(i.itemsEnc)[0]?.description ?? null } : base;
+      return perPatient ? { ...base, summary: parseInvoiceItems(i.itemsEnc)[0]?.description ?? null } : base;
     }),
   });
 });

@@ -1,119 +1,98 @@
-/** Reports & Analytics (Clinic OS spec 12). ⚠ PLACEHOLDER DATA. */
-
-export const ANALYTICS_KPIS = [
-  { id: 'appts', tint: '#EDE9FE', fg: '#6D5AE0', icon: 'CalendarDays', label: 'Total Appointments', value: '1,248', delta: '18%' },
-  { id: 'consults', tint: '#DCF7E6', fg: '#12A150', icon: 'Stethoscope', label: 'Total Consultations', value: '982', delta: '15%' },
-  { id: 'new', tint: '#E4EBFD', fg: '#2B6FF0', icon: 'UserRound', label: 'New Patients', value: '356', delta: '12%' },
-  { id: 'revenue', tint: '#FDECD3', fg: '#F59E0B', icon: 'IndianRupee', label: 'Total Revenue', value: '₹18,74,560', delta: '22%' },
-  { id: 'outstanding', tint: '#FDE2E2', fg: '#EF4444', icon: 'FileText', label: 'Outstanding Amount', value: '₹2,99,380', delta: '8%' },
-];
-
-/** All five compare against the same window, with an en-dash. */
-export const COMPARISON = 'vs 24 Apr – 30 Apr';
-
-export const APPT_SERIES = [
-  { day: '01 May', appointments: 118, consultations: 92 },
-  { day: '02 May', appointments: 165, consultations: 124 },
-  { day: '03 May', appointments: 124, consultations: 88 },
-  { day: '04 May', appointments: 104, consultations: 71 },
-  { day: '05 May', appointments: 138, consultations: 105 },
-  { day: '06 May', appointments: 112, consultations: 79 },
-  { day: '07 May', appointments: 132, consultations: 104 },
-  { day: '08 May', appointments: 149, consultations: 112 },
-  { day: '09 May', appointments: 121, consultations: 86 },
-  { day: '10 May', appointments: 108, consultations: 68 },
-  { day: '11 May', appointments: 141, consultations: 109 },
-  { day: '12 May', appointments: 136, consultations: 98 },
-];
-
-export const REVENUE_BARS = [
-  { period: '07–13 Apr', value: 12.6, highlight: false },
-  { period: '14–20 Apr', value: 13.1, highlight: false },
-  { period: '21–27 Apr', value: 15.4, highlight: false },
-  { period: '28 Apr – 04 May', value: 17.2, highlight: false },
-  { period: '05–12 May', value: 18.7, highlight: true },
-];
-export const REVENUE_AVG = 14.2;
-
-export const DEMOGRAPHICS = [
-  { label: '0 – 1 Year', color: '#4F46E5', share: 18, count: 448 },
-  { label: '1 – 5 Years', color: '#22C55E', share: 32, count: 796 },
-  { label: '6 – 12 Years', color: '#8B5CF6', share: 28, count: 696 },
-  { label: '13 – 18 Years', color: '#A78BFA', share: 12, count: 298 },
-  { label: '18+ Years', color: '#CBD5E1', share: 10, count: 248 },
-];
-
-export const APPT_STATUS_SPLIT = [
-  { label: 'Completed', color: '#22C55E', share: 62, count: 773 },
-  { label: 'Confirmed', color: '#4F46E5', share: 23, count: 287 },
-  { label: 'Pending', color: '#F59E0B', share: 8, count: 100 },
-  { label: 'Cancelled', color: '#EF4444', share: 5, count: 62 },
-  { label: 'No Show', color: '#94A3B8', share: 2, count: 26 },
-];
-
-export const TOP_SERVICES = [
-  { name: 'General Consultation', count: 682, share: 55, solid: 79, light: 100 },
-  { name: 'Vaccination', count: 312, share: 25, solid: 52 },
-  { name: 'Well Baby Checkup', count: 186, share: 15, solid: 27 },
-  { name: 'Follow-up', count: 98, share: 8, solid: 15 },
-  { name: 'Others', count: 46, share: 4, solid: 7 },
-];
-
-export const RECENT_REPORTS = [
-  { name: 'Appointments Report', type: 'Appointments', range: '01 May 2025 - 12 May 2025', on: '12 May 2025, 11:30 AM', by: 'Dr. Ananya Sharma' },
-  { name: 'Revenue Report', type: 'Revenue', range: '01 May 2025 - 12 May 2025', on: '12 May 2025, 11:25 AM', by: 'Dr. Ananya Sharma' },
-  { name: 'Patient Demographics', type: 'Patients', range: '01 May 2025 - 12 May 2025', on: '12 May 2025, 11:15 AM', by: 'Dr. Ananya Sharma' },
-  { name: 'Billing & Collection Report', type: 'Billing', range: '01 May 2025 - 12 May 2025', on: '12 May 2025, 11:10 AM', by: 'Dr. Ananya Sharma' },
-];
-
-export const QUICK_REPORTS = [
-  { icon: 'CalendarDays', label: 'Appointments Report' },
-  { icon: 'Stethoscope', label: 'Consultations Report' },
-  { icon: 'IndianRupee', label: 'Revenue Report' },
-  { icon: 'Users', label: 'Patient Demographics' },
-  { icon: 'FileText', label: 'Billing & Collection Report' },
-  { icon: 'FileClock', label: 'Outstanding Report' },
-];
-
-/**
- * Row 2's subtitle reads "by Aaarav Mehta" (triple-a) in the reference.
- * Kept as a data field so the spelling can be corrected in one place.
- */
-export const RECENT_ACTIVITY = [
-  { tint: '#E4EBFD', fg: '#2B6FF0', icon: 'CalendarDays', title: 'New appointment booked', subtitle: 'Myra Kapoor for 13 May 2025, 10:00 AM', elapsed: '2 min ago', datetime: '2025-05-12T11:28' },
-  { tint: '#DCF7E6', fg: '#12A150', icon: 'Receipt', title: 'Invoice #INV-2025-1248 paid', subtitle: 'by Aaarav Mehta', elapsed: '28 min ago', datetime: '2025-05-12T11:02' },
-  { tint: '#E4EBFD', fg: '#2B6FF0', icon: 'Stethoscope', title: 'Consultation completed', subtitle: 'Myra Kapoor', elapsed: '45 min ago', datetime: '2025-05-12T10:45' },
-  { tint: '#FDE2E2', fg: '#EF4444', icon: 'UserRound', title: 'New patient registered', subtitle: 'Vivaan Patel', elapsed: '1 hr ago', datetime: '2025-05-12T10:30' },
-];
-
-export const TOP_PROVIDERS = [
-  { name: 'Dr. Ananya Sharma', count: 542, tint: '#EDE9FE', fg: '#6D5AE0' },
-  { name: 'Dr. Rohan Kapoor', count: 286, tint: '#E4EBFD', fg: '#2B6FF0' },
-  { name: 'Dr. Priya Gupta', count: 154, tint: '#DCF7E6', fg: '#12A150' },
-];
-
-// ── Live wiring ──────────────────────────────────────────────────────────────
-
 import type { DoctorReport } from '../api/doctorAnalytics';
 
+/**
+ * Reports & Analytics (Clinic OS spec 12) — the whole screen, mapped from
+ * GET /doctor/analytics/report.
+ *
+ * Every figure here is a real count for the selected range. This file used to
+ * also export a block of design-reference placeholders (₹18,74,560 of revenue,
+ * 2,486 patients, a May-2025 appointment series); they are gone, because they
+ * were what the page kept showing.
+ *
+ * The one rule: nothing is invented. A figure the report does not carry comes
+ * back empty or null, and the screen renders an empty state rather than a
+ * plausible-looking number.
+ */
+
 const PIE = ['#4F46E5', '#2B6FF0', '#12A150', '#F59E0B', '#EC4899', '#CBD5E1'];
-const inr0 = (n: number) => `₹${Math.round(n).toLocaleString('en-IN')}`;
-const dayLabel = (iso: string) => {
+const AVATAR_TINTS = [
+  { tint: '#EDE9FE', fg: '#6D5AE0' },
+  { tint: '#E4EBFD', fg: '#2B6FF0' },
+  { tint: '#DCF7E6', fg: '#12A150' },
+  { tint: '#FDECD3', fg: '#F59E0B' },
+];
+
+export const inr0 = (n: number) => `₹${Math.round(n).toLocaleString('en-IN')}`;
+
+/** "12 May" in the viewer's locale — the x-axis and the range labels. */
+export const dayLabel = (iso: string) => {
   const d = new Date(iso);
   return Number.isNaN(d.getTime())
     ? iso
     : d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
 };
 
+/** "12 May 2025" — for a range that may span a year boundary. */
+export const fullDayLabel = (iso: string) => {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime())
+    ? iso
+    : d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+};
+
 /**
- * The whole Reports & Analytics screen, mapped from GET /doctor/analytics/report.
- *
- * Everything here is a real count for the selected range. Figures the report
- * does not carry — per-provider revenue, per-service revenue, a period-on-period
- * delta — are returned empty so the screen renders an empty state instead of an
- * invented one.
+ * Whole-rupee y-axis ticks. Revenue is returned in RUPEES, so the axis has to
+ * scale itself — the page previously hard-coded a 0–20 "lakh" axis and plotted
+ * rupee amounts against it, which put every real bar flat on the floor.
  */
-export function analyticsFromReport(r: DoctorReport) {
+export function moneyTick(v: number): string {
+  if (v === 0) return '0';
+  if (Math.abs(v) >= 10_000_000) return `${+(v / 10_000_000).toFixed(1)}Cr`;
+  if (Math.abs(v) >= 100_000) return `${+(v / 100_000).toFixed(1)}L`;
+  if (Math.abs(v) >= 1_000) return `${+(v / 1_000).toFixed(1)}k`;
+  return String(Math.round(v));
+}
+
+/**
+ * Period-on-period change. `null` when the previous window was empty: a rise
+ * from nothing is not a percentage, and "+100%" off a zero base is a lie.
+ */
+export function deltaPct(current: number, previous: number): number | null {
+  if (!previous) return null;
+  return Math.round(((current - previous) / previous) * 100);
+}
+
+/** "2 min ago" / "3 days ago", from an ISO instant. */
+export function elapsedSince(iso: string, now: Date = new Date()): string {
+  const then = new Date(iso);
+  if (Number.isNaN(then.getTime())) return '';
+  const secs = Math.max(0, Math.round((now.getTime() - then.getTime()) / 1000));
+  if (secs < 60) return 'just now';
+  const mins = Math.round(secs / 60);
+  if (mins < 60) return `${mins} min ago`;
+  const hrs = Math.round(mins / 60);
+  if (hrs < 24) return `${hrs} hr${hrs === 1 ? '' : 's'} ago`;
+  const days = Math.round(hrs / 24);
+  if (days < 30) return `${days} day${days === 1 ? '' : 's'} ago`;
+  return fullDayLabel(iso);
+}
+
+/**
+ * The icon + tint each activity row gets, chosen from its dotted action key
+ * (`invoice.paid`, `appointment.booked`, `patient.created`, …). Unknown keys
+ * fall through to a neutral row rather than being dropped — the audit trail
+ * grows new action keys as the app does.
+ */
+function activityLook(action: string): { icon: string; tint: string; fg: string } {
+  if (action.startsWith('invoice') || action.includes('paid')) return { icon: 'Receipt', tint: '#DCF7E6', fg: '#12A150' };
+  if (action.startsWith('appointment')) return { icon: 'CalendarDays', tint: '#E4EBFD', fg: '#2B6FF0' };
+  if (action.startsWith('patient')) return { icon: 'UserRound', tint: '#EDE9FE', fg: '#6D5AE0' };
+  if (action.startsWith('prescription') || action.startsWith('laborder')) return { icon: 'Stethoscope', tint: '#DCF7E6', fg: '#12A150' };
+  if (action.startsWith('report')) return { icon: 'FileText', tint: '#FDECD3', fg: '#F59E0B' };
+  return { icon: 'FileClock', tint: '#EEF2FF', fg: '#3B4FE0' };
+}
+
+export function analyticsFromReport(r: DoctorReport, now: Date = new Date()) {
   /** Shares are whole percentages of the group's own total, never of an invented one. */
   const slices = (rows: { label: string; count: number }[]) => {
     const total = rows.reduce((t, x) => t + x.count, 0);
@@ -128,35 +107,91 @@ export function analyticsFromReport(r: DoctorReport) {
   const days = r.revenue.byDay;
   const apptTotal = r.appointments.total;
   const consultTotal = r.consultations.total;
+  const prev = r.previous;
+
+  // The revenue headline is money RECEIVED in the window (paidAt), which is
+  // exactly what the bars sum to — so the total and the chart can never disagree.
+  const revenueTotal = r.revenue.total;
+
+  // Appointments and consultations, per day, on the shared x-axis the server
+  // builds. Both series come back day-aligned, so a plain zip is safe.
+  const consultByDate = new Map(r.consultations.byDay.map((d) => [d.date, d.count]));
+  const apptSeries = r.appointments.byDay.map((d) => ({
+    day: dayLabel(d.date),
+    date: d.date,
+    appointments: d.count,
+    consultations: consultByDate.get(d.date) ?? 0,
+  }));
+
+  const serviceTotal = r.services.reduce((t, s) => t + s.count, 0);
+  const topServiceCount = r.services[0]?.count ?? 0;
 
   return {
-    // No delta: comparing to the previous period needs a second range the
-    // report does not fetch, so the card shows the figure alone.
-    kpis: [
-      { id: 'appts', tint: '#EDE9FE', fg: '#6D5AE0', icon: 'CalendarDays', label: 'Total Appointments', value: String(apptTotal) },
-      { id: 'consults', tint: '#DCF7E6', fg: '#12A150', icon: 'Stethoscope', label: 'Total Consultations', value: String(consultTotal) },
-      { id: 'patients', tint: '#EEF2FF', fg: '#3B4FE0', icon: 'Users', label: 'New Patients', value: String(r.patients.newCount) },
-      { id: 'collected', tint: '#DCF7E6', fg: '#12A150', icon: 'IndianRupee', label: 'Revenue Collected', value: inr0(r.revenue.collected) },
-      { id: 'invoiced', tint: '#E4EBFD', fg: '#2B6FF0', icon: 'Receipt', label: 'Invoiced', value: inr0(r.revenue.invoiced) },
-    ],
-    revenueBars: days.map((d) => ({ period: dayLabel(d.date), value: d.amount, highlight: false })),
-    revenueAvg: days.length ? Math.round(days.reduce((t, d) => t + d.amount, 0) / days.length) : 0,
     /**
-     * The report gives per-day revenue but only period totals for appointments
-     * and consultations, so the daily split is not knowable — the series shows
-     * the days with zeroes rather than spreading a total across them.
+     * Five KPIs, each with the change against the previous equal-length window.
+     * `delta: null` means the previous window was empty — the card then shows
+     * the figure alone instead of a fabricated percentage.
      */
-    apptSeries: days.map((d) => ({ day: dayLabel(d.date), appointments: 0, consultations: 0 })),
+    kpis: [
+      { id: 'appts', tint: '#EDE9FE', fg: '#6D5AE0', icon: 'CalendarDays', label: 'Total Appointments', value: apptTotal.toLocaleString('en-IN'), delta: deltaPct(apptTotal, prev.appointments) },
+      { id: 'consults', tint: '#DCF7E6', fg: '#12A150', icon: 'Stethoscope', label: 'Total Consultations', value: consultTotal.toLocaleString('en-IN'), delta: deltaPct(consultTotal, prev.consultations) },
+      { id: 'patients', tint: '#EEF2FF', fg: '#3B4FE0', icon: 'Users', label: 'New Patients', value: r.patients.newCount.toLocaleString('en-IN'), delta: deltaPct(r.patients.newCount, prev.newPatients) },
+      { id: 'collected', tint: '#DCF7E6', fg: '#12A150', icon: 'IndianRupee', label: 'Revenue Collected', value: inr0(revenueTotal), delta: deltaPct(revenueTotal, prev.revenueTotal) },
+      { id: 'invoiced', tint: '#E4EBFD', fg: '#2B6FF0', icon: 'Receipt', label: 'Invoiced', value: inr0(r.revenue.invoiced), delta: null },
+    ],
+    /** Rupees, not lakhs — the axis formats itself via `moneyTick`. */
+    revenueBars: days.map((d) => ({ period: dayLabel(d.date), date: d.date, value: d.amount })),
+    /**
+     * The daily run-rate: the mean across EVERY day in the window, quiet days
+     * included. Averaging only the days that took money would flatter a clinic
+     * that saw patients twice a week.
+     */
+    revenueAvg: days.length ? Math.round(days.reduce((t, d) => t + d.amount, 0) / days.length) : 0,
+    revenueTotal,
+    revenueDelta: deltaPct(revenueTotal, prev.revenueTotal),
+    apptSeries,
     apptStatusSplit: slices(r.appointments.byStatus),
     demographics: slices(r.patients.byAge),
     gender: slices(r.patients.byGender),
     source: slices(r.patients.bySource),
     consultKinds: slices(r.consultations.byKind),
-    /** Neither is derivable: the report carries no per-provider or per-service split. */
-    topProviders: [] as { name: string; count: number; tint: string; fg: string }[],
-    topServices: [] as { name: string; count: number; share: number; solid: number; light?: number }[],
-    comparison: `${dayLabel(r.range.from)} – ${dayLabel(r.range.to)}`,
+    /**
+     * Top services, billed. `solid` is the bar width as a share of the BIGGEST
+     * service (so the leader fills the track and the rest are readable against
+     * it); `share` is the honest share of all billed line items.
+     */
+    topServices: r.services.map((s) => ({
+      name: s.label,
+      count: s.count,
+      amount: s.amount,
+      share: serviceTotal ? Math.round((s.count / serviceTotal) * 100) : 0,
+      solid: topServiceCount ? Math.round((s.count / topServiceCount) * 100) : 0,
+    })),
+    /**
+     * Appointments per clinic location. This replaced "Top Providers": nothing
+     * attributes an appointment to a provider (one practice is one doctor, and
+     * staff are reception/OPD/accounts), so that card could only ever have been
+     * made up.
+     */
+    topLocations: r.appointments.byLocation.map((l, i) => ({
+      name: l.label,
+      count: l.count,
+      ...AVATAR_TINTS[i % AVATAR_TINTS.length],
+    })),
+    activity: r.activity.map((a) => ({
+      id: a.id,
+      title: a.description,
+      subtitle: [a.actorName, a.entityId].filter(Boolean).join(' · '),
+      elapsed: elapsedSince(a.at, now),
+      datetime: a.at,
+      ...activityLook(a.action),
+    })),
+    comparison: `vs ${dayLabel(prev.from)} – ${dayLabel(prev.to)}`,
+    rangeLabel: `${fullDayLabel(r.range.from)} – ${fullDayLabel(r.range.to)}`,
+    totalPatients: r.patients.totalActive,
     collectionRate: r.revenue.collectionRate,
     avgDurationMin: r.appointments.avgDurationMin,
   };
 }
+
+export type ReportAnalytics = ReturnType<typeof analyticsFromReport>;
